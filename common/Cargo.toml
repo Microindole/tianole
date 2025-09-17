@@ -1,0 +1,7 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# 尽量不依赖外部库，保持轻量

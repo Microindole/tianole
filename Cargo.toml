@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "kernel",
+    "common",
+    "userland"
+]
+resolver = "2"
+
+# 针对所有 crate 的优化配置
+[profile.release]
+lto = true        # 链接时优化 (极快)
+opt-level = 3
+panic = "abort"   # 减小体积
+
+[profile.dev]
+panic = "abort"
