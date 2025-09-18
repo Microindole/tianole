@@ -15,6 +15,7 @@ uint8_t inb(uint16_t port);
 
 // 内核打印函数声明 (来自 kernel.c)
 void kprint(const char* str);
+void kputc(char c);
 void clear_screen();
 
 #endif

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "keyboard.h"
 
 // --- 我们之前实现的控制台功能 START ---
 
@@ -90,11 +91,15 @@ void itoa(int n, char str[]) {
     }
 }
 
+void init_idt();
+void init_timer(uint32_t frequency);
+
 // 内核的入口函数
 void kernel_main(void) {
     clear_screen();
     init_idt();
     init_timer(50); // 设置定时器频率为 50 Hz
+    init_keyboard();
 
     kprint("Hello, Interrupt World!\n");
     kprint("Timer should be ticking now.\n");
@@ -102,22 +107,27 @@ void kernel_main(void) {
     // 开启中断
     asm volatile ("sti");
 
-    uint32_t last_tick = 0;
-    extern uint32_t tick; // 从 timer.c 引用 tick 变量
+    // uint32_t last_tick = 0;
+    // extern uint32_t tick; // 从 timer.c 引用 tick 变量
 
-    // 无限循环，等待中断的发生
+    // // 无限循环，等待中断的发生
+    // while(1) {
+    //     if (tick != last_tick) {
+    //         cursor_x = 0;
+    //         cursor_y = 3;
+
+    //         char tick_str[32];
+    //         itoa(tick, tick_str);
+    //         kprint("Tick:          "); // 用空格覆盖旧数字
+    //         cursor_x = 6; // 回到冒号后面
+    //         kprint(tick_str);
+
+    //         last_tick = tick;
+    //     }
+    // }
     while(1) {
-        if (tick != last_tick) {
-            cursor_x = 0;
-            cursor_y = 3;
-
-            char tick_str[32];
-            itoa(tick, tick_str);
-            kprint("Tick:          "); // 用空格覆盖旧数字
-            cursor_x = 6; // 回到冒号后面
-            kprint(tick_str);
-
-            last_tick = tick;
-        }
+        // hlt 指令会让 CPU 进入低功耗状态，直到下一次中断发生
+        // 这是一个比空循环 while(1){} 更高效的等待方式
+        asm volatile ("hlt");
     }
 }
