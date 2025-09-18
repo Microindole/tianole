@@ -122,8 +122,8 @@ void kernel_main(void) {
     clear_screen();
     init_idt();
     init_timer(50); // 设置定时器频率为 50 Hz
-    init_vfs();
     init_kheap();
+    init_vfs();
     init_shell();
 
     kprint("Hello, Interrupt World!\n");

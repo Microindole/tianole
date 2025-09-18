@@ -15,9 +15,9 @@ void init_kheap() {
 // 最终的、带 4 字节对齐的线性分配器
 void* kmalloc(uint32_t size) {
     // 确保堆已经被初始化
-    if (free_mem_addr == 0) {
-        init_kheap();
-    }
+    // if (free_mem_addr == 0) {
+    //     init_kheap();
+    // }
 
     // --- 关键修复：内存对齐 ---
     // 检查当前地址是否是 4 的倍数
