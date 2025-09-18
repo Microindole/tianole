@@ -31,6 +31,8 @@ SECTIONS
     {
         *(.bss)
     } :bss
+
+    end = .; /* 'end' 标记了 BSS 段的结束，即内核的结束 */
 }
 
 /* Define program headers to ensure correct memory permissions */

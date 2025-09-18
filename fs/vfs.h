@@ -3,6 +3,7 @@
 #define VFS_H
 
 #include "common.h"
+#include "../mm/kheap.h"
 
 #define MAX_FILENAME_LEN 32
 #define MAX_FILES_PER_DIR 16 // 每个目录最多包含的文件/子目录数

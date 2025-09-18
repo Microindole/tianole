@@ -1,73 +1,84 @@
-# 编译器和链接器设置
+# --- 项目配置 ---
+BUILD_DIR = build
+SRC_DIRS = cpu drivers fs kernel lib mm
+
+# --- 工具链 ---
 CC = gcc
 AS = nasm
 LD = ld
 
-# --- 使用 VPATH 告诉 make 在哪里寻找源文件 ---
-VPATH = cpu drivers fs kernel lib
-
-# 编译和链接参数
-# --- 只包含公共的 'include' 目录，这是最规范的做法 ---
-CFLAGS = -m32 -ffreestanding -c -g -O0 -Wall -Wextra -Wno-unused-parameter -Iinclude
+# --- 编译和链接标志 ---
+CFLAGS = -m32 -ffreestanding -c -g -O0 -Wall -Wextra -Wno-unused-parameter $(foreach D,$(SRC_DIRS),-I$(D)) -Iinclude
 ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
-# 源文件对象列表
-# --- 按模块定义对象文件 ---
-CPU_OBJS = boot.o idt.o isr.o isr_c.o
-DRIVERS_OBJS = timer.o keyboard.o
-FS_OBJS = vfs.o
-KERNEL_OBJS = kernel.o shell.o
-LIB_OBJS = string.o
+# --- 源文件和目标文件 ---
+# 关键修复：从自动查找中排除 isr.c 和 isr.s
+C_SOURCES = $(filter-out %/isr.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
+S_SOURCES = $(filter-out %/isr.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
 
-# 将所有对象文件汇总
-OBJS = $(CPU_OBJS) $(DRIVERS_OBJS) $(FS_OBJS) $(KERNEL_OBJS) $(LIB_OBJS)
+# 根据源文件生成对象文件路径
+C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(C_SOURCES)))
+S_OBJS = $(patsubst %.s,$(BUILD_DIR)/%.o,$(notdir $(S_SOURCES)))
+
+# 将所有对象文件汇总，并手动添加特殊情况
+OBJS = $(S_OBJS) $(C_OBJS) $(BUILD_DIR)/isr.o $(BUILD_DIR)/isr_c.o
+
+# 最终目标
+KERNEL_BIN = $(BUILD_DIR)/kernel.bin
+OS_ISO = $(BUILD_DIR)/my-os.iso
 
 # 默认目标
-all: my-os.iso
+all: $(OS_ISO)
+
+# --- 核心编译链接规则 ---
 
 # 链接内核
-# 关键：boot.o 必须是第一个！
-kernel.bin: $(OBJS)
-	$(LD) $(LDFLAGS) -o kernel.bin boot.o $(filter-out boot.o,$(OBJS))
-
-# --- 编译规则 ---
+$(KERNEL_BIN): $(filter %/boot.o,$(OBJS)) $(filter-out %/boot.o,$(OBJS)) | $(BUILD_DIR)
+	$(LD) $(LDFLAGS) -o $@ $^
 
 # 通用 C 编译规则
-%.o: %.c
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 
 # 通用汇编编译规则
-%.o: %.s
+$(BUILD_DIR)/%.o: %.s
+	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# 这会覆盖上面的通用规则，确保正确性
-isr.o: cpu/isr.s
+# VPATH 告诉 make 在哪里寻找源文件
+VPATH = $(SRC_DIRS)
+
+# --- 关键修复：为 isr.o 和 isr_c.o 提供精确规则 ---
+$(BUILD_DIR)/isr.o: cpu/isr.s
+	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-isr_c.o: cpu/isr.c
+$(BUILD_DIR)/isr_c.o: cpu/isr.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
 
 
-
 # --- 运行和诊断 ---
+run: $(OS_ISO)
+	qemu-system-i386 -cdrom $(OS_ISO)
 
-# 标准的 ISO 运行方式
-run: my-os.iso
-	qemu-system-i386 -cdrom my-os.iso
-
-# 新增的诊断目标：让 QEMU 直接加载内核！
-qemu-direct: kernel.bin
-	qemu-system-i386 -kernel kernel.bin
+qemu-direct: $(KERNEL_BIN)
+	qemu-system-i386 -kernel $(KERNEL_BIN)
 
 # 创建 ISO 镜像
-my-os.iso: kernel.bin grub.cfg
-	mkdir -p isodir/boot/grub
-	cp kernel.bin isodir/boot/
-	cp grub.cfg isodir/boot/grub/
-	grub-mkrescue -o my-os.iso isodir
-	@echo "ISO image created: my-os.iso"
+$(OS_ISO): $(KERNEL_BIN) grub.cfg
+# ... (ISO 创建规则不变) ...
+	@mkdir -p $(BUILD_DIR)/isodir/boot/grub
+	cp $(KERNEL_BIN) $(BUILD_DIR)/isodir/boot/
+	cp grub.cfg $(BUILD_DIR)/isodir/boot/grub/
+	grub-mkrescue -o $@ $(BUILD_DIR)/isodir
+	@echo "ISO image created: $@"
 
 # 清理生成的文件
 clean:
-	rm -rf *.o *.bin *.iso isodir
+	rm -rf $(BUILD_DIR)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)

@@ -3,34 +3,23 @@
 #include <stddef.h> // for NULL
 #include "string.h" // for strcpy
 
-// 定义一个静态数组来存储所有的文件系统节点
-// 这是最简单的内存管理方式，避免了动态内存分配
-#define MAX_FS_NODES 256
-static fs_node_t fs_nodes[MAX_FS_NODES];
-static uint32_t next_free_node = 0; // 指向下一个可用的节点索引
-
 // 全局指针，指向文件系统的根节点和当前工作目录
 fs_node_t *fs_root = NULL;
 fs_node_t *fs_current = NULL; // 我们稍后会用到这个
 
 // 初始化虚拟文件系统
 void init_vfs() {
-    // 1. 从我们的静态数组中为根目录分配一个节点
-    fs_node_t* root_node = &fs_nodes[next_free_node++];
-    
-    // 2. 配置该节点
+    fs_node_t* root_node = (fs_node_t*)kmalloc(sizeof(fs_node_t));
+
     strcpy(root_node->name, "/");
     root_node->type = FS_DIRECTORY;
-    
-    // 3. 初始化它的目录特定数据
     root_node->directory.num_children = 0;
     for (int i = 0; i < MAX_FILES_PER_DIR; i++) {
         root_node->directory.children[i] = NULL;
     }
-    
-    // 4. 设置全局指针
+
     fs_root = root_node;
-    fs_current = root_node; // 刚启动时，当前目录就是根目录
+    fs_current = root_node;
 }
 
 // 外部变量，来自 kernel.c
@@ -84,10 +73,14 @@ void vfs_mkdir(const char* name) {
     }
 
     // 分配一个新节点
-    fs_node_t* new_dir = &fs_nodes[next_free_node++];
+    fs_node_t* new_dir = (fs_node_t*)kmalloc(sizeof(fs_node_t));
     strcpy(new_dir->name, name);
     new_dir->type = FS_DIRECTORY;
     new_dir->directory.num_children = 0;
+
+    for (int i = 0; i < MAX_FILES_PER_DIR; i++) {
+        new_dir->directory.children[i] = NULL;
+    }
 
     // 将新节点添加到当前目录的子节点列表中
     fs_current->directory.children[fs_current->directory.num_children] = new_dir;
@@ -115,7 +108,7 @@ void vfs_touch(const char* name) {
     }
 
     // 分配一个新节点
-    fs_node_t* new_file = &fs_nodes[next_free_node++];
+    fs_node_t* new_file = (fs_node_t*)kmalloc(sizeof(fs_node_t));
     strcpy(new_file->name, name);
     new_file->type = FS_FILE; // 类型是文件
     new_file->file.length = 0; // 文件长度为 0

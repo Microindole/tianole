@@ -1,6 +1,7 @@
 #include "common.h"
 #include "shell.h"
 #include "../fs/vfs.h"
+#include "../mm/kheap.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -122,6 +123,7 @@ void kernel_main(void) {
     init_idt();
     init_timer(50); // 设置定时器频率为 50 Hz
     init_vfs();
+    init_kheap();
     init_shell();
 
     kprint("Hello, Interrupt World!\n");
