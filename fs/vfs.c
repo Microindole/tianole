@@ -125,3 +125,64 @@ void vfs_touch(const char* name) {
     fs_current->directory.children[fs_current->directory.num_children] = new_file;
     fs_current->directory.num_children++;
 }
+
+// 实现 cat 命令的函数
+void vfs_cat(const char* name) {
+    if (fs_current->type != FS_DIRECTORY) {
+        kprint("\nError: Current path is not a directory.");
+        return;
+    }
+
+    // 遍历查找文件
+    for (uint32_t i = 0; i < fs_current->directory.num_children; i++) {
+        fs_node_t* child = fs_current->directory.children[i];
+        // 如果名字匹配
+        if (strcmp(child->name, name) == 0) {
+            // 如果它是一个文件
+            if (child->type == FS_FILE) {
+                kprint("\n");
+                kprint(child->file.content); // 打印文件内容
+            } else {
+                kprint("\nError: '");
+                kprint(name);
+                kprint("' is a directory.");
+            }
+            return; // 找到后就退出函数
+        }
+    }
+
+    // 如果循环结束还没找到
+    kprint("\nError: File not found.");
+}
+
+// 实现 write 命令的函数
+void vfs_write(const char* name, const char* content) {
+    if (fs_current->type != FS_DIRECTORY) {
+        kprint("\nError: Current path is not a directory.");
+        return;
+    }
+
+    // 检查内容长度是否超出限制
+    uint32_t content_len = strlen(content);
+    if (content_len >= MAX_FILE_CONTENT_LEN) {
+        kprint("\nError: Content is too long.");
+        return;
+    }
+
+    // 遍历查找文件
+    for (uint32_t i = 0; i < fs_current->directory.num_children; i++) {
+        fs_node_t* child = fs_current->directory.children[i];
+        if (strcmp(child->name, name) == 0) {
+            if (child->type == FS_FILE) {
+                strcpy(child->file.content, content);
+                child->file.length = content_len;
+                return; // 写入成功后退出
+            } else {
+                kprint("\nError: Cannot write to a directory.");
+                return;
+            }
+        }
+    }
+
+    kprint("\nError: File not found.");
+}

@@ -8,6 +8,8 @@
 static char cmd_buffer[CMD_BUFFER_SIZE];
 static int cmd_index = 0;
 
+static uint8_t is_shift_pressed = 0;
+
 // 美式键盘的扫描码到 ASCII 字符的映射表 (只处理部分按键以便演示)
 // 0 表示该键位未被映射
 const char scancode_to_ascii[] = {
@@ -23,31 +25,52 @@ const char scancode_to_ascii[] = {
     0,   // Scroll Lock
 };
 
+const char scancode_to_ascii_shift[] = {
+    0,   27,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
+    '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',
+    0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',
+    0,   '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?',   0,
+    '*', 0, ' ', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
+
 
 // 键盘中断的回调函数
 static void keyboard_callback(registers_t* regs) {
     uint8_t scancode = inb(0x60);
 
-    if (scancode < sizeof(scancode_to_ascii)) {
-        char c = scancode_to_ascii[scancode];
-
-        // 如果是回车键
-        if (c == '\n') {
-            cmd_buffer[cmd_index] = '\0'; // 字符串结束符
-            process_command(cmd_buffer);  // 处理命令
-            cmd_index = 0;                // 重置缓冲区索引
+    // 检查这是“按下”还是“松开”
+    if (scancode & 0x80) { // 最高位为 1 表示是“松开”事件
+        scancode -= 0x80; // 转换为“按下”码，以便识别是哪个键
+        if (scancode == 0x2A || scancode == 0x36) { // 左 Shift 或 右 Shift
+            is_shift_pressed = 0;
         }
-        // 如果是退格键
-        else if (c == '\b') {
+    } else { // 这是“按下”事件
+        if (scancode == 0x2A || scancode == 0x36) { // 左 Shift 或 右 Shift
+            is_shift_pressed = 1;
+            return; // 只设置状态，不产生字符
+        }
+
+        // 根据 Shift 状态选择正确的映射表
+        char c = 0;
+        if (is_shift_pressed) {
+            c = scancode_to_ascii_shift[scancode];
+        } else {
+            c = scancode_to_ascii[scancode];
+        }
+
+        // --- 下面的命令处理逻辑和之前完全一样 ---
+        if (c == '\n') {
+            cmd_buffer[cmd_index] = '\0';
+            process_command(cmd_buffer);
+            cmd_index = 0;
+        } else if (c == '\b') {
             if (cmd_index > 0) {
                 cmd_index--;
-                kputc('\b'); // 在屏幕上模拟退格
+                kputc('\b');
             }
-        }
-        // 如果是可打印字符，并且缓冲区没满
-        else if (c >= ' ' && cmd_index < CMD_BUFFER_SIZE - 1) {
+        } else if (c != 0 && cmd_index < CMD_BUFFER_SIZE - 1) {
             cmd_buffer[cmd_index++] = c;
-            kputc(c); // 将字符回显到屏幕
+            kputc(c);
         }
     }
 }

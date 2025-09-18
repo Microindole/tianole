@@ -1,4 +1,5 @@
 #include "string.h"
+#include "common.h" // for uint32_t
 
 // 字符串比较函数
 int strcmp(const char* s1, const char* s2) {
@@ -15,4 +16,13 @@ void strcpy(char* dest, const char* src) {
         *dest++ = *src++;
     }
     *dest = '\0';
+}
+
+// 字符串长度函数
+uint32_t strlen(const char* str) {
+    uint32_t len = 0;
+    while (str[len]) {
+        len++;
+    }
+    return len;
 }

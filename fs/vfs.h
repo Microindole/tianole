@@ -52,4 +52,10 @@ void vfs_mkdir(const char* name);
 // 声明创建文件的函数
 void vfs_touch(const char* name);
 
+// 声明读取文件内容的函数
+void vfs_cat(const char* name);
+
+// 声明写入文件内容的函数
+void vfs_write(const char* name, const char* content);
+
 #endif
