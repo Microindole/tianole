@@ -1,5 +1,6 @@
 #include "common.h"
 #include "shell.h"
+#include "../fs/vfs.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;

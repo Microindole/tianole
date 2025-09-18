@@ -1,5 +1,5 @@
 #include "timer.h"
-#include "isr.h"
+#include "../cpu/isr.h"
 #include "common.h"
 
 uint32_t tick = 0;

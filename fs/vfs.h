@@ -49,4 +49,7 @@ void ls_current_dir();
 // 声明创建目录的函数
 void vfs_mkdir(const char* name);
 
+// 声明创建文件的函数
+void vfs_touch(const char* name);
+
 #endif

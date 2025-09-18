@@ -1,7 +1,7 @@
 #include "keyboard.h"
 #include "common.h"
-#include "isr.h"
-#include "shell.h"
+#include "../cpu/isr.h"
+#include "../kernel/shell.h"
 
 // 定义命令缓冲区的最大长度
 #define CMD_BUFFER_SIZE 256

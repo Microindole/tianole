@@ -1,7 +1,7 @@
-// vfs.c
 #include "vfs.h"
 #include "common.h"
 #include <stddef.h> // for NULL
+#include "string.h" // for strcpy
 
 // 定义一个静态数组来存储所有的文件系统节点
 // 这是最简单的内存管理方式，避免了动态内存分配
@@ -12,14 +12,6 @@ static uint32_t next_free_node = 0; // 指向下一个可用的节点索引
 // 全局指针，指向文件系统的根节点和当前工作目录
 fs_node_t *fs_root = NULL;
 fs_node_t *fs_current = NULL; // 我们稍后会用到这个
-
-// 简单的字符串复制函数
-void strcpy(char* dest, const char* src) {
-    while (*src) {
-        *dest++ = *src++;
-    }
-    *dest = '\0';
-}
 
 // 初始化虚拟文件系统
 void init_vfs() {
@@ -99,5 +91,37 @@ void vfs_mkdir(const char* name) {
 
     // 将新节点添加到当前目录的子节点列表中
     fs_current->directory.children[fs_current->directory.num_children] = new_dir;
+    fs_current->directory.num_children++;
+}
+
+// 实现 touch 命令的函数
+void vfs_touch(const char* name) {
+    if (fs_current->type != FS_DIRECTORY) {
+        kprint("\nError: Current path is not a directory.");
+        return;
+    }
+
+    if (fs_current->directory.num_children >= MAX_FILES_PER_DIR) {
+        kprint("\nError: Directory is full.");
+        return;
+    }
+
+    // 检查文件名是否已存在
+    for (uint32_t i = 0; i < fs_current->directory.num_children; i++) {
+        if (strcmp(fs_current->directory.children[i]->name, name) == 0) {
+            kprint("\nError: File or directory already exists.");
+            return;
+        }
+    }
+
+    // 分配一个新节点
+    fs_node_t* new_file = &fs_nodes[next_free_node++];
+    strcpy(new_file->name, name);
+    new_file->type = FS_FILE; // 类型是文件
+    new_file->file.length = 0; // 文件长度为 0
+    new_file->file.content[0] = '\0'; // 内容为空
+
+    // 将新节点添加到当前目录的子节点列表中
+    fs_current->directory.children[fs_current->directory.num_children] = new_file;
     fs_current->directory.num_children++;
 }

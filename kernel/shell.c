@@ -1,17 +1,9 @@
 #include "shell.h"
 #include "common.h"
-#include "keyboard.h" // shell 需要初始化 keyboard
-#include "vfs.h"
+#include "../drivers/keyboard.h" // shell 需要初始化 keyboard
+#include "../fs/vfs.h"
 #include <stddef.h>  // for NULL
-
-// 简单的字符串比较函数
-int strcmp(const char* s1, const char* s2) {
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
-}
+#include "string.h"  // for strcmp
 
 // 处理输入命令的函数
 void process_command(char *command) {
@@ -34,7 +26,13 @@ void process_command(char *command) {
     // --- 命令处理逻辑 ---
     if (strcmp(command, "help") == 0) {
         kprint("\nSimple Shell v1.0");
-        kprint("\nCommands: help, clear, ls, mkdir");
+        kprint("\nCommands: help, clear, ls, mkdir, touch");
+    } else if (strcmp(command, "mkdir") == 0) {
+        if (arg == NULL) {
+            kprint("\nUsage: mkdir <directory_name>");
+        } else {
+            vfs_mkdir(arg);
+        }
     } else if (strcmp(command, "clear") == 0) {
         clear_screen();
     } else if (strcmp(command, "ls") == 0) {
@@ -44,6 +42,12 @@ void process_command(char *command) {
             kprint("\nUsage: mkdir <directory_name>");
         } else {
             vfs_mkdir(arg);
+        }
+    } else if (strcmp(command, "touch") == 0) {
+        if (arg == NULL) {
+            kprint("\nUsage: touch <file_name>");
+        } else {
+            vfs_touch(arg);
         }
     } else {
         kprint("\nUnknown command: ");
