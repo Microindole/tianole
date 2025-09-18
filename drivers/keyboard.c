@@ -3,10 +3,8 @@
 #include "../cpu/isr.h"
 #include "../kernel/shell.h"
 
-// 定义命令缓冲区的最大长度
-#define CMD_BUFFER_SIZE 256
-static char cmd_buffer[CMD_BUFFER_SIZE];
-static int cmd_index = 0;
+// 声明 Shell 的按键处理函数
+void shell_handle_key(uint16_t keycode);
 
 static uint8_t is_shift_pressed = 0;
 
@@ -38,19 +36,34 @@ const char scancode_to_ascii_shift[] = {
 static void keyboard_callback(registers_t* regs) {
     uint8_t scancode = inb(0x60);
 
-    // 检查这是“按下”还是“松开”
-    if (scancode & 0x80) { // 最高位为 1 表示是“松开”事件
-        scancode -= 0x80; // 转换为“按下”码，以便识别是哪个键
-        if (scancode == 0x2A || scancode == 0x36) { // 左 Shift 或 右 Shift
+    // --- 识别方向键 ---
+    // 方向键会发送两个字节的扫描码，第一个是 0xE0
+    if (scancode == 0xE0) {
+        // 我们暂时忽略这个字节，等待下一个字节
+        return;
+    }
+
+    if (scancode & 0x80) { // 松开事件
+        scancode -= 0x80;
+        if (scancode == 0x2A || scancode == 0x36) { // Shift
             is_shift_pressed = 0;
         }
-    } else { // 这是“按下”事件
-        if (scancode == 0x2A || scancode == 0x36) { // 左 Shift 或 右 Shift
+    } else { // 按下事件
+        if (scancode == 0x2A || scancode == 0x36) { // Shift
             is_shift_pressed = 1;
-            return; // 只设置状态，不产生字符
+            return;
         }
 
-        // 根据 Shift 状态选择正确的映射表
+        // --- 处理方向键 ---
+        if (scancode == 0x4B) { // 左方向键
+            shell_handle_key(KEY_LEFT_ARROW);
+            return;
+        }
+        if (scancode == 0x4D) { // 右方向键
+            shell_handle_key(KEY_RIGHT_ARROW);
+            return;
+        }
+
         char c = 0;
         if (is_shift_pressed) {
             c = scancode_to_ascii_shift[scancode];
@@ -58,23 +71,12 @@ static void keyboard_callback(registers_t* regs) {
             c = scancode_to_ascii[scancode];
         }
 
-        // --- 下面的命令处理逻辑和之前完全一样 ---
-        if (c == '\n') {
-            cmd_buffer[cmd_index] = '\0';
-            process_command(cmd_buffer);
-            cmd_index = 0;
-        } else if (c == '\b') {
-            if (cmd_index > 0) {
-                cmd_index--;
-                kputc('\b');
-            }
-        } else if (c != 0 && cmd_index < CMD_BUFFER_SIZE - 1) {
-            cmd_buffer[cmd_index++] = c;
-            kputc(c);
+        if (c) {
+            // 将按键码报告给 Shell
+            shell_handle_key(c);
         }
     }
 }
-
 // 初始化键盘处理
 void init_keyboard() {
     // 注册键盘中断 (IRQ 1 -> 中断号 33) 的处理函数
