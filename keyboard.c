@@ -1,6 +1,12 @@
 #include "keyboard.h"
 #include "common.h"
 #include "isr.h"
+#include "shell.h"
+
+// 定义命令缓冲区的最大长度
+#define CMD_BUFFER_SIZE 256
+static char cmd_buffer[CMD_BUFFER_SIZE];
+static int cmd_index = 0;
 
 // 美式键盘的扫描码到 ASCII 字符的映射表 (只处理部分按键以便演示)
 // 0 表示该键位未被映射
@@ -20,14 +26,28 @@ const char scancode_to_ascii[] = {
 
 // 键盘中断的回调函数
 static void keyboard_callback(registers_t* regs) {
-    // 从键盘的 I/O 端口 0x60 读取按键的扫描码
     uint8_t scancode = inb(0x60);
 
-    // 我们只处理按键按下的事件 (最高位为 0)
     if (scancode < sizeof(scancode_to_ascii)) {
         char c = scancode_to_ascii[scancode];
-        if (c) { // 如果 c 不是 0, 说明是一个可打印字符
-            kputc(c);
+
+        // 如果是回车键
+        if (c == '\n') {
+            cmd_buffer[cmd_index] = '\0'; // 字符串结束符
+            process_command(cmd_buffer);  // 处理命令
+            cmd_index = 0;                // 重置缓冲区索引
+        }
+        // 如果是退格键
+        else if (c == '\b') {
+            if (cmd_index > 0) {
+                cmd_index--;
+                kputc('\b'); // 在屏幕上模拟退格
+            }
+        }
+        // 如果是可打印字符，并且缓冲区没满
+        else if (c >= ' ' && cmd_index < CMD_BUFFER_SIZE - 1) {
+            cmd_buffer[cmd_index++] = c;
+            kputc(c); // 将字符回显到屏幕
         }
     }
 }

@@ -9,7 +9,7 @@ ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
 # 源文件对象列表
-OBJS = kernel.o idt.o timer.o isr.o isr_c.o keyboard.o
+OBJS = kernel.o idt.o timer.o isr.o isr_c.o keyboard.o shell.o vfs.o
 
 # 默认目标
 all: my-os.iso
@@ -19,6 +19,10 @@ kernel.bin: boot.o $(OBJS)
 	$(LD) $(LDFLAGS) -o kernel.bin boot.o $(OBJS)
 
 # --- 编译规则 ---
+vfs.o: vfs.c
+	$(CC) $(CFLAGS) vfs.c -o vfs.o
+shell.o: shell.c
+	$(CC) $(CFLAGS) shell.c -o shell.o
 isr_c.o: isr.c
 	$(CC) $(CFLAGS) isr.c -o isr_c.o
 keyboard.o: keyboard.c
