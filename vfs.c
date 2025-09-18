@@ -70,3 +70,34 @@ void ls_current_dir() {
         }
     }
 }
+
+// 实现 mkdir 命令的函数
+void vfs_mkdir(const char* name) {
+    if (fs_current->type != FS_DIRECTORY) {
+        kprint("\nError: Current path is not a directory.");
+        return;
+    }
+
+    if (fs_current->directory.num_children >= MAX_FILES_PER_DIR) {
+        kprint("\nError: Directory is full.");
+        return;
+    }
+
+    // 检查文件名是否已存在
+    for (uint32_t i = 0; i < fs_current->directory.num_children; i++) {
+        if (strcmp(fs_current->directory.children[i]->name, name) == 0) {
+            kprint("\nError: Directory already exists.");
+            return;
+        }
+    }
+
+    // 分配一个新节点
+    fs_node_t* new_dir = &fs_nodes[next_free_node++];
+    strcpy(new_dir->name, name);
+    new_dir->type = FS_DIRECTORY;
+    new_dir->directory.num_children = 0;
+
+    // 将新节点添加到当前目录的子节点列表中
+    fs_current->directory.children[fs_current->directory.num_children] = new_dir;
+    fs_current->directory.num_children++;
+}

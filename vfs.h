@@ -46,4 +46,7 @@ void init_vfs();
 // 声明列出当前目录内容的函数
 void ls_current_dir();
 
+// 声明创建目录的函数
+void vfs_mkdir(const char* name);
+
 #endif
