@@ -10,6 +10,20 @@ unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
 int cursor_x = 0;
 int cursor_y = 0;
 
+void move_cursor() {
+    // 计算光标的一维线性位置
+    uint16_t cursorLocation = cursor_y * VGA_WIDTH + cursor_x;
+
+    // 向 VGA 控制器发送命令，告诉它我们要设置光标的高位字节
+    outb(0x3D4, 14);
+    // 发送高8位
+    outb(0x3D5, cursorLocation >> 8);
+    // 向 VGA 控制器发送命令，告诉它我们要设置光标的低位字节
+    outb(0x3D4, 15);
+    // 发送低8位
+    outb(0x3D5, cursorLocation);
+}
+
 void scroll() {
     unsigned char attribute_byte = 0x0F;
     unsigned short blank = 0x20 | (attribute_byte << 8);
@@ -42,6 +56,7 @@ void kputc(char c) {
         cursor_y++;
     }
     scroll();
+    move_cursor();
 }
 
 void kprint(const char* str) {
@@ -59,6 +74,7 @@ void clear_screen() {
     }
     cursor_x = 0;
     cursor_y = 0;
+    move_cursor();
 }
 
 // --- 我们之前实现的控制台功能 END ---
