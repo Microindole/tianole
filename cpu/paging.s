@@ -18,5 +18,5 @@ enable_paging:
     mov cr0, eax
     ret
 
-; --- 段声明以消除链接器警告 ---
+; --- 修复链接器警告：添加段声明 ---
 section .note.GNU-stack,"",@progbits

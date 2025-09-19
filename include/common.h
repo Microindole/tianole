@@ -19,8 +19,9 @@ void kputc(char c);
 void move_cursor();
 void clear_screen();
 
-// 整数转字符串函数声明
-void itoa(int n, char str[]);
-void itoa_hex(uint32_t n, char str[]);
+// --- 最终修正：使用绝对安全的、带有缓冲区大小参数的 itoa ---
+void itoa(int n, char* str, int len, int base);
+void itoa_hex(uint32_t n, char* str, int len);
 
 #endif
+

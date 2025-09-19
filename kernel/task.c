@@ -1,100 +1,76 @@
 #include "task.h"
 #include "common.h"
-#include "../mm/kheap.h" // 我们需要 kmalloc
-#include "string.h"   // 我们需要 strcpy/memset 等
-#include <stddef.h> // 定义NULL
+#include "../mm/kheap.h"
+#include "string.h"
+#include <stddef.h>
 
-// --- 声明外部变量和函数 ---
+// 外部变量和函数
 extern page_directory_t* current_directory;
-extern void load_page_directory(page_directory_t*);
-extern page_directory_t* kernel_directory; // 声明全局的内核页目录
+extern void fork_trampoline();
 
-// --- 全局变量 ---
-
-// 指向当前正在运行的任务
+// 全局变量
 volatile task_t* current_task;
-
-// 任务队列的头指针（一个简单的链表）
 volatile task_t* ready_queue;
-
-// 全局任务 ID 计数器
 uint32_t next_pid = 1;
-
-
-// --- 函数实现 ---
-
-// --- 任务 B 的入口函数 ---
-void task_b_main() {
-    asm volatile("sti"); // 手动开启中断
-    while(1) {
-        kprint("B");
-        for (volatile int i = 0; i < 10000000; i++);
-    }
-}
 
 // 初始化任务系统
 void init_tasking() {
     asm volatile("cli");
 
-    // 创建内核任务
     task_t* kernel_task = (task_t*)kmalloc(sizeof(task_t));
-    memset(kernel_task, 0, sizeof(task_t));
     kernel_task->id = next_pid++;
     kernel_task->state = TASK_RUNNING;
-    kernel_task->kernel_stack = 0;
-    kernel_task->directory = kernel_directory;
+    kernel_task->kernel_stack_ptr = 0;
+    kernel_task->initial_regs = NULL;
+    kernel_task->directory = current_directory;
+
     current_task = kernel_task;
     ready_queue = kernel_task;
-
-    /* --- 暂时禁用任务 B ---
-    // 创建任务 B
-    task_t* task_b = (task_t*)kmalloc(sizeof(task_t));
-    memset(task_b, 0, sizeof(task_t));
-    task_b->id = next_pid++;
-    task_b->state = TASK_READY;
-
-    // 为任务 B 分配内核栈
-    uint32_t stack = (uint32_t)kmalloc(4096);
-    task_b->kernel_stack = stack;
-
-    // 伪造初始上下文
-    uint32_t esp = stack + 4096;
-    esp -= 4;
-    *(uint32_t*)esp = (uint32_t)task_b_main;
-    esp -= 32;
-    task_b->registers.esp = esp;
-
-    // 设置循环链表
-    kernel_task->next = task_b;
-    task_b->next = kernel_task;
-    */
-   
-    // --- 内核任务自己形成一个循环 ---
-    kernel_task->next = kernel_task;
-
+    kernel_task->next = kernel_task; // 形成循环链表
 
     asm volatile("sti");
     kprint("Tasking system initialized.\n");
 }
 
-// 实现调度器函数
+// 调度器
 void schedule() {
     volatile task_t* next_task = current_task->next;
-
     if (next_task == current_task) {
         return;
     }
-    
+
     volatile task_t* old_task = current_task;
     current_task = next_task;
 
-    // --- 切换页目录 ---
+    // 如果这是一个新创建的任务，则为其构建启动栈
+    if (current_task->kernel_stack_ptr == 0 && current_task->initial_regs != NULL) {
+        
+        uint32_t stack_top = (uint32_t)kmalloc(4096) + 4096;
+        uint32_t esp = stack_top;
+
+        // 1. 在栈底放置 iret 帧 (使用之前保存的 initial_regs)
+        esp -= sizeof(registers_t);
+        memcpy((void*)esp, current_task->initial_regs, sizeof(registers_t));
+
+        // 2. 释放 initial_regs，因为它是一次性的
+        kfree(current_task->initial_regs);
+        current_task->initial_regs = NULL;
+
+        // 3. 在 iret 帧上构建 C 调用帧，返回到 trampoline
+        esp -= 4;
+        *(uint32_t*)esp = (uint32_t)fork_trampoline;
+        esp -= 32;
+        memcpy((void*)esp, (void*)&((registers_t*) (stack_top - sizeof(registers_t)))->edi, 32);
+
+        // 4. 设置任务的最终 esp
+        current_task->kernel_stack_ptr = esp;
+    }
+
     if (current_task->directory != current_directory) {
         load_page_directory(current_task->directory);
-        // --- 关键修正：在这里更新全局变量 ---
         current_directory = current_task->directory;
     }
 
-    // 调用汇编实现的上下文切换
-    switch_task((registers_t*)&old_task->registers, (registers_t*)&current_task->registers);
+    switch_task(old_task, current_task);
 }
+

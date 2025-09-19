@@ -2,44 +2,41 @@
 #define TASK_H
 
 #include "common.h"
-#include "../cpu/isr.h" // 我们需要 registers_t 结构体
+#include "../cpu/isr.h" 
 #include "../mm/paging.h"
 
 // 定义任务的状态
 typedef enum {
-    TASK_RUNNING,   // 正在运行
-    TASK_READY,     // 准备就绪，可以被调度
-    TASK_SLEEPING,  // 正在休眠
-    TASK_DEAD       // 已结束，等待被清理
+    TASK_RUNNING,
+    TASK_READY,
+    TASK_SLEEPING,
+    TASK_DEAD
 } task_state_t;
 
-// 任务（进程）控制块 (TCB)
+// 任务（进程）控制块 (TCB) - 最终版
 typedef struct task {
-    uint32_t id;                // 任务的唯一 ID (PID)
-    task_state_t state;         // 任务当前的状态
-
-    registers_t registers;      // 任务被切换出时保存的寄存器状态
+    uint32_t id;
+    task_state_t state;
     
-    uint32_t kernel_stack;      // 指向任务内核栈顶的指针 (ESP)
+    // 指向任务内核栈顶的指针 (ESP)
+    uint32_t kernel_stack_ptr;
 
-    page_directory_t* directory; // 指向任务页目录的指针
-
-    struct task* next;          // 指向任务队列中的下一个任务
+    page_directory_t* directory;
+    struct task* next;
+    
+    // 新增字段：只用于新创建的进程，用来存放 fork 时保存的父进程中断状态
+    registers_t* initial_regs; 
+    
 } task_t;
 
 
 // --- 函数声明 ---
 
-// 初始化任务系统
 void init_tasking();
-
-// 调度器函数
 void schedule();
 
-// 创建一个新任务
-int create_task(void (*entry)(), uint32_t flags);
-
-// 声明汇编实现的上下文切换函数
-extern void switch_task(registers_t* old, registers_t* new);
+// --- 关键修正：switch_task 现在接收 task_t 指针 ---
+extern void switch_task(volatile task_t* old, volatile task_t* new);
 
 #endif
+

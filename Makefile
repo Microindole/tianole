@@ -26,7 +26,7 @@ OBJS = $(C_OBJS) $(S_OBJS) \
        $(BUILD_DIR)/isr_s.o \
        $(BUILD_DIR)/isr_c.o \
        $(BUILD_DIR)/paging_s.o \
-# 	   $(BUILD_DIR)/fork_trampoline.o
+	   $(BUILD_DIR)/fork_trampoline.o
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
