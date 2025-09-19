@@ -17,3 +17,6 @@ enable_paging:
     or  eax, 0x80000000 ; Set bit 31
     mov cr0, eax
     ret
+
+; --- 段声明以消除链接器警告 ---
+section .note.GNU-stack,"",@progbits

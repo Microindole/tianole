@@ -4,6 +4,7 @@
 #include "../mm/kheap.h"
 #include "task.h"
 #include "../mm/paging.h"
+#include "syscall.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -90,6 +91,7 @@ void clear_screen() {
 // 声明外部的初始化函数
 void init_idt();
 void init_timer(uint32_t frequency);
+void init_syscalls();
 
 // 简单的整数转字符串函数
 void itoa(int n, char str[]) {
@@ -163,25 +165,44 @@ void kernel_main(void) {
     // 1. 初始化内存管理 (Heap)
     init_kheap();
     
-    // 2. 初始化分页！！！
+    // 2. 初始化分页
     init_paging();
 
-    // 3. 初始化任务系统
+    // 3. 初始化系统调用
+    init_syscalls();
+
+    // 4. 初始化任务系统
     init_tasking();
     
     init_timer(50); // 设置定时器频率为 50 Hz
     init_vfs();
     init_shell();
 
-    kprint("Hello from a Paged World!\n"); // <--- 可以改个欢迎语
-    kprint("Timer should be ticking now.\n");
+    kprint("Kernel initialized. Starting fork() test...\n");
 
+    int pid = fork();
+
+    if (pid == 0) {
+        // --- 子进程代码 ---
+        kprint("--- I am the CHILD process! My fork() returned 0. ---\n");
+        // 子进程也需要开启中断才能响应调度器
+        asm volatile("sti");
+        // 子进程在这里进入一个死循环，作为一个独立的后台任务
+        while(1) {}
+    } else {
+        // --- 父进程代码 ---
+        kprint("--- I am the PARENT process! My fork() returned PID: ");
+        char pid_str[10];
+        itoa(pid, pid_str);
+        kprint(pid_str);
+        kprint(" ---\n");
+    }
+
+    // 父进程会继续执行到这里，并最终回到 shell
+    kprint("Parent process is returning to shell.\n");
+    
     // 开启中断
     asm volatile ("sti");
-
-    // 触发一个页错误来测试！
-    // uint32_t* ptr = (uint32_t*)0xA0000000;
-    // uint32_t test = *ptr;
 
     while(1) {
         asm volatile ("hlt");

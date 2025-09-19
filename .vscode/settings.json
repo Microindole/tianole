@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "isr.h": "c",
+        "string.h": "c",
+        "kheap.h": "c"
+    }
+}

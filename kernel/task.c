@@ -4,6 +4,11 @@
 #include "string.h"   // 我们需要 strcpy/memset 等
 #include <stddef.h> // 定义NULL
 
+// --- 声明外部变量和函数 ---
+extern page_directory_t* current_directory;
+extern void load_page_directory(page_directory_t*);
+extern page_directory_t* kernel_directory; // 声明全局的内核页目录
+
 // --- 全局变量 ---
 
 // 指向当前正在运行的任务
@@ -37,9 +42,11 @@ void init_tasking() {
     kernel_task->id = next_pid++;
     kernel_task->state = TASK_RUNNING;
     kernel_task->kernel_stack = 0;
+    kernel_task->directory = kernel_directory;
     current_task = kernel_task;
     ready_queue = kernel_task;
 
+    /* --- 暂时禁用任务 B ---
     // 创建任务 B
     task_t* task_b = (task_t*)kmalloc(sizeof(task_t));
     memset(task_b, 0, sizeof(task_t));
@@ -60,6 +67,11 @@ void init_tasking() {
     // 设置循环链表
     kernel_task->next = task_b;
     task_b->next = kernel_task;
+    */
+   
+    // --- 内核任务自己形成一个循环 ---
+    kernel_task->next = kernel_task;
+
 
     asm volatile("sti");
     kprint("Tasking system initialized.\n");
@@ -67,19 +79,20 @@ void init_tasking() {
 
 // 实现调度器函数
 void schedule() {
-    // current_task 是一个全局 volatile 指针, 它的值可能在中断中改变
-    
-    // 获取队列中的下一个任务
     volatile task_t* next_task = current_task->next;
 
-    // 如果队列中只有一个任务 (next 指向自己), 则无需切换
     if (next_task == current_task) {
         return;
     }
     
-    // 准备切换
     volatile task_t* old_task = current_task;
     current_task = next_task;
+
+    // --- 切换页目录 ---
+    // 如果新任务的页目录与当前的不同，就加载新的
+    if (current_task->directory != current_directory) {
+        load_page_directory(current_task->directory);
+    }
 
     // 调用汇编实现的上下文切换
     switch_task((registers_t*)&old_task->registers, (registers_t*)&current_task->registers);

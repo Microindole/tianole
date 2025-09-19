@@ -5,6 +5,7 @@
 
 // --- 声明内存设置函数 ---
 void* memset(void* ptr, int value, uint32_t num);
+void* memcpy(void* dest, const void* src, uint32_t num);
 
 // 声明字符串比较函数
 int strcmp(const char* s1, const char* s2);

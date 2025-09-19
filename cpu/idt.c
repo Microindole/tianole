@@ -20,6 +20,8 @@ extern void isr32(); extern void isr33(); extern void isr34(); extern void isr35
 extern void isr36(); extern void isr37(); extern void isr38(); extern void isr39();
 extern void isr40(); extern void isr41(); extern void isr42(); extern void isr43();
 extern void isr44(); extern void isr45(); extern void isr46(); extern void isr47();
+extern void isr128();
+
 
 // 全局 IDT
 struct idt_entry idt_entries[256];
@@ -115,6 +117,11 @@ void init_idt() {
     idt_set_gate(45, (uint32_t)isr45, sel, flags);
     idt_set_gate(46, (uint32_t)isr46, sel, flags);
     idt_set_gate(47, (uint32_t)isr47, sel, flags);
+
+    // 为系统调用设置中断门 (int 0x80)
+    // 注意：这里的 flags 是 0xEE，而不是 0x8E
+    // DPL(Descriptor Privilege Level) 设置为 3，允许用户态代码通过 int 指令触发
+    idt_set_gate(128, (uint32_t)isr128, sel, 0xEE);
 
     // 加载 IDT
     idt_load(&idt_p);

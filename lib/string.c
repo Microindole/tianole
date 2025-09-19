@@ -1,6 +1,16 @@
 #include "string.h"
 #include "common.h" // for uint32_t
 
+// 内存复制函数
+void* memcpy(void* dest, const void* src, uint32_t num) {
+    unsigned char* d = (unsigned char*)dest;
+    const unsigned char* s = (const unsigned char*)src;
+    for (uint32_t i = 0; i < num; i++) {
+        d[i] = s[i];
+    }
+    return dest;
+}
+
 // 内存设置函数
 void* memset(void* ptr, int value, uint32_t num) {
     unsigned char* p = ptr;

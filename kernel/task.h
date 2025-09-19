@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "../cpu/isr.h" // 我们需要 registers_t 结构体
+#include "../mm/paging.h"
 
 // 定义任务的状态
 typedef enum {
@@ -20,6 +21,8 @@ typedef struct task {
     registers_t registers;      // 任务被切换出时保存的寄存器状态
     
     uint32_t kernel_stack;      // 指向任务内核栈顶的指针 (ESP)
+
+    page_directory_t* directory; // 指向任务页目录的指针
 
     struct task* next;          // 指向任务队列中的下一个任务
 } task_t;
