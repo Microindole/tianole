@@ -31,9 +31,11 @@ typedef struct {
 } file_t;
 
 // 统一的文件系统节点 (inode) 结构体
+// 统一的文件系统节点 (inode) 结构体
 typedef struct fs_node {
     char name[MAX_FILENAME_LEN];
     FS_NODE_TYPE type;
+    struct fs_node* parent; // 指向父节点的指针
     union { // 使用 union 来节省空间，因为一个节点要么是文件要么是目录
         file_t file;
         directory_t directory;
@@ -58,5 +60,11 @@ void vfs_cat(const char* name);
 
 // 声明写入文件内容的函数
 void vfs_write(const char* name, const char* content);
+
+// 声明 cd 函数
+void vfs_cd(const char* name);
+
+// 声明获取当前路径的函数
+void get_current_path(char* buffer);
 
 #endif

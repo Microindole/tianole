@@ -11,6 +11,9 @@ static char cmd_buffer[CMD_BUFFER_SIZE];
 static int buffer_len = 0;
 static int cursor_pos = 0;
 
+// --- 声明外部函数 ---
+void get_current_path(char* buffer);
+
 // 外部变量，来自 kernel.c
 extern int cursor_x, cursor_y;
 
@@ -87,6 +90,15 @@ void shell_handle_key(uint16_t keycode) {
     }
 }
 
+// 一个专门打印提示符的函数
+static void print_prompt() {
+    char path[256];
+    get_current_path(path);
+    kprint("\n");
+    kprint(path); // 打印路径
+    kprint("> "); // 打印 >
+}
+
 // 处理输入命令的函数
 void process_command(char *input) {
     // --- 命令解析逻辑 ---
@@ -111,6 +123,9 @@ void process_command(char *input) {
         clear_screen();
     } else if (strcmp(command, "ls") == 0) {
         ls_current_dir();
+    } else if (strcmp(command, "cd") == 0) {
+        if (args == NULL) kprint("\nUsage: cd <dir_name>");
+        else vfs_cd(args);
     } else if (strcmp(command, "mkdir") == 0) {
         if (args == NULL) kprint("\nUsage: mkdir <dir_name>");
         else vfs_mkdir(args);
@@ -155,7 +170,7 @@ void process_command(char *input) {
         kprint("\nUnknown command: ");
         kprint(command);
     }
-    kprint("\n> ");
+    print_prompt();
 }
 
 
@@ -163,6 +178,6 @@ void process_command(char *input) {
 void init_shell() {
     kprint("Welcome to the Simple Shell!\n");
     kprint("Type 'help' for a list of commands.\n\n");
-    kprint("> ");
+    print_prompt();
     init_keyboard(); // shell 启动的一部分是初始化键盘
 }

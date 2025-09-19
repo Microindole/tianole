@@ -12,4 +12,8 @@ void strcpy(char* dest, const char* src);
 // 声明字符串长度函数
 uint32_t strlen(const char* str);
 
+// --- 声明字符串拼接和反转函数 ---
+void strcat(char* dest, const char* src);
+void strrev(char* str);
+
 #endif

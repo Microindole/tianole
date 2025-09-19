@@ -5,7 +5,7 @@
 
 // 全局指针，指向文件系统的根节点和当前工作目录
 fs_node_t *fs_root = NULL;
-fs_node_t *fs_current = NULL; // 我们稍后会用到这个
+fs_node_t *fs_current = NULL; 
 
 // 初始化虚拟文件系统
 void init_vfs() {
@@ -13,6 +13,7 @@ void init_vfs() {
 
     strcpy(root_node->name, "/");
     root_node->type = FS_DIRECTORY;
+    root_node->parent = NULL;
     root_node->directory.num_children = 0;
     for (int i = 0; i < MAX_FILES_PER_DIR; i++) {
         root_node->directory.children[i] = NULL;
@@ -76,6 +77,7 @@ void vfs_mkdir(const char* name) {
     fs_node_t* new_dir = (fs_node_t*)kmalloc(sizeof(fs_node_t));
     strcpy(new_dir->name, name);
     new_dir->type = FS_DIRECTORY;
+    new_dir->parent = fs_current;
     new_dir->directory.num_children = 0;
 
     for (int i = 0; i < MAX_FILES_PER_DIR; i++) {
@@ -178,4 +180,61 @@ void vfs_write(const char* name, const char* content) {
     }
 
     kprint("\nError: File not found.");
+}
+
+void vfs_cd(const char* name) {
+    // 处理 "cd .."
+    if (strcmp(name, "..") == 0) {
+        if (fs_current->parent != NULL) {
+            fs_current = fs_current->parent;
+        }
+        return;
+    }
+
+    // 处理 "cd ."
+    if (strcmp(name, ".") == 0) {
+        return; // 什么都不做
+    }
+    
+    // 在当前目录的子节点中查找目标目录
+    for (uint32_t i = 0; i < fs_current->directory.num_children; i++) {
+        fs_node_t* child = fs_current->directory.children[i];
+        if (child->type == FS_DIRECTORY && strcmp(child->name, name) == 0) {
+            fs_current = child; // 切换当前目录
+            return;
+        }
+    }
+
+    // 如果没找到
+    kprint("\nError: Directory not found: ");
+    kprint(name);
+}
+
+// 实现获取当前路径的函数
+void get_current_path(char* path_buffer) {
+    // 如果当前就是根目录
+    if (fs_current == fs_root) {
+        strcpy(path_buffer, "/");
+        return;
+    }
+
+    path_buffer[0] = '\0';
+    fs_node_t* current_node = fs_current;
+
+    // 从当前节点向上回溯，反向构建路径，例如 "dir/sub/"
+    while (current_node != fs_root) {
+        // strcat 会在末尾追加，所以我们先加名字再加斜杠
+        strcat(path_buffer, current_node->name);
+        strcat(path_buffer, "/");
+        current_node = current_node->parent;
+    }
+
+    // 将 "dir/sub/" 反转为 "/bus/rid"
+    strrev(path_buffer);
+
+    // 在最前面加上根目录的斜杠
+    char temp[256];
+    strcpy(temp, "/");
+    strcat(temp, path_buffer);
+    strcpy(path_buffer, temp);
 }
