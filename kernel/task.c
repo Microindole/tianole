@@ -20,6 +20,7 @@ uint32_t next_pid = 1;
 
 // --- 任务 B 的入口函数 ---
 void task_b_main() {
+    asm volatile("sti"); // 手动开启中断
     while(1) {
         kprint("B");
         for (volatile int i = 0; i < 10000000; i++);
