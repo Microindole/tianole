@@ -13,16 +13,18 @@ ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
 # --- 源文件和目标文件 ---
-# 关键修复：从自动查找中排除 isr.c 和 isr.s
+# 自动查找所有 .c 和 .s 文件，但排除 boot.s, isr.s, 和 isr.c
 C_SOURCES = $(filter-out %/isr.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
-S_SOURCES = $(filter-out %/isr.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
+S_SOURCES = $(filter-out %/boot.s %/isr.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
 
-# 根据源文件生成对象文件路径
 C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(C_SOURCES)))
 S_OBJS = $(patsubst %.s,$(BUILD_DIR)/%.o,$(notdir $(S_SOURCES)))
 
-# 将所有对象文件汇总，并手动添加特殊情况
-OBJS = $(S_OBJS) $(C_OBJS) $(BUILD_DIR)/isr.o $(BUILD_DIR)/isr_c.o
+# --- 明确列出所有对象文件，避免冲突 ---
+OBJS = $(C_OBJS) $(S_OBJS) \
+       $(BUILD_DIR)/boot.o \
+       $(BUILD_DIR)/isr_s.o \
+       $(BUILD_DIR)/isr_c.o
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
@@ -32,26 +34,28 @@ OS_ISO = $(BUILD_DIR)/my-os.iso
 all: $(OS_ISO)
 
 # --- 核心编译链接规则 ---
-
 # 链接内核
-$(KERNEL_BIN): $(filter %/boot.o,$(OBJS)) $(filter-out %/boot.o,$(OBJS)) | $(BUILD_DIR)
+$(KERNEL_BIN): $(OBJS) | $(BUILD_DIR)
 	$(LD) $(LDFLAGS) -o $@ $^
-
-# 通用 C 编译规则
-$(BUILD_DIR)/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $< -o $@
-
-# 通用汇编编译规则
-$(BUILD_DIR)/%.o: %.s
-	@mkdir -p $(dir $@)
-	$(AS) $(ASFLAGS) $< -o $@
 
 # VPATH 告诉 make 在哪里寻找源文件
 VPATH = $(SRC_DIRS)
 
-# --- 关键修复：为 isr.o 和 isr_c.o 提供精确规则 ---
-$(BUILD_DIR)/isr.o: cpu/isr.s
+# 通用 C/S 编译规则
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/%.o: %.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
+
+# --- 为特殊文件提供精确规则 ---
+$(BUILD_DIR)/boot.o: cpu/boot.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(BUILD_DIR)/isr_s.o: cpu/isr.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -69,7 +73,6 @@ qemu-direct: $(KERNEL_BIN)
 
 # 创建 ISO 镜像
 $(OS_ISO): $(KERNEL_BIN) grub.cfg
-# ... (ISO 创建规则不变) ...
 	@mkdir -p $(BUILD_DIR)/isodir/boot/grub
 	cp $(KERNEL_BIN) $(BUILD_DIR)/isodir/boot/
 	cp grub.cfg $(BUILD_DIR)/isodir/boot/grub/

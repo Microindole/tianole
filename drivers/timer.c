@@ -1,12 +1,22 @@
 #include "timer.h"
 #include "../cpu/isr.h"
 #include "common.h"
+#include "../kernel/task.h"
+
+// --- 外部变量和函数 ---
+extern volatile task_t* current_task;
+void schedule();
 
 uint32_t tick = 0;
 
 static void timer_callback(registers_t* regs) {
     tick++;
-    // 暂时不在这里打印，避免屏幕刷新过快
+    
+    // --- 调用调度器 ---
+    // 每 5 个 tick (大约 100ms) 进行一次任务切换
+    if (tick % 5 == 0) {
+        schedule();
+    }
 }
 
 void init_timer(uint32_t frequency) {

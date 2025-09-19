@@ -132,3 +132,7 @@ ISR_NOERRCODE 44
 ISR_NOERRCODE 45
 ISR_NOERRCODE 46
 ISR_NOERRCODE 47
+
+
+; --- 添加段声明以消除链接器警告 ---
+section .note.GNU-stack,"",@progbits

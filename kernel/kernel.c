@@ -2,6 +2,7 @@
 #include "shell.h"
 #include "../fs/vfs.h"
 #include "../mm/kheap.h"
+#include "task.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -121,8 +122,13 @@ void init_timer(uint32_t frequency);
 void kernel_main(void) {
     clear_screen();
     init_idt();
-    init_timer(50); // 设置定时器频率为 50 Hz
+    // 1. 初始化内存管理
     init_kheap();
+    
+    // 2. 初始化任务系统
+    init_tasking();
+    
+    init_timer(50); // 设置定时器频率为 50 Hz
     init_vfs();
     init_shell();
 
