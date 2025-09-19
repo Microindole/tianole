@@ -64,6 +64,15 @@ static void keyboard_callback(registers_t* regs) {
             return;
         }
 
+        if (scancode == 0x48) { // 上方向键
+            shell_handle_key(KEY_UP_ARROW);
+            return;
+        }
+        if (scancode == 0x50) { // 下方向键
+            shell_handle_key(KEY_DOWN_ARROW);
+            return;
+        }
+
         char c = 0;
         if (is_shift_pressed) {
             c = scancode_to_ascii_shift[scancode];

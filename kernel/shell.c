@@ -7,32 +7,46 @@
 
 // --- 缓冲区和光标状态 ---
 #define CMD_BUFFER_SIZE 256
+#define HISTORY_MAX_COUNT 16
 static char cmd_buffer[CMD_BUFFER_SIZE];
 static int buffer_len = 0;
 static int cursor_pos = 0;
 static int prompt_len = 0;
+
+// --- 历史命令缓冲区 ---
+static char command_history[HISTORY_MAX_COUNT][CMD_BUFFER_SIZE];
+static int history_count = 0;      // 已保存的历史命令总数
+static int history_head = 0;       // 指向下一条要插入的位置 (环形缓冲区的头部)
+static int history_view_idx = -1;  // 当前正在查看的历史命令索引 (-1 表示没在看)
 
 // --- 声明外部函数 ---
 void get_current_path(char* buffer);
 
 // 外部变量，来自 kernel.c
 extern int cursor_x, cursor_y;
+extern unsigned short* const VIDEO_MEMORY;
 
 static void redraw_line() {
-    // 1. 将硬件光标移动到提示符后面
-    cursor_x = prompt_len;
-    move_cursor();
+    // 1. 定义屏幕宽度和显示属性
+    const int VGA_WIDTH = 80;
+    unsigned char attribute_byte = 0x0F; // 白底黑字
+    unsigned short blank = 0x20 | (attribute_byte << 8); // 带属性的空格
 
-    // 2. 打印缓冲区中的所有内容
-    for (int i = 0; i < buffer_len; i++) {
-        kputc(cmd_buffer[i]);
+    // 2. 计算输入区域在显存中的起始位置
+    int start_offset = cursor_y * VGA_WIDTH + prompt_len;
+
+    // 3. 用“带属性的空格”直接清空输入区域
+    //    从提示符末尾一直清到行尾
+    for (int i = 0; i < (VGA_WIDTH - prompt_len); i++) {
+        VIDEO_MEMORY[start_offset + i] = blank;
     }
 
-    // 3. 打印空格，覆盖掉可能残留的旧字符
-    kputc(' ');
+    // 4. 将新的命令内容直接写入显存
+    for (int i = 0; i < buffer_len; i++) {
+        VIDEO_MEMORY[start_offset + i] = cmd_buffer[i] | (attribute_byte << 8);
+    }
 
-
-    // 4. 将硬件光标移动到逻辑光标的正确位置
+    // 5. 更新硬件光标到正确的位置
     cursor_x = prompt_len + cursor_pos;
     move_cursor();
 }
@@ -41,6 +55,41 @@ static void redraw_line() {
 // --- 按键处理函数 ---
 void shell_handle_key(uint16_t keycode) {
     switch (keycode) {
+        case KEY_UP_ARROW:
+            if (history_count > 0 && (history_view_idx == -1 || history_view_idx > 0)) {
+                if (history_view_idx == -1) {
+                    history_view_idx = history_head;
+                }
+                history_view_idx = (history_view_idx - 1 + history_count) % history_count;
+                
+                // 找到实际存储的位置
+                int actual_idx = (history_head - 1 - ((history_head - 1 - history_view_idx + history_count)%history_count) + HISTORY_MAX_COUNT) % HISTORY_MAX_COUNT;
+
+                strcpy(cmd_buffer, command_history[actual_idx]);
+                buffer_len = strlen(cmd_buffer);
+                cursor_pos = buffer_len;
+                redraw_line();
+            }
+            break;
+
+        case KEY_DOWN_ARROW:
+            if (history_view_idx != -1) {
+                history_view_idx = (history_view_idx + 1) % history_count;
+                
+                // 如果回到了起点，则清空输入框
+                if (history_view_idx == history_head) {
+                     history_view_idx = -1;
+                     cmd_buffer[0] = '\0';
+                } else {
+                    int actual_idx = (history_head - 1 - ((history_head - 1 - history_view_idx + history_count)%history_count) + HISTORY_MAX_COUNT) % HISTORY_MAX_COUNT;
+                    strcpy(cmd_buffer, command_history[actual_idx]);
+                }
+
+                buffer_len = strlen(cmd_buffer);
+                cursor_pos = buffer_len;
+                redraw_line();
+            }
+            break;
         case KEY_LEFT_ARROW:
             if (cursor_pos > 0) {
                 cursor_pos--;
@@ -104,6 +153,14 @@ static void print_prompt() {
 
 // 处理输入命令的函数
 void process_command(char *input) {
+    // 只有非空命令才加入历史记录
+    if (strlen(input) > 0) {
+        strcpy(command_history[history_head], input);
+        history_head = (history_head + 1) % HISTORY_MAX_COUNT;
+        if (history_count < HISTORY_MAX_COUNT) {
+            history_count++;
+        }
+    }
     // --- 命令解析逻辑 ---
     // 找到命令的结束位置 (第一个空格或字符串末尾)
     char* command = input;
