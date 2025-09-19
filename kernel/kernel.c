@@ -3,6 +3,7 @@
 #include "../fs/vfs.h"
 #include "../mm/kheap.h"
 #include "task.h"
+#include "../mm/paging.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -84,8 +85,7 @@ void clear_screen() {
     cursor_y = 0;
     move_cursor();
 }
-
-// --- 我们之前实现的控制台功能 END ---
+// --------------------
 
 // 声明外部的初始化函数
 void init_idt();
@@ -115,6 +115,43 @@ void itoa(int n, char str[]) {
     }
 }
 
+// 简单的十六进制整数转字符串函数
+void itoa_hex(uint32_t n, char str[]) {
+    int i = 0;
+    int temp;
+
+    // 先加上 '0x' 前缀
+    str[i++] = '0';
+    str[i++] = 'x';
+
+    if (n == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return;
+    }
+
+    char hex_chars[] = "0123456789ABCDEF";
+    int start_index = i;
+
+    while (n > 0) {
+        temp = n % 16;
+        str[i++] = hex_chars[temp];
+        n /= 16;
+    }
+    str[i] = '\0';
+
+    // 反转十六进制部分
+    int start = start_index;
+    int end = i - 1;
+    while (start < end) {
+        char t = str[start];
+        str[start] = str[end];
+        str[end] = t;
+        start++;
+        end--;
+    }
+}
+
 void init_idt();
 void init_timer(uint32_t frequency);
 
@@ -122,25 +159,31 @@ void init_timer(uint32_t frequency);
 void kernel_main(void) {
     clear_screen();
     init_idt();
-    // 1. 初始化内存管理
+    
+    // 1. 初始化内存管理 (Heap)
     init_kheap();
     
-    // 2. 初始化任务系统
+    // 2. 初始化分页！！！
+    init_paging();
+
+    // 3. 初始化任务系统
     init_tasking();
     
     init_timer(50); // 设置定时器频率为 50 Hz
     init_vfs();
     init_shell();
 
-    kprint("Hello, Interrupt World!\n");
+    kprint("Hello from a Paged World!\n"); // <--- 可以改个欢迎语
     kprint("Timer should be ticking now.\n");
 
     // 开启中断
     asm volatile ("sti");
 
+    // 触发一个页错误来测试！
+    // uint32_t* ptr = (uint32_t*)0xA0000000;
+    // uint32_t test = *ptr;
+
     while(1) {
-        // hlt 指令会让 CPU 进入低功耗状态，直到下一次中断发生
-        // 这是一个比空循环 while(1){} 更高效的等待方式
         asm volatile ("hlt");
     }
 }

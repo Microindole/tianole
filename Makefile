@@ -13,9 +13,9 @@ ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
 # --- 源文件和目标文件 ---
-# 自动查找所有 .c 和 .s 文件，但排除 boot.s, isr.s, 和 isr.c
+# 自动查找所有 .c 和 .s 文件，但排除特殊处理的文件
 C_SOURCES = $(filter-out %/isr.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
-S_SOURCES = $(filter-out %/boot.s %/isr.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
+S_SOURCES = $(filter-out %/boot.s %/isr.s %/paging.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
 
 C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(C_SOURCES)))
 S_OBJS = $(patsubst %.s,$(BUILD_DIR)/%.o,$(notdir $(S_SOURCES)))
@@ -24,7 +24,8 @@ S_OBJS = $(patsubst %.s,$(BUILD_DIR)/%.o,$(notdir $(S_SOURCES)))
 OBJS = $(C_OBJS) $(S_OBJS) \
        $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/isr_s.o \
-       $(BUILD_DIR)/isr_c.o
+       $(BUILD_DIR)/isr_c.o \
+       $(BUILD_DIR)/paging_s.o
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
@@ -62,6 +63,10 @@ $(BUILD_DIR)/isr_s.o: cpu/isr.s
 $(BUILD_DIR)/isr_c.o: cpu/isr.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/paging_s.o: cpu/paging.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
 
 
 # --- 运行和诊断 ---

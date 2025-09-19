@@ -134,3 +134,28 @@ void* kmalloc(uint32_t size) {
     // 没有找到足够大的空闲块
     return NULL;
 }
+
+// 分配一块页对齐的内存
+void* kmalloc_a(uint32_t size) {
+    // 1. 普通分配，多分配一些空间以确保能找到一个对齐的地址
+    //    我们多分配 4095 字节（4K-1），以及一个指针的大小（4字节）
+    //    用来存放原始地址，以便未来可能的 kfree_a
+    void* addr = kmalloc(size + 4095 + sizeof(void*));
+    if (addr == NULL) {
+        return NULL;
+    }
+
+    // 2. 找到对齐的地址
+    //    将地址转换为整数，加上 4095，然后清除低12位
+    //    例如：0x1001 -> 0x1001+0xFFF=0x1FFF -> & ~0xFFF = 0x1000 (不对)
+    //    应该是 (0x1001 + 0xFFF) & ~0xFFF = 0x2000
+    //    正确的做法是：
+    char* aligned_addr = (char*)(((uint32_t)addr + 4095) & 0xFFFFF000);
+    
+    // 3. 在对齐地址的前4个字节，存储原始的、未对齐的地址
+    //    这样将来如果需要实现 kfree_a，就能找回原始指针
+    void** original_addr_ptr = (void**)(aligned_addr - sizeof(void*));
+    *original_addr_ptr = addr;
+
+    return (void*)aligned_addr;
+}

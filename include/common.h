@@ -19,4 +19,8 @@ void kputc(char c);
 void move_cursor();
 void clear_screen();
 
+// 整数转字符串函数声明
+void itoa(int n, char str[]);
+void itoa_hex(uint32_t n, char str[]);
+
 #endif
