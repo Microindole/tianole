@@ -61,6 +61,9 @@ void vfs_cat(const char* name);
 // 声明写入文件内容的函数
 void vfs_write(const char* name, const char* content);
 
+// 声明追加文件内容的函数
+void vfs_append(const char* name, const char* content);
+
 // 声明 cd 函数
 void vfs_cd(const char* name);
 

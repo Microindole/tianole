@@ -238,3 +238,36 @@ void get_current_path(char* path_buffer) {
     strcat(temp, path_buffer);
     strcpy(path_buffer, temp);
 }
+
+// 实现 append 命令的函数
+void vfs_append(const char* name, const char* content) {
+    if (fs_current->type != FS_DIRECTORY) {
+        kprint("\nError: Current path is not a directory.");
+        return;
+    }
+
+    // 遍历查找文件
+    for (uint32_t i = 0; i < fs_current->directory.num_children; i++) {
+        fs_node_t* child = fs_current->directory.children[i];
+        if (strcmp(child->name, name) == 0) {
+            if (child->type == FS_FILE) {
+                // --- 核心区别在这里 ---
+                uint32_t content_len = strlen(content);
+                // 检查追加后的总长度是否会超出限制
+                if (child->file.length + content_len >= MAX_FILE_CONTENT_LEN) {
+                    kprint("\nError: Content is too long to append.");
+                    return;
+                }
+                // 使用 strcat 而不是 strcpy 来追加内容
+                strcat(child->file.content, content);
+                child->file.length += content_len;
+                return; // 追加成功后退出
+            } else {
+                kprint("\nError: Cannot append to a directory.");
+                return;
+            }
+        }
+    }
+
+    kprint("\nError: File not found.");
+}
