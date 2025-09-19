@@ -150,42 +150,26 @@ void child_entry_point() {
 }
 
 void kernel_main(void) {
+    // --- 1. 所有初始化照常进行 ---
     clear_screen();
     init_idt();
-    
-    // 请确保你使用的是简化的、用于调试的 kheap.c
     init_kheap();
-    
     init_paging();
     init_syscalls();
-    init_tasking();
-    init_timer(50);
+    init_tasking(); // 仍然需要，以创建第一个内核任务
+    init_timer(50);   // 仍然需要，以保持系统心跳
     init_vfs();
+
+    // --- 2. Shell 初始化并打印第一个提示符 ---
     init_shell();
 
-    kprint("Kernel initialized. Starting fork() test...\n");
-
-    int pid = fork();
-
-    if (pid == 0) {
-        // 子进程现在有了自己的入口点 (child_entry_point)，
-        // 它永远不会执行到这里的代码。
-        // 我们可以把这里清空。
-    } else {
-        // 父进程代码保持不变
-        kprint("--- I am the PARENT process! My fork() returned PID: ");
-        char pid_str[12];
-        itoa(pid, pid_str, 12, 10);
-        kprint(pid_str);
-        kprint(" ---\n");
-    }
-
-    kprint("Parent process is returning to shell.\n");
-    
-    // 父进程的 idle 循环保持不变
-    asm volatile ("sti");
-    while(1) {
-        asm volatile ("hlt");
+    // --- 3. 内核进入主循环 ---
+    // fork() 测试代码已移除。
+    // 内核的主任务就是运行 Shell，它通过一个简单的
+    // “等待中断”循环来实现。键盘输入会作为中断被处理。
+    asm volatile ("sti"); // 开启中断
+    while (1) {
+        asm volatile ("hlt"); // 等待下一次中断 (键盘、时钟等)
     }
 }
 
