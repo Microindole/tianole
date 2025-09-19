@@ -8,28 +8,27 @@ global switch_task
 ; [esp + 8] -> new (pointer to new task's registers)
 
 switch_task:
+    ; --- 关键修复 1: 先保存参数 ---
+    ; 在 pusha 修改 esp 之前，先把参数从栈上取到寄存器里
+    mov edi, [esp + 4]  ; edi = old
+    mov esi, [esp + 8]  ; esi = new
+
     ; --- Step 1: 保存旧任务的状态 ---
     
-    ; 获取指向 old->registers 的指针
-    mov edi, [esp + 4]
-
     ; 保存通用寄存器 (eax, ecx, edx, ebx, esp, ebp, esi, edi)
-    ; 注意：这里的 edi 已经是 old 的地址，但 pusha 会保存切换前的原始值
     pusha
 
     ; pusha 保存完后，esp 指向了栈顶。这个 esp 就是旧任务被中断时的内核栈顶。
     ; 我们需要把这个栈顶地址保存到 old->registers.esp 中。
-    ; pusha 压入了 8 个 4 字节的寄存器，所以 old->registers 的地址 edi 
-    ; 现在相对于 esp 的偏移是 32。
-    mov [edi + 4*7], esp  ; esp 对应 registers_t 中的 esp 字段 (第 8 个，索引 7)
+    ; --- 关键修复 2: 使用正确的偏移量 ---
+    ; 在 isr.h 的 registers_t 结构体中, esp 字段的偏移量是 16.
+    ; (ds(4) + edi(4) + esi(4) + ebp(4) = 16)
+    mov [edi + 16], esp
     
     ; --- Step 2: 加载新任务的状态 ---
 
-    ; 获取指向 new->registers 的指针
-    mov esi, [esp + 8]
-
     ; 从 new->registers.esp 加载新任务的栈顶指针
-    mov esp, [esi + 4*7]
+    mov esp, [esi + 16]
 
     ; 从新任务的栈中恢复所有通用寄存器
     popa

@@ -1,6 +1,16 @@
 #include "string.h"
 #include "common.h" // for uint32_t
 
+// 内存设置函数
+void* memset(void* ptr, int value, uint32_t num) {
+    unsigned char* p = ptr;
+    unsigned char v = (unsigned char)value;
+    for (uint32_t i = 0; i < num; i++) {
+        p[i] = v;
+    }
+    return ptr;
+}
+
 // 字符串比较函数
 int strcmp(const char* s1, const char* s2) {
     while (*s1 && (*s1 == *s2)) {
