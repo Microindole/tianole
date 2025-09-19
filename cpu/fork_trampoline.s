@@ -1,17 +1,20 @@
-; File: cpu/fork_trampoline.s
-
 section .text
 global fork_trampoline
 
 fork_trampoline:
-    ; 恢复段寄存器
+    ; 此时，通用寄存器已被 switch_task 中的 popa 恢复。
+    ; esp 指向新栈上的 iret 帧，是有效的。
+    ; 但 ebp 指向父进程的栈，是无效的。
+
+    ; --- 关键修复：在返回 C 代码前，重建一个有效的栈帧 ---
+    ; 我们将 ebp 设置为 0，这会安全地终止调用栈链。
+    ; 任何在此之后被调用的 C 函数都能在此基础上建立自己的新栈帧。
+    mov ebp, esp
+
+    ; 现在可以安全地执行常规的中断返回流程
     pop ds
-    
-    ; 跳过栈上为 pusha 帧预留的 32 字节空间
-    add esp, 32
-    
-    ; 清理栈上的 error_code 和 int_no
-    add esp, 8
-    
-    ; 执行中断返回
-    iret
+    add esp, 32  ; 跳过栈上的 GPRs
+    add esp, 8   ; 跳过中断号和错误码
+    iret         ; 安全返回
+
+section .note.GNU-stack,"",@progbits

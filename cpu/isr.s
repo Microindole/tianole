@@ -20,30 +20,54 @@ isr_common_stub:
     mov eax, esp ; 将当前的栈指针 (指向 registers_t 结构体) 作为参数
     push eax
     
-    ; 检查中断号，决定是调用 ISR 还是 IRQ 处理器
-    mov eax, [esp + 4 + 36] ; C 调用前的栈指针 + 参数(4) + 原始偏移(36)
-    cmp eax, 32
+    ; --- BEGIN FIX: 正确的中断分发逻辑 ---
+    ; C 函数的第一个参数 (registers_t* regs) 位于 [esp+4]
+    mov edx, [esp + 4]
+    ; 从 regs 结构体中获取 int_no (偏移量为 36)
+    mov eax, [edx + 36]
+
+    cmp eax, 32          ; 中断号 < 32 是 CPU 异常
     jl is_exception
-    
-is_irq:
+
+    ; 中断号 >= 32 是 IRQ 或我们自定义的中断 (如 syscall)
     call irq_handler
     jmp common_stub_exit
 
 is_exception:
     call isr_handler
-    jmp common_stub_exit
+    ; isr_handler 之后也会跳转到 common_stub_exit，所以这里不需要 jmp
 
-common_stub_exit: ; <--- 修改：这里不再包含 EOI 逻辑
-    pop eax     ; 清理 C 函数的参数
-    pop eax     ; 恢复数据段
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
+; --- BEGIN FINAL FIX ---
+; 最终、健壮的中断退出公共存根
+common_stub_exit:
+   pop eax     ; 清理 C 函数的参数 (regs*)
+   pop eax     ; 将 ds 的值从栈上弹到 ax
+   mov ds, ax  ; 恢复 ds, es, fs, gs
+   mov es, ax
+   mov fs, ax
+   mov gs, ax
 
-    popa        ; 恢复通用寄存器
-    add esp, 8  ; 清理错误码和中断号
-    iret        ; 从中断返回
+   popa        ; 恢复所有通用寄存器 (eax, ecx, edx, ebx, esp, ebp, esi, edi)
+
+   ; --- 正确的 EOI 发送逻辑 ---
+   push eax            ; 保护 eax
+   mov eax, [esp + 8]  ; 获取中断号 (在栈上，位于 saved eax 和 err_code 之下)
+   cmp eax, 40
+   jl .master_eoi_only
+
+.send_slave_eoi:
+   mov al, 0x20
+   out 0xA0, al        ; 发送 EOI 到从片
+
+.master_eoi_only:
+   mov al, 0x20
+   out 0x20, al        ; 发送 EOI 到主片
+
+   pop eax             ; 恢复 eax
+
+   add esp, 8  ; 清理栈上的 error_code 和 int_no
+   iret        ; 从中断安全返回
+; --- END FINAL FIX ---
 
 ; --- 宏定义 (保持不变) ---
 %macro ISR_NOERRCODE 1

@@ -139,6 +139,16 @@ void itoa_hex(uint32_t n, char* str, int len) {
 void init_idt();
 void init_timer(uint32_t frequency);
 
+// --- 为子进程创建独立的入口点 ---
+void child_entry_point() {
+    // 这里就是子进程真正的“第一行代码”
+    asm volatile("sti");
+    kprint("--- I am the CHILD process! My fork() returned 0. ---\n");
+    while(1) {
+        asm volatile("hlt");
+    }
+}
+
 void kernel_main(void) {
     clear_screen();
     init_idt();
@@ -158,14 +168,13 @@ void kernel_main(void) {
     int pid = fork();
 
     if (pid == 0) {
-        // --- 子进程代码 ---
-        kprint("--- I am the CHILD process! My fork() returned 0. ---\n");
-        asm volatile("sti");
-        while(1) {}
+        // 子进程现在有了自己的入口点 (child_entry_point)，
+        // 它永远不会执行到这里的代码。
+        // 我们可以把这里清空。
     } else {
-        // --- 父进程代码 ---
+        // 父进程代码保持不变
         kprint("--- I am the PARENT process! My fork() returned PID: ");
-        char pid_str[12]; // 足够大的安全缓冲区
+        char pid_str[12];
         itoa(pid, pid_str, 12, 10);
         kprint(pid_str);
         kprint(" ---\n");
@@ -173,8 +182,8 @@ void kernel_main(void) {
 
     kprint("Parent process is returning to shell.\n");
     
+    // 父进程的 idle 循环保持不变
     asm volatile ("sti");
-
     while(1) {
         asm volatile ("hlt");
     }

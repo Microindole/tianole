@@ -14,9 +14,9 @@ static void timer_callback(registers_t* regs) {
     
     // --- 调用调度器 ---
     // 每 5 个 tick (大约 100ms) 进行一次任务切换
-    if (tick % 5 == 0) {
-        schedule();
-    }
+    // if (tick % 5 == 0) {
+    schedule();
+    // }
 }
 
 void init_timer(uint32_t frequency) {
