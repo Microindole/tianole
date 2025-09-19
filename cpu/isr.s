@@ -21,39 +21,20 @@ isr_common_stub:
     push eax
     
     ; 检查中断号，决定是调用 ISR 还是 IRQ 处理器
-    mov eax, [esp + 36] ; 从栈上获取中断号
+    mov eax, [esp + 4 + 36] ; C 调用前的栈指针 + 参数(4) + 原始偏移(36)
     cmp eax, 32
     jl is_exception
     
 is_irq:
     call irq_handler
-    jmp common_handler_exit ; 跳转到通用的退出逻辑
+    jmp common_stub_exit
 
 is_exception:
     call isr_handler
-    ; 注意：异常处理后也应该发送 EOI，以防万一是伪装成异常的 IRQ
-    ; 我们将这个逻辑统一放在 common_handler_exit 中
-
-common_handler_exit:
-    pop eax ; 清理 C 函数的参数
-    
-    ; --- 关键修复：在这里统一发送 EOI 信号 ---
-    ; 检查中断号是否 >= 40 (来自从片)
-    mov eax, [esp + 32] ; 重新从栈上获取中断号 (偏移量变了)
-    cmp eax, 40
-    jge send_eoi_slave
-
-send_eoi_master:
-    mov al, 0x20
-    out 0x20, al ; 向主片发送 EOI
     jmp common_stub_exit
 
-send_eoi_slave:
-    mov al, 0x20
-    out 0xA0, al ; 向从片发送 EOI
-    out 0x20, al ; 也要向主片发送 EOI
-
-common_stub_exit:
+common_stub_exit: ; <--- 修改：这里不再包含 EOI 逻辑
+    pop eax     ; 清理 C 函数的参数
     pop eax     ; 恢复数据段
     mov ds, ax
     mov es, ax
@@ -83,7 +64,6 @@ isr%1:
 %endmacro
 
 ; --- 生成 ISRs (保持不变) ---
-; ... (ISR_NOERRCODE 0 到 ISR_NOERRCODE 47 的所有宏调用) ...
 ISR_NOERRCODE  0
 ISR_NOERRCODE  1
 ISR_NOERRCODE  2
@@ -132,7 +112,6 @@ ISR_NOERRCODE 44
 ISR_NOERRCODE 45
 ISR_NOERRCODE 46
 ISR_NOERRCODE 47
-
 
 ; --- 添加段声明以消除链接器警告 ---
 section .note.GNU-stack,"",@progbits

@@ -64,15 +64,22 @@ void init_tasking() {
     kprint("Tasking system initialized.\n");
 }
 
-// 调度器
+// 实现调度器函数
 void schedule() {
-    if (current_task == NULL || current_task->next == NULL) {
+    // current_task 是一个全局 volatile 指针, 它的值可能在中断中改变
+    
+    // 获取队列中的下一个任务
+    volatile task_t* next_task = current_task->next;
+
+    // 如果队列中只有一个任务 (next 指向自己), 则无需切换
+    if (next_task == current_task) {
         return;
     }
-
-    task_t* old_task = (task_t*)current_task;
-    current_task = current_task->next;
     
-    // --- 修复 2: 强制类型转换以消除 volatile 警告 ---
-    switch_task(&old_task->registers, (registers_t*)&current_task->registers);
+    // 准备切换
+    volatile task_t* old_task = current_task;
+    current_task = next_task;
+
+    // 调用汇编实现的上下文切换
+    switch_task((registers_t*)&old_task->registers, (registers_t*)&current_task->registers);
 }
