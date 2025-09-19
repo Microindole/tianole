@@ -10,6 +10,7 @@
 static char cmd_buffer[CMD_BUFFER_SIZE];
 static int buffer_len = 0;
 static int cursor_pos = 0;
+static int prompt_len = 0;
 
 // --- 声明外部函数 ---
 void get_current_path(char* buffer);
@@ -18,8 +19,8 @@ void get_current_path(char* buffer);
 extern int cursor_x, cursor_y;
 
 static void redraw_line() {
-    // 1. 将硬件光标移动到行首（提示符后面）
-    cursor_x = 2; // "> " 占两个字符
+    // 1. 将硬件光标移动到提示符后面
+    cursor_x = prompt_len;
     move_cursor();
 
     // 2. 打印缓冲区中的所有内容
@@ -30,8 +31,9 @@ static void redraw_line() {
     // 3. 打印空格，覆盖掉可能残留的旧字符
     kputc(' ');
 
+
     // 4. 将硬件光标移动到逻辑光标的正确位置
-    cursor_x = 2 + cursor_pos;
+    cursor_x = prompt_len + cursor_pos;
     move_cursor();
 }
 
@@ -94,9 +96,10 @@ void shell_handle_key(uint16_t keycode) {
 static void print_prompt() {
     char path[256];
     get_current_path(path);
-    kprint("\n");
-    kprint(path); // 打印路径
-    kprint("> "); // 打印 >
+    kprint(path); 
+    kprint("> ");
+    // 计算并保存提示符的长度
+    prompt_len = strlen(path) + 2; // path + "> "
 }
 
 // 处理输入命令的函数
@@ -170,7 +173,8 @@ void process_command(char *input) {
         kprint("\nUnknown command: ");
         kprint(command);
     }
-    print_prompt();
+    kprint("\n");       // 在命令输出后换行
+    print_prompt();   // 打印新的提示符
 }
 
 
@@ -178,6 +182,7 @@ void process_command(char *input) {
 void init_shell() {
     kprint("Welcome to the Simple Shell!\n");
     kprint("Type 'help' for a list of commands.\n\n");
-    print_prompt();
+    kprint("\n");       // 在欢迎语后换行
+    print_prompt();   // 打印第一个提示符
     init_keyboard(); // shell 启动的一部分是初始化键盘
 }
