@@ -25,7 +25,8 @@ OBJS = $(C_OBJS) $(S_OBJS) \
        $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/isr_s.o \
        $(BUILD_DIR)/isr_c.o \
-       $(BUILD_DIR)/paging_s.o
+       $(BUILD_DIR)/paging_s.o \
+# 	   $(BUILD_DIR)/fork_trampoline.o
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
@@ -65,6 +66,10 @@ $(BUILD_DIR)/isr_c.o: cpu/isr.c
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/paging_s.o: cpu/paging.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(BUILD_DIR)/fork_trampoline.o: cpu/fork_trampoline.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 

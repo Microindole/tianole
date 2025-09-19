@@ -14,6 +14,14 @@ unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
 int cursor_x = 0;
 int cursor_y = 0;
 
+// --- 添加这个新的诊断函数 ---
+void child_test_func() {
+    kprint("\n--- CHILD TEST FUNCTION REACHED! --- \n");
+    // 如果能打印上面这句话，说明上下文切换成功了。
+    // 然后我们让它在这里停机。
+    for(;;);
+}
+
 void move_cursor() {
     // 计算光标的一维线性位置
     uint16_t cursorLocation = cursor_y * VGA_WIDTH + cursor_x;

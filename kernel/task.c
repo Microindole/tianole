@@ -89,9 +89,10 @@ void schedule() {
     current_task = next_task;
 
     // --- 切换页目录 ---
-    // 如果新任务的页目录与当前的不同，就加载新的
     if (current_task->directory != current_directory) {
         load_page_directory(current_task->directory);
+        // --- 关键修正：在这里更新全局变量 ---
+        current_directory = current_task->directory;
     }
 
     // 调用汇编实现的上下文切换
