@@ -13,19 +13,19 @@ typedef enum {
     TASK_DEAD
 } task_state_t;
 
-// 任务（进程）控制块 (TCB) - 最终版
+// 任务（进程）控制块 (TCB) 
 typedef struct task {
     uint32_t id;
     task_state_t state;
     
-    // 指向任务内核栈顶的指针 (ESP)
+    // 指向任务内核栈当前位置的指针 (ESP)
     uint32_t kernel_stack_ptr;
+    uint32_t kernel_stack_top;
 
     page_directory_t* directory;
     struct task* next;
     
-    // 新增字段：只用于新创建的进程，用来存放 fork 时保存的父进程中断状态
-    registers_t* initial_regs; 
+    registers_t* initial_regs;
     
 } task_t;
 

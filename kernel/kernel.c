@@ -96,13 +96,7 @@ void clear_screen() {
 // --------------------
 static void strrev_local(char *s, int len) {
     char *e = s + len - 1;
-    while (s < e) {
-        char tmp = *s;
-        *s = *e;
-        *e = tmp;
-        s++;
-        e--;
-    }
+    while (s < e) { char tmp = *s; *s = *e; *e = tmp; s++; e--; }
 }
 
 void itoa(int n, char* str, int len, int base) {
@@ -196,57 +190,47 @@ void heap_test() {
 // 执行用户程序的函数
 void exec_user_program() {
     asm volatile("cli");
-
-    task_t* parent_task = (task_t*)current_task; // 假设内核主循环是一个任务
     
-    // 1. 创建新任务和页目录
+    // 1. 创建子任务并完成所有设置
     task_t* child_task = (task_t*)kmalloc(sizeof(task_t));
     child_task->id = next_pid++;
     child_task->state = TASK_READY;
     child_task->directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
     memset(child_task->directory, 0, sizeof(page_directory_t));
-
-    // 每个进程的地址空间都必须包含内核的映射。
-    // 我们把内核的页目录项(PDE)复制到子进程的页目录中。
-    // 内核位于第一个页目录项，映射了前4MB。
-    child_task->directory->entries[0] = kernel_directory->entries[0];
     
-    // 2. 映射用户代码和栈
+    extern page_directory_t* kernel_directory;
+    child_task->directory->entries[0] = kernel_directory->entries[0];
+
     uint32_t prog_start = (uint32_t)_binary_build_user_program_bin_start;
     uint32_t prog_end = (uint32_t)_binary_build_user_program_bin_end;
     uint32_t prog_size = prog_end - prog_start;
-
-
     uint32_t num_pages = (prog_size / 4096) + 1;
     
-    // 映射代码页 (从 0x40000000 开始)
     for (uint32_t i = 0; i < num_pages; i++) {
         alloc_and_map_page(child_task->directory, 0x40000000 + i * 4096, 0, 1);
     }
-    // 映射栈页 (我们只分配一页)
     alloc_and_map_page(child_task->directory, 0xE0000000, 0, 1);
 
-    // 3. 切换到新页目录，拷贝代码
     page_directory_t* old_dir = current_directory;
     load_page_directory(child_task->directory);
-    
-    
     memcpy((void*)0x40000000, (void*)prog_start, prog_size);
-    load_page_directory(old_dir); // 切换回来
+    load_page_directory(old_dir);
 
-    // 4. 准备 initial_regs 用于切换到 Ring 3
     child_task->initial_regs = (registers_t*)kmalloc(sizeof(registers_t));
     memset(child_task->initial_regs, 0, sizeof(registers_t));
     
-    child_task->initial_regs->eip = 0x40000000; // 程序入口
-    child_task->initial_regs->cs = 0x1B;        // 用户代码段选择子 (0x18 | 3)
-    child_task->initial_regs->ds = 0x23;        // 用户数据段选择子 (0x20 | 3)
-    child_task->initial_regs->eflags = 0x202;   // 开启中断
-    child_task->initial_regs->esp = 0xE0000000 + 4096; // 栈顶
+    child_task->initial_regs->eip = 0x40000000;
+    child_task->initial_regs->cs = 0x1B;
+    child_task->initial_regs->ds = 0x23;
+    child_task->initial_regs->eflags = 0x202;
+    child_task->initial_regs->useresp = 0xE0000000 + 4096;  // useresp
+
+    // 为用户态的栈段(SS)赋值，使用用户数据段选择子
+    child_task->initial_regs->ss = 0x23;  // ss
     
-    // 5. 将任务加入就绪队列
-    child_task->next = parent_task->next;
-    parent_task->next = child_task;
+    // 将任务加入就绪队列
+    child_task->next = current_task->next;
+    current_task->next = child_task;
     
     asm volatile("sti");
     kprint("\nUser program scheduled. Will run on next context switch.\n");

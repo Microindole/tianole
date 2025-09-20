@@ -3,6 +3,7 @@
 #include "../mm/kheap.h"
 #include "string.h"
 #include <stddef.h>
+#include "../cpu/tss.h"
 
 // 外部变量和函数
 extern page_directory_t* current_directory;
@@ -45,35 +46,40 @@ void schedule() {
     volatile task_t* old_task = current_task;
     current_task = next_task;
 
-    // 如果这是一个新创建的任务 (用户或fork出的)
+    // 为一个全新的任务创建并设置内核栈
     if (current_task->kernel_stack_ptr == 0 && current_task->initial_regs != NULL) {
         
-        uint32_t stack_top = (uint32_t)kmalloc(4096) + 4096;
-        uint32_t esp = stack_top;
-
-        // --- 核心修正：正确地构建启动栈 ---
+        // 分配4K内存作为内核栈
+        uint32_t stack_addr = (uint32_t)kmalloc(4096);
+        // 【关键修正】保存栈的最高地址
+        current_task->kernel_stack_top = stack_addr + 4096;
         
-        // 1. 在栈底放置 iret 帧 (包含了用户态或子进程的寄存器)
+        // 从栈顶开始构建 iret 帧
+        uint32_t esp = current_task->kernel_stack_top;
+
+        // 1. 在栈底放置 iret 帧
         esp -= sizeof(registers_t);
         memcpy((void*)esp, current_task->initial_regs, sizeof(registers_t));
         
-        // 2. 在 iret 帧之上，放置 trampoline 的地址，作为 switch_task 的返回地址
+        // 2. 放置 trampoline 的地址
         esp -= 4;
         *(uint32_t*)esp = (uint32_t)fork_trampoline;
         
-        // 3. 在 trampoline 地址之上，伪造一个 pusha 帧
-        //    对于第一次运行的任务，这些寄存器的值不重要，但必须占位
+        // 3. 伪造一个 pusha 帧
         esp -= 32;
         memset((void*)esp, 0, 32);
 
-        // 4. 释放一次性的 initial_regs
+        // 释放一次性的 initial_regs
         kfree(current_task->initial_regs);
         current_task->initial_regs = NULL;
 
-        // 5. 设置任务的最终 esp
+        // 设置任务的最终 esp
         current_task->kernel_stack_ptr = esp;
     }
 
+    // 【关键修正】TSS的esp0必须永远指向栈的最高处、最干净的位置
+    tss_set_stack(current_task->kernel_stack_top);
+    
     if (current_task->directory != current_directory) {
         load_page_directory(current_task->directory);
         current_directory = current_task->directory;
