@@ -76,7 +76,7 @@ void schedule() {
 
     if (current_task->directory != current_directory) {
         load_page_directory(current_task->directory);
-        current_directory = current_directory;
+        current_directory = current_task->directory;
     }
 
     switch_task(old_task, current_task);

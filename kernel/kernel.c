@@ -19,6 +19,7 @@ int cursor_y = 0;
 // 从链接脚本获取用户程序的地址和大小
 extern char _binary_build_user_program_bin_start[];
 extern char _binary_build_user_program_bin_end[];
+extern page_directory_t* kernel_directory;
 
 extern volatile task_t* current_task;
 extern uint32_t next_pid;
@@ -204,6 +205,11 @@ void exec_user_program() {
     child_task->state = TASK_READY;
     child_task->directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
     memset(child_task->directory, 0, sizeof(page_directory_t));
+
+    // 每个进程的地址空间都必须包含内核的映射。
+    // 我们把内核的页目录项(PDE)复制到子进程的页目录中。
+    // 内核位于第一个页目录项，映射了前4MB。
+    child_task->directory->entries[0] = kernel_directory->entries[0];
     
     // 2. 映射用户代码和栈
     uint32_t prog_start = (uint32_t)_binary_build_user_program_bin_start;
