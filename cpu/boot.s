@@ -21,6 +21,12 @@ global start
 extern kernel_main
 
 start:
+    ; --- DEBUG: 直接用汇编在屏幕左上角写一个 'A' ---
+    mov ah, 0x0F      ; 属性: 黑底白字
+    mov al, 'A'       ; 字符 'A'
+    mov [0xB8000], ax ; 写入显存的第一个位置
+    ; --- DEBUG 代码结束 ---
+
     ; Set up the stack
     mov esp, stack_top
     ; Call our C kernel

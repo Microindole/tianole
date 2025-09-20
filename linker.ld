@@ -1,5 +1,5 @@
 /*
- * linker.ld -- The definitive linker script for our kernel.
+ * linker.ld -- The definitive, corrected linker script for our kernel.
  */
 
 ENTRY(start)
@@ -7,41 +7,30 @@ OUTPUT_FORMAT(elf32-i386)
 
 SECTIONS
 {
-    /* Start at 1M */
+    /* 内核从 1MB 物理地址开始 */
     . = 1M;
 
-    /* The first section is the multiboot header */
+    /* .text 段：包含 multiboot 头、代码和只读数据 */
     .text :
     {
-        *(.multiboot)
+        *(.multiboot)   /* 必须是第一项！ */
         *(.text*)
-    } :text
-
-    .rodata :
-    {
         *(.rodata*)
-    } :rodata
+    }
 
+    /* .data 段：包含已初始化的数据 */
     .data :
     {
         *(.data)
-        /* VVV 修正 VVV：链接由 objcopy 生成的数据 */
-        *(.rodata .data .bss)
-    } :data
+    }
 
+    /* .bss 段：包含未初始化的数据 (内核加载后会清零这片区域) */
     .bss :
     {
-        *(.bss)
-    } :bss
+        *(COMMON)
+        *(.bss*)
+    }
 
-    end = .; /* 'end' 标记了 BSS 段的结束，即内核的结束 */
-}
-
-/* Define program headers to ensure correct memory permissions */
-PHDRS
-{
-    text PT_LOAD FLAGS(5); /* R-- E-X */
-    rodata PT_LOAD FLAGS(4); /* R-- --- */
-    data PT_LOAD FLAGS(6); /* RW- --- */
-    bss PT_LOAD FLAGS(6); /* RW- --- */
+    /* 定义一个符号 'end'，它指向内核文件的末尾 */
+    end = .;
 }

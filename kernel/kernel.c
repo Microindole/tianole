@@ -252,6 +252,8 @@ void kernel_main(void) {
     init_gdt();
     init_idt();
     init_kheap();
+    // kprint("Kernel initialized up to paging. System halted.");
+    // for(;;); // 无限循环，让 CPU 停在这里
     init_paging();
     init_syscalls();
     init_tasking(); // 仍然需要，以创建第一个内核任务
