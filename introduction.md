@@ -99,7 +99,7 @@ git config --global https.proxy https://xx.xx.xx.xx:7897
 定时器中断是任务调度和多任务处理的基石。
 
 make clean
-make run
+make qemu-direct
 
 
 提示词：自己写代码复现一个基础版的linux内核模块，包含kernel.c和Makefile文件，并在WSL环境中使用VS Code进行开发。
