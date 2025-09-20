@@ -25,7 +25,7 @@ typedef struct task {
     page_directory_t* directory;
     struct task* next;
     
-    registers_t* initial_regs;
+    registers_t initial_regs;
     
 } task_t;
 

@@ -51,9 +51,8 @@ void syscall_fork(registers_t* regs) {
     child_task->directory = clone_directory(parent_task->directory);
     child_task->kernel_stack_ptr = 0;
 
-    child_task->initial_regs = (registers_t*)kmalloc(sizeof(registers_t));
-    memcpy(child_task->initial_regs, regs, sizeof(registers_t));
-    child_task->initial_regs->eax = 0;
+    memcpy(&child_task->initial_regs, regs, sizeof(registers_t));
+    child_task->initial_regs.eax = 0;
 
     regs->eax = child_task->id;
 

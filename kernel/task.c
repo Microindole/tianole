@@ -22,7 +22,7 @@ void init_tasking() {
     kernel_task->id = next_pid++;
     kernel_task->state = TASK_RUNNING;
     kernel_task->kernel_stack_ptr = 0;
-    kernel_task->initial_regs = NULL;
+    // kernel_task->initial_regs = NULL;
     kernel_task->directory = current_directory;
 
     current_task = kernel_task;
@@ -38,52 +38,58 @@ extern void child_entry_point(void);
 
 // 调度器
 void schedule() {
+    // 1. 找到下一个要运行的任务
     volatile task_t* next_task = current_task->next;
     if (next_task == current_task) {
-        return;
+        return; // 如果没有其他任务，什么都不做
     }
 
-    volatile task_t* old_task = current_task;
-    current_task = next_task;
-
-    // 为一个全新的任务创建并设置内核栈
-    if (current_task->kernel_stack_ptr == 0 && current_task->initial_regs != NULL) {
+    // --- BEGIN FINAL FIX ---
+    
+    // 2. 如果下一个任务是第一次运行(kernel_stack_ptr为0)，那么就在这里为它构建初始内核栈
+    //    关键：此时我们仍然在旧任务的上下文中，全局的 current_task 还没被修改。
+    if (next_task->kernel_stack_ptr == 0) {
         
-        // 分配4K内存作为内核栈
+        // 分配4K内存作为新任务的内核栈
         uint32_t stack_addr = (uint32_t)kmalloc(4096);
-        // 【关键修正】保存栈的最高地址
-        current_task->kernel_stack_top = stack_addr + 4096;
+        next_task->kernel_stack_top = stack_addr + 4096;
         
         // 从栈顶开始构建 iret 帧
-        uint32_t esp = current_task->kernel_stack_top;
+        uint32_t esp = next_task->kernel_stack_top;
 
-        // 1. 在栈底放置 iret 帧
+        // a. 在栈底放置 iret 帧 (从 next_task->initial_regs 复制)
         esp -= sizeof(registers_t);
-        memcpy((void*)esp, current_task->initial_regs, sizeof(registers_t));
+        memcpy((void*)esp, &next_task->initial_regs, sizeof(registers_t));
         
-        // 2. 放置 trampoline 的地址
+        // b. 放置 trampoline 的地址
         esp -= 4;
         *(uint32_t*)esp = (uint32_t)fork_trampoline;
         
-        // 3. 伪造一个 pusha 帧
+        // c. 伪造一个 pusha 帧
         esp -= 32;
         memset((void*)esp, 0, 32);
 
-        // 释放一次性的 initial_regs
-        kfree(current_task->initial_regs);
-        current_task->initial_regs = NULL;
-
-        // 设置任务的最终 esp
-        current_task->kernel_stack_ptr = esp;
+        // d. 设置新任务的最终 esp
+        next_task->kernel_stack_ptr = esp;
     }
 
-    // 【关键修正】TSS的esp0必须永远指向栈的最高处、最干净的位置
+    // 3. 保存旧任务的指针
+    volatile task_t* old_task = current_task;
+    
+    // 4. 至此，新任务已完全准备就绪。现在，正式更新全局的 current_task 指针
+    current_task = next_task;
+
+    // --- END FINAL FIX ---
+
+    // 5. 更新TSS的内核栈顶指针，使其指向新任务的栈
     tss_set_stack(current_task->kernel_stack_top);
     
-    if (current_task->directory != current_directory) {
+    // 6. 如果需要，切换页目录
+    if (current_task->directory != old_task->directory) { // 注意：这里和 old_task 比较
         load_page_directory(current_task->directory);
-        current_directory = current_task->directory;
+        current_directory = current_task->directory; // 更新全局 current_directory
     }
 
+    // 7. 执行汇编级的上下文切换
     switch_task(old_task, current_task);
 }

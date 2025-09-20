@@ -99,9 +99,8 @@ static void strrev_local(char *s, int len) {
     while (s < e) { char tmp = *s; *s = *e; *e = tmp; s++; e--; }
 }
 
-void itoa(int n, char* str, int len, int base) {
+void itoa(uint32_t n, char* str, int len, int base) {
     int i = 0;
-    _Bool is_negative = 0;
     if (n == 0) {
         if (len > 1) {
             str[i++] = '0';
@@ -109,20 +108,15 @@ void itoa(int n, char* str, int len, int base) {
         }
         return;
     }
-    if (n < 0 && base == 10) {
-        is_negative = 1;
-        n = -n;
-    }
-    while (n != 0 && i < len - 2) {
+    
+    while (n != 0 && i < len - 1) { // 调整缓冲区检查
         int rem = n % base;
         str[i++] = (rem > 9) ? (rem - 10) + 'a' : rem + '0';
         n /= base;
     }
-    if (is_negative && i < len - 2) {
-        str[i++] = '-';
-    }
+
     str[i] = '\0';
-    strrev_local(str, i);
+    strrev_local(str, i); // strrev_local 是您已有的内部函数
 }
 
 void itoa_hex(uint32_t n, char* str, int len) {
@@ -195,11 +189,16 @@ void exec_user_program() {
     task_t* child_task = (task_t*)kmalloc(sizeof(task_t));
     child_task->id = next_pid++;
     child_task->state = TASK_READY;
+    child_task->kernel_stack_ptr = 0;
     child_task->directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
     memset(child_task->directory, 0, sizeof(page_directory_t));
     
     extern page_directory_t* kernel_directory;
-    child_task->directory->entries[0] = kernel_directory->entries[0];
+    for (int i = 0; i < 256; i++) {
+        if (kernel_directory->entries[i]) {
+            child_task->directory->entries[i] = kernel_directory->entries[i];
+        }
+    }
 
     uint32_t prog_start = (uint32_t)_binary_build_user_program_bin_start;
     uint32_t prog_end = (uint32_t)_binary_build_user_program_bin_end;
@@ -216,21 +215,30 @@ void exec_user_program() {
     memcpy((void*)0x40000000, (void*)prog_start, prog_size);
     load_page_directory(old_dir);
 
-    child_task->initial_regs = (registers_t*)kmalloc(sizeof(registers_t));
-    memset(child_task->initial_regs, 0, sizeof(registers_t));
+    memset(&child_task->initial_regs, 0, sizeof(registers_t));
     
-    child_task->initial_regs->eip = 0x40000000;
-    child_task->initial_regs->cs = 0x1B;
-    child_task->initial_regs->ds = 0x23;
-    child_task->initial_regs->eflags = 0x202;
-    child_task->initial_regs->useresp = 0xE0000000 + 4096;  // useresp
+    child_task->initial_regs.eip = 0x40000000;
+    child_task->initial_regs.cs = 0x1B;
+    child_task->initial_regs.ds = 0x23;
+    child_task->initial_regs.eflags = 0x202;
+    child_task->initial_regs.useresp = 0xE0000000 + 4096 - 16;  // useresp
 
     // 为用户态的栈段(SS)赋值，使用用户数据段选择子
-    child_task->initial_regs->ss = 0x23;  // ss
+    child_task->initial_regs.ss = 0x23;  // ss
     
     // 将任务加入就绪队列
     child_task->next = current_task->next;
     current_task->next = child_task;
+
+     char hex_buf[12];
+    itoa_hex(child_task->initial_regs.eip, hex_buf, 12);
+    kprint("\n[DEBUG] Created task ");
+    itoa(child_task->id, hex_buf, 12, 10);
+    kprint(hex_buf);
+    kprint(" with EIP = ");
+    itoa_hex(child_task->initial_regs.eip, hex_buf, 12);
+    kprint(hex_buf);
+    kprint("\n");
     
     asm volatile("sti");
     kprint("\nUser program scheduled. Will run on next context switch.\n");
