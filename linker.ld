@@ -25,6 +25,8 @@ SECTIONS
     .data :
     {
         *(.data)
+        /* VVV 修正 VVV：链接由 objcopy 生成的数据 */
+        *(.rodata .data .bss)
     } :data
 
     .bss :

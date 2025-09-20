@@ -35,8 +35,9 @@ typedef struct page_directory {
     uint32_t entries[1024];
 } page_directory_t;
 
-// --- 关键修正：添加缺失的函数声明 ---
 extern void load_page_directory(page_directory_t*);
+
+void alloc_and_map_page(page_directory_t* dir, uint32_t virt_addr, _Bool is_kernel, _Bool is_writeable);
 
 // 初始化分页系统
 void init_paging();

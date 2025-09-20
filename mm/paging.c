@@ -2,6 +2,7 @@
 #include "kheap.h"
 #include "common.h"
 #include "string.h"
+#include "kheap.h"
 
 // 全局的内核页目录
 page_directory_t* kernel_directory = 0;
@@ -33,23 +34,38 @@ void page_fault_handler(registers_t* regs) {
     for(;;);
 }
 
+// 创建一个新的、通用的页分配和映射函数
+void alloc_and_map_page(page_directory_t* dir, uint32_t virt_addr, _Bool is_kernel, _Bool is_writeable) {
+    uint32_t pde_idx = virt_addr / (1024 * 4096);
+    uint32_t pte_idx = (virt_addr / 4096) % 1024;
+    
+    // 如果页表不存在，则创建
+    if (dir->entries[pde_idx] == 0) {
+        page_table_t* pt = (page_table_t*)kmalloc_a(sizeof(page_table_t));
+        memset(pt, 0, sizeof(page_table_t));
+        uint32_t flags = 0x3 | (is_kernel ? 0 : 4); // Present, RW, User
+        dir->entries[pde_idx] = (uint32_t)pt | flags;
+    }
+
+    page_table_t* pt = (page_table_t*)(dir->entries[pde_idx] & 0xFFFFF000);
+
+    // 分配一个物理页帧
+    void* frame = kmalloc_a(4096); // 使用 kmalloc_a 保证页对齐
+    
+    // 设置页表项
+    uint32_t flags = 0x1 | (is_writeable ? 2 : 0) | (is_kernel ? 0 : 4); // Present, RW, User
+    pt->entries[pte_idx] = ((uint32_t)frame & 0xFFFFF000) | flags;
+}
+
+
 void init_paging() {
     kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
     memset(kernel_directory, 0, sizeof(page_directory_t));
     current_directory = kernel_directory;
 
-    for (uint32_t addr = 0; addr < 1024 * 1024 * 4; addr += 0x1000) {
-        uint32_t pde_idx = addr / (1024 * 4096);
-        uint32_t pte_idx = (addr / 4096) % 1024;
-
-        if (kernel_directory->entries[pde_idx] == 0) {
-            page_table_t* pt = (page_table_t*)kmalloc_a(sizeof(page_table_t));
-            memset(pt, 0, sizeof(page_table_t));
-            kernel_directory->entries[pde_idx] = (uint32_t)pt | 0x3; // Present, RW
-        }
-        
-        page_table_t* pt = (page_table_t*)(kernel_directory->entries[pde_idx] & 0xFFFFF000);
-        pt->entries[pte_idx] = (addr & 0xFFFFF000) | 0x3; // Present, RW
+    // 恒等映射前 4MB 的内核空间
+    for (uint32_t addr = 0; addr < 0x400000; addr += 0x1000) {
+        alloc_and_map_page(kernel_directory, addr, 1, 1);
     }
 
     register_interrupt_handler(14, page_fault_handler);

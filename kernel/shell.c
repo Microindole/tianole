@@ -21,6 +21,7 @@ static int history_view_idx = -1;  // 当前正在查看的历史命令索引 (-
 
 // --- 声明外部函数 ---
 void get_current_path(char* buffer);
+extern void exec_user_program();
 
 // 外部变量，来自 kernel.c
 extern int cursor_x, cursor_y;
@@ -260,6 +261,8 @@ void process_command(char *input) {
                 kprint("\nUsage: append <file_name> \"content_to_append\"");
             }
         }
+    } else if (strcmp(command, "exec") == 0) {
+        exec_user_program();
     } else {
         kprint("\nUnknown command: ");
         kprint(command);

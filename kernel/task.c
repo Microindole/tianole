@@ -45,46 +45,39 @@ void schedule() {
     volatile task_t* old_task = current_task;
     current_task = next_task;
 
-    // 如果这是一个新创建的任务，则为其构建启动栈
+    // 如果这是一个新创建的任务 (用户或fork出的)
     if (current_task->kernel_stack_ptr == 0 && current_task->initial_regs != NULL) {
         
         uint32_t stack_top = (uint32_t)kmalloc(4096) + 4096;
         uint32_t esp = stack_top;
 
-        // 1. 在栈底放置 iret 帧 (使用之前保存的 initial_regs)
+        // --- 核心修正：正确地构建启动栈 ---
+        
+        // 1. 在栈底放置 iret 帧 (包含了用户态或子进程的寄存器)
         esp -= sizeof(registers_t);
         memcpy((void*)esp, current_task->initial_regs, sizeof(registers_t));
+        
+        // 2. 在 iret 帧之上，放置 trampoline 的地址，作为 switch_task 的返回地址
+        esp -= 4;
+        *(uint32_t*)esp = (uint32_t)fork_trampoline;
+        
+        // 3. 在 trampoline 地址之上，伪造一个 pusha 帧
+        //    对于第一次运行的任务，这些寄存器的值不重要，但必须占位
+        esp -= 32;
+        memset((void*)esp, 0, 32);
 
-        // --- 劫持 iret 的返回地址 ---
-        registers_t* regs_on_stack = (registers_t*)esp;
-        regs_on_stack->eip = (uint32_t)child_entry_point; // 将 EIP 指向新的入口函数
-        regs_on_stack->eax = 0; // 确保子进程代码如果需要，可以访问 eax=0
-
-        // 2. 释放 initial_regs，因为它是一次性的
+        // 4. 释放一次性的 initial_regs
         kfree(current_task->initial_regs);
         current_task->initial_regs = NULL;
 
-        // 3. 在 iret 帧上构建 C 调用帧，返回到 trampoline
-        esp -= 4;
-        *(uint32_t*)esp = (uint32_t)fork_trampoline;
-        // 4. 安全地构建 pusha 帧，避免内存重叠
-        //    首先，将 GPRs 从 iret_frame 复制到一个临时缓冲区
-        uint32_t tmp_gprs[8];
-        memcpy(tmp_gprs, (void*)&((registers_t*)(stack_top - sizeof(registers_t)))->edi, 32);
-        
-        //    然后，将临时缓冲区的内容复制到最终的栈顶
-        esp -= 32;
-        memcpy((void*)esp, tmp_gprs, 32);
-
-        // 4. 设置任务的最终 esp
+        // 5. 设置任务的最终 esp
         current_task->kernel_stack_ptr = esp;
     }
 
     if (current_task->directory != current_directory) {
         load_page_directory(current_task->directory);
-        current_directory = current_task->directory;
+        current_directory = current_directory;
     }
 
     switch_task(old_task, current_task);
 }
-

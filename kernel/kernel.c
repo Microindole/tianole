@@ -5,6 +5,8 @@
 #include "task.h"
 #include "../mm/paging.h"
 #include "syscall.h"
+#include "../cpu/gdt.h"
+#include "string.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -13,6 +15,14 @@ unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
 
 int cursor_x = 0;
 int cursor_y = 0;
+
+// 从链接脚本获取用户程序的地址和大小
+extern char _binary_build_user_program_bin_start[];
+extern char _binary_build_user_program_bin_end[];
+
+extern volatile task_t* current_task;
+extern uint32_t next_pid;
+extern page_directory_t* current_directory;
 
 void move_cursor() {
     uint16_t cursorLocation = cursor_y * VGA_WIDTH + cursor_x;
@@ -83,7 +93,7 @@ void clear_screen() {
 // --------------------
 // --- 绝对安全的整数转字符串函数 ---
 // --------------------
-static void strrev(char *s, int len) {
+static void strrev_local(char *s, int len) {
     char *e = s + len - 1;
     while (s < e) {
         char tmp = *s;
@@ -117,7 +127,7 @@ void itoa(int n, char* str, int len, int base) {
         str[i++] = '-';
     }
     str[i] = '\0';
-    strrev(str, i);
+    strrev_local(str, i);
 }
 
 void itoa_hex(uint32_t n, char* str, int len) {
@@ -182,9 +192,64 @@ void heap_test() {
     kprint("--- Heap Test Finished ---\n\n");
 }
 
+// 执行用户程序的函数
+void exec_user_program() {
+    asm volatile("cli");
+
+    task_t* parent_task = (task_t*)current_task; // 假设内核主循环是一个任务
+    
+    // 1. 创建新任务和页目录
+    task_t* child_task = (task_t*)kmalloc(sizeof(task_t));
+    child_task->id = next_pid++;
+    child_task->state = TASK_READY;
+    child_task->directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
+    memset(child_task->directory, 0, sizeof(page_directory_t));
+    
+    // 2. 映射用户代码和栈
+    uint32_t prog_start = (uint32_t)_binary_build_user_program_bin_start;
+    uint32_t prog_end = (uint32_t)_binary_build_user_program_bin_end;
+    uint32_t prog_size = prog_end - prog_start;
+
+
+    uint32_t num_pages = (prog_size / 4096) + 1;
+    
+    // 映射代码页 (从 0x40000000 开始)
+    for (uint32_t i = 0; i < num_pages; i++) {
+        alloc_and_map_page(child_task->directory, 0x40000000 + i * 4096, 0, 1);
+    }
+    // 映射栈页 (我们只分配一页)
+    alloc_and_map_page(child_task->directory, 0xE0000000, 0, 1);
+
+    // 3. 切换到新页目录，拷贝代码
+    page_directory_t* old_dir = current_directory;
+    load_page_directory(child_task->directory);
+    
+    
+    memcpy((void*)0x40000000, (void*)prog_start, prog_size);
+    load_page_directory(old_dir); // 切换回来
+
+    // 4. 准备 initial_regs 用于切换到 Ring 3
+    child_task->initial_regs = (registers_t*)kmalloc(sizeof(registers_t));
+    memset(child_task->initial_regs, 0, sizeof(registers_t));
+    
+    child_task->initial_regs->eip = 0x40000000; // 程序入口
+    child_task->initial_regs->cs = 0x1B;        // 用户代码段选择子 (0x18 | 3)
+    child_task->initial_regs->ds = 0x23;        // 用户数据段选择子 (0x20 | 3)
+    child_task->initial_regs->eflags = 0x202;   // 开启中断
+    child_task->initial_regs->esp = 0xE0000000 + 4096; // 栈顶
+    
+    // 5. 将任务加入就绪队列
+    child_task->next = parent_task->next;
+    parent_task->next = child_task;
+    
+    asm volatile("sti");
+    kprint("\nUser program scheduled. Will run on next context switch.\n");
+}
+
 void kernel_main(void) {
     // --- 1. 所有初始化照常进行 ---
     clear_screen();
+    init_gdt();
     init_idt();
     init_kheap();
     init_paging();

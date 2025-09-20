@@ -23,7 +23,14 @@ SECTIONS
     .data :
     {
         *(.data)
-    }
+        
+        /* 嵌入用户程序二进制文件 */
+        . = ALIGN(4096);
+        _user_program_start = .;
+        INCBIN("build/program.bin")
+        _user_program_end = .;
+
+    } :data
 
     .bss :
     {

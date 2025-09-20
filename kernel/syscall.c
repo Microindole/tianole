@@ -77,9 +77,17 @@ void register_syscall(uint8_t num, syscall_handler_t handler) {
     syscall_handlers[num] = handler;
 }
 
+// 新增：syscall_puts 的处理函数
+void syscall_puts_handler(registers_t* regs) {
+    char* str = (char*)regs->ebx;
+    // 在这里应该有安全检查，但我们暂时简化
+    kprint(str);
+}
+
 void init_syscalls() {
     register_interrupt_handler(128, &syscall_dispatcher);
     register_syscall(1, &syscall_fork);
+    register_syscall(2, &syscall_puts_handler);
     kprint("Syscalls initialized.\n");
 }
 
