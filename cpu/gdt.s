@@ -1,4 +1,4 @@
-; cpu/gdt.s
+; cpu/gdt.s (最终修正版)
 global gdt_flush
 global tss_flush
 
@@ -18,7 +18,7 @@ gdt_flush:
     ret
 
 tss_flush:
-    mov ax, 0x2B      ; 0x2B is the TSS segment selector with RPL=3
+    mov ax, 0x28      ; <-- 最终修正：使用 Ring 0 权限的选择子 0x28
     ltr ax
     ret
 

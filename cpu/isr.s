@@ -1,4 +1,4 @@
-; isr.s - 独立的中断服务例程入口
+; isr.s - 独立的中断服务例程入口 (最终修正版)
 
 ; C 语言的总处理器
 extern isr_handler
@@ -19,8 +19,7 @@ isr_common_stub:
     ; 调用 C 处理器
     mov eax, esp ; 将当前的栈指针 (指向 registers_t 结构体) 作为参数
     push eax
-    
-    ; --- BEGIN FIX: 正确的中断分发逻辑 ---
+
     ; C 函数的第一个参数 (registers_t* regs) 位于 [esp+4]
     mov edx, [esp + 4]
     ; 从 regs 结构体中获取 int_no (偏移量为 36)
@@ -37,8 +36,6 @@ is_exception:
     call isr_handler
     ; isr_handler 之后也会跳转到 common_stub_exit，所以这里不需要 jmp
 
-; --- BEGIN FINAL FIX ---
-; 最终、健壮的中断退出公共存根
 common_stub_exit:
    pop eax     ; 清理 C 函数的参数 (regs*)
    pop eax     ; 将 ds 的值从栈上弹到 ax
@@ -51,7 +48,7 @@ common_stub_exit:
 
    ; --- 最终修正：只为硬件中断 (32-47) 发送 EOI ---
    push eax            ; 保护 eax
-   mov eax, [esp + 8]  ; 从栈上获取中断号
+   mov eax, [esp + 4]  ; 从栈上获取中断号
    cmp eax, 32         ; eax < 32 ? (是异常)
    jl .no_eoi
    cmp eax, 47         ; eax > 47 ? (是高编号中断或系统调用)
@@ -76,6 +73,7 @@ common_stub_exit:
 
    add esp, 8  ; 清理栈上的 error_code 和 int_no
    iret        ; 从中断安全返回
+
 
 ; --- 宏定义 (保持不变) ---
 %macro ISR_NOERRCODE 1
@@ -146,6 +144,5 @@ ISR_NOERRCODE 46
 ISR_NOERRCODE 47
 
 ISR_NOERRCODE 128  ; 用于系统调用
-
 ; --- 段声明以消除链接器警告 ---
 section .note.GNU-stack,"",@progbits

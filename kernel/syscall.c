@@ -66,10 +66,15 @@ void syscall_fork(registers_t* regs) {
 // 系统调用处理函数的分发表
 static syscall_handler_t syscall_handlers[256];
 
+// kernel/syscall.c (调试版本)
+
 void syscall_dispatcher(registers_t* regs) {
+    kputc('1'); // 确认中断进入了分发器
     uint32_t syscall_num = regs->eax;
     if (syscall_handlers[syscall_num]) {
+        kputc('2'); // 确认找到了对应的处理函数
         syscall_handlers[syscall_num](regs);
+        kputc('4'); // 确认处理函数已经成功返回
     }
 }
 
@@ -79,8 +84,9 @@ void register_syscall(uint8_t num, syscall_handler_t handler) {
 
 // 系统调用处理函数
 void syscall_putc(registers_t* regs) {
-    char c = (char)regs->ebx; // 从 ebx 寄存器获取参数
-    kputc(c);
+    kputc('3'); // 确认进入了 putc 的具体实现
+    char c = (char)regs->ebx;
+    kputc(c);   // 打印用户程序请求的真实字符
 }
 
 void init_syscalls() {
