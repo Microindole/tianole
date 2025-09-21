@@ -47,27 +47,35 @@ common_stub_exit:
    mov fs, ax
    mov gs, ax
 
-   popa        ; 恢复所有通用寄存器 (eax, ecx, edx, ebx, esp, ebp, esi, edi)
+   popa        ; 恢复所有通用寄存器
 
-   ; --- 正确的 EOI 发送逻辑 ---
+   ; --- 最终修正：只为硬件中断 (32-47) 发送 EOI ---
    push eax            ; 保护 eax
-   mov eax, [esp + 8]  ; 获取中断号 (在栈上，位于 saved eax 和 err_code 之下)
-   cmp eax, 40
-   jl .master_eoi_only
+   mov eax, [esp + 8]  ; 从栈上获取中断号
+   cmp eax, 32         ; eax < 32 ? (是异常)
+   jl .no_eoi
+   cmp eax, 47         ; eax > 47 ? (是高编号中断或系统调用)
+   jg .no_eoi
+
+   ; 是硬件中断，需要发送 EOI
+   cmp eax, 40         ; eax >= 40 ? (是从片 IRQ)
+   jge .send_slave_eoi
+
+.send_master_eoi:
+   mov al, 0x20
+   out 0x20, al        ; 发送 EOI 到主片
+   jmp .no_eoi         ; 跳过从片 EOI
 
 .send_slave_eoi:
    mov al, 0x20
    out 0xA0, al        ; 发送 EOI 到从片
+   out 0x20, al        ; 同时也要发送给主片
 
-.master_eoi_only:
-   mov al, 0x20
-   out 0x20, al        ; 发送 EOI 到主片
-
+.no_eoi:
    pop eax             ; 恢复 eax
 
    add esp, 8  ; 清理栈上的 error_code 和 int_no
    iret        ; 从中断安全返回
-; --- END FINAL FIX ---
 
 ; --- 宏定义 (保持不变) ---
 %macro ISR_NOERRCODE 1

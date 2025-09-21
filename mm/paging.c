@@ -16,8 +16,7 @@ void page_fault_handler(registers_t* regs) {
     asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
     kprint("\n--- PAGE FAULT ---\n");
-    
-    // --- 关键修正：使用安全的 itoa_hex ---
+
     char hex_buf[12];
     itoa_hex(faulting_address, hex_buf, 12);
     kprint("Faulting Address: ");
@@ -28,6 +27,26 @@ void page_fault_handler(registers_t* regs) {
     kprint("Instruction Pointer: ");
     kprint(hex_buf);
     kprint("\n");
+
+    // --- 新增的调试信息 ---
+    itoa_hex(regs->err_code, hex_buf, 12);
+    kprint("Error Code: ");
+    kprint(hex_buf);
+    kprint(" (");
+
+    // 解析错误码
+    if (regs->err_code & 0x1) { kprint("protection-violation "); } 
+    else { kprint("non-present-page "); }
+
+    if (regs->err_code & 0x2) { kprint("write-fault "); } 
+    else { kprint("read-fault "); }
+
+    if (regs->err_code & 0x4) { kprint("user-mode "); } 
+    else { kprint("kernel-mode "); }
+
+    if (regs->err_code & 0x10) { kprint("instruction-fetch"); }
+    kprint(")\n");
+    // --- 结束新增 ---
 
     kprint("System Halted!\n");
     for(;;);
@@ -45,11 +64,11 @@ void init_paging() {
         if (kernel_directory->entries[pde_idx] == 0) {
             page_table_t* pt = (page_table_t*)kmalloc_a(sizeof(page_table_t));
             memset(pt, 0, sizeof(page_table_t));
-            kernel_directory->entries[pde_idx] = (uint32_t)pt | 0x3; // Present, RW
+            kernel_directory->entries[pde_idx] = (uint32_t)pt | 0x7; // Present, RW
         }
         
         page_table_t* pt = (page_table_t*)(kernel_directory->entries[pde_idx] & 0xFFFFF000);
-        pt->entries[pte_idx] = (addr & 0xFFFFF000) | 0x3; // Present, RW
+        pt->entries[pte_idx] = (addr & 0xFFFFF000) | 0x7; // Present, RW
     }
 
     register_interrupt_handler(14, page_fault_handler);
