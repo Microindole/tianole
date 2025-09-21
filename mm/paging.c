@@ -59,3 +59,30 @@ void init_paging() {
 
     kprint("Paging enabled.\n");
 }
+
+void map_page(page_directory_t* dir, uint32_t virt, uint32_t phys, int is_kernel, int is_writeable) {
+    uint32_t pde_idx = virt / (1024 * 4096);
+    uint32_t pte_idx = (virt / 4096) % 1024;
+
+    // 获取页目录项，如果对应的页表不存在，就创建一个
+    uint32_t pde = dir->entries[pde_idx];
+    if (!(pde & 0x1)) { // Present bit is not set
+        page_table_t* pt = (page_table_t*)kmalloc_a(sizeof(page_table_t));
+        memset(pt, 0, sizeof(page_table_t));
+        dir->entries[pde_idx] = (uint32_t)pt | 0x3; // Present, RW
+        if (!is_kernel) {
+            dir->entries[pde_idx] |= 0x4; // User access
+        }
+    }
+
+    // 获取页表并设置页表项
+    page_table_t* pt = (page_table_t*)(dir->entries[pde_idx] & 0xFFFFF000);
+
+    uint32_t flags = 0x1; // Present
+    if (is_writeable) flags |= 0x2; // Writable
+    if (!is_kernel) flags |= 0x4; // User access
+
+    pt->entries[pte_idx] = (phys & 0xFFFFF000) | flags;
+
+    load_page_directory(current_directory);
+}

@@ -14,8 +14,13 @@ LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
 # --- 源文件查找 ---
 # 自动查找所有 .c 和 .s 文件，但排除需要特殊处理的文件
-C_SOURCES = $(filter-out cpu/isr.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
-S_SOURCES = $(filter-out cpu/boot.s cpu/isr.s cpu/paging.s kernel/switch.s cpu/fork_trampoline.s cpu/task_utils.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
+C_SOURCES = $(filter-out cpu/isr.c cpu/gdt.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
+S_SOURCES = $(filter-out cpu/boot.s cpu/isr.s cpu/paging.s kernel/switch.s cpu/fork_trampoline.s cpu/gdt.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
+
+USER_C_SOURCES = user/init.c
+USER_C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(USER_C_SOURCES))
+USER_BIN = $(BUILD_DIR)/user.bin
+
 
 # 将通用源文件映射到目标文件
 C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SOURCES))
@@ -28,7 +33,10 @@ OBJS = $(C_OBJS) $(S_OBJS) \
        $(BUILD_DIR)/isr_c.o \
        $(BUILD_DIR)/paging_s.o \
        $(BUILD_DIR)/switch.o \
-       $(BUILD_DIR)/fork_trampoline.o
+       $(BUILD_DIR)/fork_trampoline.o \
+       $(BUILD_DIR)/user.bin.o \
+       $(BUILD_DIR)/gdt_c.o \
+       $(BUILD_DIR)/gdt_s.o
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
@@ -38,7 +46,7 @@ OS_ISO = $(BUILD_DIR)/my-os.iso
 all: $(OS_ISO)
 
 # --- 核心编译链接规则 ---
-$(KERNEL_BIN): $(OBJS) linker.ld
+$(KERNEL_BIN): $(OBJS) linker.ld $(USER_BIN)
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
 # --- 通用编译规则 ---
@@ -73,6 +81,28 @@ $(BUILD_DIR)/fork_trampoline.o: cpu/fork_trampoline.s
 $(BUILD_DIR)/task_utils.o: cpu/task_utils.s
 	@mkdir -p $(BUILD_DIR)
 	$(AS) $(ASFLAGS) $< -o $@
+$(BUILD_DIR)/gdt_c.o: cpu/gdt.c
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/gdt_s.o: cpu/gdt.s
+	@mkdir -p $(BUILD_DIR)
+	$(AS) $(ASFLAGS) $< -o $@
+
+# 1. 编译 user/init.c
+$(BUILD_DIR)/user/init.o: user/init.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Iinclude -o $@ $<
+
+# 2. 链接成 user.bin
+$(USER_BIN): $(USER_C_OBJS) user/link.ld
+	$(LD) -m elf_i386 -T user/link.ld -o $@ $(USER_C_OBJS) -nostdlib
+
+# 3. 将 user.bin 作为一个目标文件嵌入内核
+$(BUILD_DIR)/user.bin.o: $(USER_BIN)
+	$(LD) -m elf_i386 -r -b binary $< -o $@
+
+
 
 # --- 运行和诊断 ---
 run: $(OS_ISO)

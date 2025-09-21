@@ -41,4 +41,7 @@ extern void load_page_directory(page_directory_t*);
 // 初始化分页系统
 void init_paging();
 
+void map_page(page_directory_t* dir, uint32_t virt, 
+    uint32_t phys, int is_kernel, int is_writeable);
+
 #endif

@@ -77,9 +77,15 @@ void register_syscall(uint8_t num, syscall_handler_t handler) {
     syscall_handlers[num] = handler;
 }
 
+// 系统调用处理函数
+void syscall_putc(registers_t* regs) {
+    char c = (char)regs->ebx; // 从 ebx 寄存器获取参数
+    kputc(c);
+}
+
 void init_syscalls() {
     register_interrupt_handler(128, &syscall_dispatcher);
-    register_syscall(1, &syscall_fork);
+    register_syscall(1, &syscall_putc);
     kprint("Syscalls initialized.\n");
 }
 

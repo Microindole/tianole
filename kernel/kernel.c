@@ -5,6 +5,8 @@
 #include "task.h"
 #include "../mm/paging.h"
 #include "syscall.h"
+#include "string.h"
+#include "../cpu/gdt.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -83,7 +85,7 @@ void clear_screen() {
 // --------------------
 // --- 绝对安全的整数转字符串函数 ---
 // --------------------
-static void strrev(char *s, int len) {
+static void strrev_kernel(char *s, int len) {
     char *e = s + len - 1;
     while (s < e) {
         char tmp = *s;
@@ -117,7 +119,7 @@ void itoa(int n, char* str, int len, int base) {
         str[i++] = '-';
     }
     str[i] = '\0';
-    strrev(str, i);
+    strrev_kernel(str, i);
 }
 
 void itoa_hex(uint32_t n, char* str, int len) {
@@ -137,6 +139,7 @@ void itoa_hex(uint32_t n, char* str, int len) {
 // --- 内核入口函数 ---
 
 void init_idt();
+void init_gdt_tss();
 void init_timer(uint32_t frequency);
 
 // --- 为子进程创建独立的入口点 ---
@@ -182,29 +185,78 @@ void heap_test() {
     kprint("--- Heap Test Finished ---\n\n");
 }
 
+// ld 会自动创建这些符号
+extern uint8_t _binary_build_user_bin_start[];
+extern uint8_t _binary_build_user_bin_end[];
+
+void switch_to_user_mode() {
+    // 在跳转前，设置 TSS 的内核栈
+    // 我们把当前的 esp 作为内核栈顶传给 TSS
+    uint32_t esp;
+    asm volatile("mov %%esp, %0" : "=r"(esp));
+    tss_set_stack(esp);
+
+    asm volatile (
+        "cli;"
+        "mov $0x23, %%ax;" // 用户数据段选择子 (0x20 | 3)
+        "mov %%ax, %%ds;"
+        "mov %%ax, %%es;"
+        "mov %%ax, %%fs;"
+        "mov %%ax, %%gs;"
+
+        "pushl $0x23;"
+        "pushl $0xC0000000;"
+        "pushl %%eax;"      // ESP
+        "pushf;"            // EFLAGS
+        "popl %%eax;"       //
+        "or $0x200, %%eax;" // 打开中断
+        "pushl %%eax;"      //
+        "pushl $0x1B;"      // CS (0x18 | 3)
+        "pushl $0x40000000;"// EIP (用户程序入口点)
+        "iret;"             // <<<<<< THE BIG SWITCH
+        : : : "eax"
+    );
+}
+
 void kernel_main(void) {
     // --- 1. 所有初始化照常进行 ---
     clear_screen();
     init_idt();
+    init_gdt_tss();
     init_kheap();
     init_paging();
     init_syscalls();
-    init_tasking(); // 仍然需要，以创建第一个内核任务
-    init_timer(50);   // 仍然需要，以保持系统心跳
-    init_vfs();
+    // init_tasking();
+    // init_timer(50);
+    // init_vfs();
 
-    // heap_test(); 
+    // --- 加载用户程序 ---
+    uint8_t* user_code_start = _binary_build_user_bin_start;
+    uint32_t user_code_size = _binary_build_user_bin_end - _binary_build_user_bin_start;
 
-    // --- 2. Shell 初始化并打印第一个提示符 ---
-    init_shell();
+    // 1. 分配物理内存页
+    // 为了简单，我们分配 4KB (一页)
+    void* prog_phys_mem = kmalloc(4096);
+    void* user_stack_mem = kmalloc(4096);
 
-    // --- 3. 内核进入主循环 ---
-    // fork() 测试代码已移除。
-    // 内核的主任务就是运行 Shell，它通过一个简单的
-    // “等待中断”循环来实现。键盘输入会作为中断被处理。
-    asm volatile ("sti"); // 开启中断
-    while (1) {
-        asm volatile ("hlt"); // 等待下一次中断 (键盘、时钟等)
-    }
+    // 2. 将用户程序代码复制过去
+    memcpy(prog_phys_mem, user_code_start, user_code_size);
+
+    // 3. 映射虚拟地址到物理地址！
+    extern page_directory_t* current_directory; // 确保能访问当前页目录
+    map_page(current_directory, 0x40000000, (uint32_t)prog_phys_mem, 0, 1);
+    map_page(current_directory, 0xBFFFF000, (uint32_t)user_stack_mem, 0, 1);
+
+    kprint("Jumping to user mode...\n");
+    switch_to_user_mode();
+
+
+
+    // init_shell();
+
+    // asm volatile ("sti"); // 开启中断
+    // while (1) {
+    //     asm volatile ("hlt"); // 等待下一次中断 (键盘、时钟等)
+    // }
 }
 
