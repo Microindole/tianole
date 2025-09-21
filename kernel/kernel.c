@@ -206,7 +206,6 @@ void switch_to_user_mode() {
 
         "pushl $0x23;"
         "pushl $0xC0000000;"
-        "pushl %%eax;"      // ESP
         "pushf;"            // EFLAGS
         "popl %%eax;"       //
         "or $0x200, %%eax;" // 打开中断

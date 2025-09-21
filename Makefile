@@ -17,10 +17,11 @@ LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 C_SOURCES = $(filter-out cpu/isr.c cpu/gdt.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
 S_SOURCES = $(filter-out cpu/boot.s cpu/isr.s cpu/paging.s kernel/switch.s cpu/fork_trampoline.s cpu/gdt.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
 
+# 用户程序源文件
 USER_C_SOURCES = user/init.c
 USER_C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(USER_C_SOURCES))
+USER_ELF = $(BUILD_DIR)/user.elf
 USER_BIN = $(BUILD_DIR)/user.bin
-
 
 # 将通用源文件映射到目标文件
 C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SOURCES))
@@ -34,9 +35,9 @@ OBJS = $(C_OBJS) $(S_OBJS) \
        $(BUILD_DIR)/paging_s.o \
        $(BUILD_DIR)/switch.o \
        $(BUILD_DIR)/fork_trampoline.o \
-       $(BUILD_DIR)/user.bin.o \
        $(BUILD_DIR)/gdt_c.o \
-       $(BUILD_DIR)/gdt_s.o
+       $(BUILD_DIR)/gdt_s.o \
+       $(BUILD_DIR)/user.bin.o
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
@@ -46,11 +47,10 @@ OS_ISO = $(BUILD_DIR)/my-os.iso
 all: $(OS_ISO)
 
 # --- 核心编译链接规则 ---
-$(KERNEL_BIN): $(OBJS) linker.ld $(USER_BIN)
+$(KERNEL_BIN): $(OBJS) linker.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
 # --- 通用编译规则 ---
-# VPATH 告诉 make 在哪里寻找源文件
 VPATH = $(SRC_DIRS)
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -78,31 +78,30 @@ $(BUILD_DIR)/switch.o: kernel/switch.s
 $(BUILD_DIR)/fork_trampoline.o: cpu/fork_trampoline.s
 	@mkdir -p $(BUILD_DIR)
 	$(AS) $(ASFLAGS) $< -o $@
-$(BUILD_DIR)/task_utils.o: cpu/task_utils.s
-	@mkdir -p $(BUILD_DIR)
-	$(AS) $(ASFLAGS) $< -o $@
 $(BUILD_DIR)/gdt_c.o: cpu/gdt.c
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
-
 $(BUILD_DIR)/gdt_s.o: cpu/gdt.s
 	@mkdir -p $(BUILD_DIR)
 	$(AS) $(ASFLAGS) $< -o $@
 
+# --- 用户程序编译规则 ---
 # 1. 编译 user/init.c
 $(BUILD_DIR)/user/init.o: user/init.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -Iinclude -o $@ $<
 
-# 2. 链接成 user.bin
-$(USER_BIN): $(USER_C_OBJS) user/link.ld
+# 2. 链接成 user.elf
+$(USER_ELF): $(USER_C_OBJS) user/link.ld
 	$(LD) -m elf_i386 -T user/link.ld -o $@ $(USER_C_OBJS) -nostdlib
 
-# 3. 将 user.bin 作为一个目标文件嵌入内核
+# 3. 从 elf 文件中提取纯二进制
+$(USER_BIN): $(USER_ELF)
+	objcopy -O binary $< $@
+
+# 4. 将纯二进制的 user.bin 作为一个目标文件嵌入内核
 $(BUILD_DIR)/user.bin.o: $(USER_BIN)
 	$(LD) -m elf_i386 -r -b binary $< -o $@
-
-
 
 # --- 运行和诊断 ---
 run: $(OS_ISO)

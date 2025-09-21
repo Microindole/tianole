@@ -25,7 +25,7 @@ struct tss_entry {
 } __attribute__((packed));
 
 
-struct gdt_entry gdt_entries[5];
+struct gdt_entry gdt_entries[6];
 struct gdt_ptr   gdt_p;
 struct tss_entry tss;
 
@@ -44,7 +44,7 @@ static void gdt_set_gate(int32_t num, uint32_t base, uint32_t limit, uint8_t acc
 }
 
 void init_gdt_tss() {
-    gdt_p.limit = (sizeof(struct gdt_entry) * 5) - 1;
+    gdt_p.limit = (sizeof(struct gdt_entry) * 6) - 1;
     gdt_p.base  = (uint32_t)&gdt_entries;
 
     gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
