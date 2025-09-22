@@ -4,7 +4,8 @@
 extern isr_handler
 extern irq_handler
 
-; 通用处理部分
+extern interrupt_handler ; 修改：只调用这一个C函数
+
 isr_common_stub:
     pusha       ; 保存通用寄存器
     mov ax, ds
@@ -16,21 +17,42 @@ isr_common_stub:
     mov fs, ax
     mov gs, ax
 
-    ; 调用 C 处理器
-    mov eax, esp ; 将当前的栈指针 (指向 registers_t 结构体) 作为参数
-    push eax
+    ; --- 关键修正 ---
+    ; 直接将当前的栈指针 (regs*) 作为参数推入，然后调用统一的C处理函数
+    push esp 
+    call interrupt_handler
+    add esp, 4   ; 平衡堆栈，清理参数
 
-    ; C 函数的第一个参数 (registers_t* regs) 位于 [esp+4]
-    mov edx, [esp + 4]
-    ; 从 regs 结构体中获取 int_no (偏移量为 36)
-    mov eax, [edx + 36]
+    pop eax      ; 恢复 ds
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
 
-    cmp eax, 32          ; 中断号 < 32 是 CPU 异常
-    jl is_exception
+    popa        ; 恢复所有通用寄存器
 
-    ; 中断号 >= 32 是 IRQ 或我们自定义的中断 (如 syscall)
-    call irq_handler
-    jmp common_stub_exit
+    ; --- EOI (End of Interrupt) 逻辑不变 ---
+    push eax           
+    mov eax, [esp + 4] 
+    cmp eax, 32        
+    jl .no_eoi
+    cmp eax, 47        
+    jg .no_eoi
+    cmp eax, 40        
+    jge .send_slave_eoi
+.send_master_eoi:
+    mov al, 0x20
+    out 0x20, al       
+    jmp .no_eoi        
+.send_slave_eoi:
+    mov al, 0x20
+    out 0xA0, al       
+    out 0x20, al       
+.no_eoi:
+    pop eax            
+
+    add esp, 8  ; 清理栈上的 error_code 和 int_no
+    iret        ; 从中断安全返回
 
 is_exception:
     call isr_handler

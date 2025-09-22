@@ -17,4 +17,7 @@ typedef void (*isr_t)(registers_t*);
 // 注册一个中断处理函数
 void register_interrupt_handler(uint8_t n, isr_t handler);
 
+// 统一的中断处理函数，由汇编代码调用
+void interrupt_handler(registers_t* regs);
+
 #endif

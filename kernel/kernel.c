@@ -205,17 +205,23 @@ void switch_to_user_mode() {
         "mov %%ax, %%gs;"
 
         "pushl $0x23;"
-        "pushl $0xC0000000;"
-        "pushf;"            // EFLAGS
-        "popl %%eax;"       //
-        "or $0x200, %%eax;" // 打开中断
-        "pushl %%eax;"      //
-        "pushl $0x1B;"      // CS (0x18 | 3)
-        "pushl $0x40000000;"// EIP (用户程序入口点)
-        "iret;"             // <<<<<< THE BIG SWITCH
+        // --- 关键修正 ---
+        // 使用我们实际映射的栈地址。栈是从高地址向低地址增长的，
+        // 所以我们将指针设置在分配的 4KB 区域的顶部。
+        "pushl $0xBFFFF000 + 4096;" 
+        "pushf;"             // EFLAGS
+        "popl %%eax;"        //
+        "or $0x200, %%eax;"  // 打开中断
+        "pushl %%eax;"       //
+        "pushl $0x1B;"       // CS (0x18 | 3)
+        "pushl $0x40000000;" // EIP (用户程序入口点)
+        "iret;"              // <<<<<< THE BIG SWITCH
         : : : "eax"
     );
 }
+
+
+extern page_directory_t* current_directory;
 
 void kernel_main(void) {
     // --- 1. 所有初始化照常进行 ---
@@ -233,17 +239,34 @@ void kernel_main(void) {
     uint8_t* user_code_start = _binary_build_user_bin_start;
     uint32_t user_code_size = _binary_build_user_bin_end - _binary_build_user_bin_start;
 
-    // 1. 分配物理内存页
-    // 为了简单，我们分配 4KB (一页)
-    void* prog_phys_mem = kmalloc(4096);
+    // 1. 计算需要多少个 4KB 的页来存放用户程序
+    //    (size + 4095) / 4096 是一种计算向上取整的常用技巧
+    uint32_t num_pages = (user_code_size + 4095) / 4096;
+
+    // 2. 为用户程序分配并映射所需的全部页面
+    for (uint32_t i = 0; i < num_pages; i++) {
+        // a. 为当前页分配一个物理内存页
+        void* phys_page = kmalloc(4096);
+        if (!phys_page) {
+            kprint("Error: kmalloc failed for user program page!");
+            return;
+        }
+
+        // b. 计算当前页对应的虚拟地址
+        uint32_t virt_addr = 0x40000000 + i * 4096;
+
+        // c. 将这一页从用户程序的二进制数据中复制过去
+        //    注意：最后一个页可能不需要复制完整的 4096 字节
+        uint32_t copy_size = (i == num_pages - 1) ? (user_code_size % 4096) : 4096;
+        if (copy_size == 0 && user_code_size > 0) copy_size = 4096; // 处理刚好是页大小整数倍的情况
+        memcpy(phys_page, user_code_start + i * 4096, copy_size);
+
+        // d. 映射虚拟地址到我们刚分配并填充的物理地址
+        map_page(current_directory, virt_addr, (uint32_t)phys_page, 0, 1);
+    }
+
+    // 3. 为用户程序分配并映射栈空间 (保持不变)
     void* user_stack_mem = kmalloc(4096);
-
-    // 2. 将用户程序代码复制过去
-    memcpy(prog_phys_mem, user_code_start, user_code_size);
-
-    // 3. 映射虚拟地址到物理地址！
-    extern page_directory_t* current_directory; // 确保能访问当前页目录
-    map_page(current_directory, 0x40000000, (uint32_t)prog_phys_mem, 0, 1);
     map_page(current_directory, 0xBFFFF000, (uint32_t)user_stack_mem, 0, 1);
 
     kprint("Jumping to user mode...\n");
@@ -251,11 +274,11 @@ void kernel_main(void) {
 
 
 
-    // init_shell();
+    init_shell();
 
-    // asm volatile ("sti"); // 开启中断
-    // while (1) {
-    //     asm volatile ("hlt"); // 等待下一次中断 (键盘、时钟等)
-    // }
+    asm volatile ("sti"); // 开启中断
+    while (1) {
+        asm volatile ("hlt"); // 等待下一次中断 (键盘、时钟等)
+    }
 }
 

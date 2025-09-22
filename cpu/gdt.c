@@ -55,8 +55,10 @@ void init_gdt_tss() {
 
     // 设置 TSS
     uint32_t base = (uint32_t)&tss;
-    uint32_t limit = sizeof(tss);
-    gdt_set_gate(5, base, limit, 0x89, 0x40); // TSS Segment
+    uint32_t limit = sizeof(tss) -1;
+    // --- 关键修正：最后一个参数从 0x40 改为 0x00 ---
+    gdt_set_gate(5, base, limit, 0x89, 0x00); // TSS Segment
+    
     memset(&tss, 0, sizeof(tss));
     tss.ss0 = 0x10; // Kernel Data Segment Selector
     // esp0 将在每次任务切换时更新
