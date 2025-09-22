@@ -7,6 +7,8 @@
 #include "syscall.h"
 #include "../drivers/serial.h"
 #include "../drivers/ata.h"
+#include "../fs/fat16.h"
+#include "string.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -85,7 +87,7 @@ void clear_screen() {
 // --------------------
 // --- 绝对安全的整数转字符串函数 ---
 // --------------------
-static void strrev(char *s, int len) {
+static void strrev_kernel(char *s, int len) {
     char *e = s + len - 1;
     while (s < e) {
         char tmp = *s;
@@ -119,7 +121,7 @@ void itoa(int n, char* str, int len, int base) {
         str[i++] = '-';
     }
     str[i] = '\0';
-    strrev(str, i);
+    strrev_kernel(str, i);
 }
 
 void itoa_hex(uint32_t n, char* str, int len) {
@@ -204,36 +206,23 @@ void kernel_main(void) {
     init_timer(50);
     init_vfs();
 
-    // --- 硬盘读写测试 ---
-    serial_print("\n--- ATA Drive R/W Test ---\n");
-    
-    // 1. 准备一个 512 字节的缓冲区并填入一些测试数据
-    uint8_t write_buffer[512];
-    for (int i = 0; i < 512; i++) {
-        write_buffer[i] = i % 256; // 填充 0, 1, 2, ..., 255, 0, 1, ...
-    }
-    serial_print("Writing to sector 5...\n");
-    
-    // 2. 将数据写入 LBA 地址为 5 的扇区 (避开0号扇区，更安全)
-    ata_write_sector(5, write_buffer);
-    serial_print("Write finished.\n");
+    // --- 在这里替换掉之前的硬盘测试代码 ---
+    serial_print("\n--- Formatting filesystem ---\n");
+    fat16_format(); // 格式化硬盘
+    serial_print("Format complete. Initializing FAT16...\n");
+    init_fat16();   // 读取引导扇区信息到内存
+    serial_print("FAT16 Initialized. Filesystem type: ");
 
-    // 3. 准备一个空的读缓冲区
-    uint8_t read_buffer[512];
-    serial_print("Reading back from sector 5...\n");
+    // 验证一下是否成功
+    char fs_type_buf[9];
+    memcpy(fs_type_buf, bpb.fs_type, 8);
+    fs_type_buf[8] = '\0';
+    serial_print(fs_type_buf);
+    serial_print("\n\n");
+    // --- 结束 ---
 
-    // 4. 从同一扇区读回数据
-    ata_read_sector(5, read_buffer);
-
-    // 5. 验证并打印结果
-    serial_print("First 16 bytes of sector 5 after write:\n");
-    for (int i = 0; i < 16; i++) {
-        char hex_buf[4];
-        itoa(read_buffer[i], hex_buf, 4, 16);
-        serial_print(hex_buf);
-        serial_print(" ");
-    }
-    serial_print("\n--- ATA R/W test finished ---\n\n");
+    serial_print("All systems go. Starting shell.\n");
+    init_shell();
 
     init_shell();
 
