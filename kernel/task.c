@@ -37,13 +37,39 @@ extern void child_entry_point(void);
 
 // 调度器
 void schedule() {
-    volatile task_t* next_task = current_task->next;
-    if (next_task == current_task) {
-        return;
+    if (!current_task) return;
+
+    // --- 内核清理工：检查并清理死亡的进程 ---
+    volatile task_t* p = current_task;
+    while(1) {
+        if (p->next->state == TASK_DEAD) {
+            volatile task_t* dead_task = p->next;
+            // 从链表中移除
+            p->next = dead_task->next; 
+            // 释放 TCB 结构体本身
+            kfree((void*)dead_task); 
+            // 注意：我们还没有释放内核栈，这是一个待办事项
+        } else {
+            p = p->next;
+        }
+        if (p == current_task) break;
     }
 
+    // --- 寻找下一个可运行的任务 ---
+    volatile task_t* next_task = current_task->next;
+    // (如果链表中只剩自己，next_task 就会是 current_task)
+
+    if (next_task == current_task) {
+        return; // 无需切换
+    }
+    
     volatile task_t* old_task = current_task;
     current_task = next_task;
+
+    if (old_task->state != TASK_DEAD) {
+        old_task->state = TASK_READY;
+    }
+    current_task->state = TASK_RUNNING;
 
     // 如果这是一个新创建的任务，则为其构建启动栈
     if (current_task->kernel_stack_ptr == 0 && current_task->initial_regs != NULL) {
@@ -86,5 +112,46 @@ void schedule() {
     }
 
     switch_task(old_task, current_task);
+}
+
+// --- 实现 list_processes 函数 ---
+void list_processes() {
+    kprint("\nPID   STATE\n");
+    kprint("-----------\n");
+
+    if (!current_task) {
+        kprint("Tasking not initialized.\n");
+        return;
+    }
+
+    volatile task_t* start_task = current_task;
+    volatile task_t* p = current_task;
+
+    char pid_buf[8];
+    char* state_str;
+
+    do {
+        // 打印 PID
+        itoa(p->id, pid_buf, 8, 10);
+        kprint(pid_buf);
+        kprint("     ");
+
+        // 打印状态
+        switch(p->state) {
+            case TASK_RUNNING:
+                state_str = "RUNNING";
+                break;
+            case TASK_READY:
+                state_str = "READY";
+                break;
+            default:
+                state_str = "UNKNOWN";
+                break;
+        }
+        kprint(state_str);
+        kprint("\n");
+
+        p = p->next;
+    } while (p != start_task);
 }
 

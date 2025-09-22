@@ -178,7 +178,7 @@ void process_command(char *input) {
     // --- 命令处理逻辑 ---
     if (strcmp(command, "help") == 0) {
         kprint("\nSimple Shell v1.0");
-        kprint("\nCommands: help, clear, ls, mkdir, touch, cat, write, append, forktest");
+        kprint("\nCommands: help, clear, ls, mkdir, touch, cat, write, append, forktest, ps");
     } else if (strcmp(command, "clear") == 0) {
         clear_screen();
     } else if (strcmp(command, "ls") == 0) {
@@ -276,6 +276,8 @@ void process_command(char *input) {
             kprint(buf);
             kprint("\n");
         }
+    } else if (strcmp(command, "ps") == 0) {
+        list_processes();
     } else {
         kprint("\nUnknown command: ");
         kprint(command);

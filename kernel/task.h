@@ -35,8 +35,11 @@ typedef struct task {
 void init_tasking();
 void schedule();
 
-// --- 关键修正：switch_task 现在接收 task_t 指针 ---
+// --- switch_task 现在接收 task_t 指针 ---
 extern void switch_task(volatile task_t* old, volatile task_t* new);
+
+// --- 声明用于列出所有进程的函数 ---
+void list_processes();
 
 #endif
 

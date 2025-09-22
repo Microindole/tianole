@@ -144,9 +144,7 @@ void child_entry_point() {
     // 这里就是子进程真正的“第一行代码”
     asm volatile("sti");
     kprint("--- I am the CHILD process! My fork() returned 0. ---\n");
-    while(1) {
-        asm volatile("hlt");
-    }
+    exit(); 
 }
 
 // --- 用于验证 kheap 的测试函数 ---

@@ -13,6 +13,11 @@ extern uint32_t next_pid;
 extern void fork_trampoline();
 page_directory_t* clone_directory(page_directory_t* src);
 
+// exit 的C语言包装函数
+void exit() {
+    asm volatile ("int $0x80" : : "a" (0)); // 0 号系统调用：exit
+}
+
 // fork 的C语言包装函数
 int fork() {
     int pid;
@@ -63,6 +68,17 @@ void syscall_fork(registers_t* regs) {
     asm volatile("sti");
 }
 
+// --- exit 的系统调用实现 ---
+void syscall_exit(registers_t* regs) {
+    current_task->state = TASK_DEAD;
+    kprint("\nProcess ");
+    char buf[8];
+    itoa(current_task->id, buf, 8, 10);
+    kprint(buf);
+    kprint(" exited.\n");
+    schedule(); // 主动放弃CPU，让调度器来处理后事
+}
+
 // 系统调用处理函数的分发表
 static syscall_handler_t syscall_handlers[256];
 
@@ -79,6 +95,7 @@ void register_syscall(uint8_t num, syscall_handler_t handler) {
 
 void init_syscalls() {
     register_interrupt_handler(128, &syscall_dispatcher);
+    register_syscall(0, &syscall_exit);
     register_syscall(1, &syscall_fork);
     kprint("Syscalls initialized.\n");
 }
