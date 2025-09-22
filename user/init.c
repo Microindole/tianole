@@ -1,16 +1,14 @@
-// user/init.c
+// user/init.c (接收 kprint 函数指针的版本)
 
-// 系统调用封装函数 (目前我们先手写汇编)
-void syscall_putc(char c) {
-    asm volatile ("int $0x80" : : "a"(1), "b"(c)); // 1 号系统调用：putc
-}
+// 定义一个函数指针类型，方便使用
+typedef void (*kprint_t)(const char*);
 
-void _start() {
-    const char* msg = "Hello from User Space!\n";
-    for (int i = 0; msg[i] != '\0'; i++) {
-        syscall_putc(msg[i]);
-    }
+void _start(kprint_t kprint_func) {
+    // 通过接收到的函数指针，调用内核的打印服务
+    kprint_func("Hello again! This time, I'm calling a kernel function!\n");
+    
+    kprint_func("The Ring 0 userland experiment is a success.\n");
 
-    // 用户程序结束后，进入无限循环
+    // 无限循环
     while(1);
 }
