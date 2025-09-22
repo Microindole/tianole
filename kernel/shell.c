@@ -178,7 +178,7 @@ void process_command(char *input) {
     // --- 命令处理逻辑 ---
     if (strcmp(command, "help") == 0) {
         kprint("\nSimple Shell v1.0");
-        kprint("\nCommands: help, clear, ls, mkdir, touch, cat, write");
+        kprint("\nCommands: help, clear, ls, mkdir, touch, cat, write, append, forktest");
     } else if (strcmp(command, "clear") == 0) {
         clear_screen();
     } else if (strcmp(command, "ls") == 0) {
@@ -259,6 +259,22 @@ void process_command(char *input) {
             } else {
                 kprint("\nUsage: append <file_name> \"content_to_append\"");
             }
+        }
+    } else if (strcmp(command, "forktest") == 0) {
+        kprint("\nParent process attempting to fork...\n");
+        int pid = fork(); // 调用你写的 fork() 系统调用！
+        if (pid == 0) {
+            // fork() 在子进程中返回 0。
+            // 但我们的子进程会直接跳转到 child_entry_point，
+            // 所以理论上这段代码不会在子进程中执行。
+            // 把它留在这里作为逻辑完整性的展示。
+        } else {
+            // fork() 在父进程中返回子进程的 PID。
+            kprint("Parent process: Fork successful! Child PID is ");
+            char buf[8];
+            itoa(pid, buf, 8, 10);
+            kprint(buf);
+            kprint("\n");
         }
     } else {
         kprint("\nUnknown command: ");
