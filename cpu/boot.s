@@ -47,6 +47,12 @@ inb:
     in al, dx
     ret
 
+global inw
+inw:
+    mov dx, [esp + 4]
+    in ax, dx
+    ret
+
 global idt_load
 idt_load:
     mov eax, [esp + 4]

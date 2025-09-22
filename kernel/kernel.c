@@ -6,6 +6,7 @@
 #include "../mm/paging.h"
 #include "syscall.h"
 #include "../drivers/serial.h"
+#include "../drivers/ata.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -202,6 +203,21 @@ void kernel_main(void) {
 
     init_timer(50);
     init_vfs();
+
+    // --- 硬盘读取测试 ---
+    serial_print("\n--- Reading from ATA drive ---\n");
+    uint8_t buffer[512];
+    ata_read_sector(0, buffer); // 读取第一个扇区 (LBA 0)
+
+    serial_print("First 16 bytes of sector 0:\n");
+    for (int i = 0; i < 16; i++) {
+        char hex_buf[4];
+        itoa(buffer[i], hex_buf, 4, 16); // 用 itoa 转成16进制
+        serial_print(hex_buf);
+        serial_print(" ");
+    }
+    serial_print("\n--- ATA read test finished ---\n\n");
+    // --- 测试结束 ---
 
     serial_print("All systems go. Starting shell.\n");
 
