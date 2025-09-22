@@ -5,6 +5,7 @@
 #include "task.h"
 #include "../mm/paging.h"
 #include "syscall.h"
+#include "../drivers/serial.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -181,19 +182,29 @@ void heap_test() {
 }
 
 void kernel_main(void) {
-    // --- 1. 所有初始化照常进行 ---
     clear_screen();
     init_idt();
+
+    init_serial();
+    serial_print("Serial port initialized.\n");
+
     init_kheap();
+    serial_print("Heap initialized.\n");
+
     init_paging();
+    serial_print("Paging initialized.\n");
+
     init_syscalls();
-    init_tasking(); // 仍然需要，以创建第一个内核任务
-    init_timer(50);   // 仍然需要，以保持系统心跳
+    serial_print("Syscalls initialized.\n");
+
+    init_tasking();
+    serial_print("Tasking initialized.\n");
+
+    init_timer(50);
     init_vfs();
 
-    // heap_test(); 
+    serial_print("All systems go. Starting shell.\n");
 
-    // --- 2. Shell 初始化并打印第一个提示符 ---
     init_shell();
 
     // --- 3. 内核进入主循环 ---

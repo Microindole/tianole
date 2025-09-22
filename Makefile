@@ -78,7 +78,7 @@ $(BUILD_DIR)/task_utils.o: cpu/task_utils.s
 run: $(OS_ISO)
 	qemu-system-i386 -cdrom $(OS_ISO)
 qemu-direct: $(KERNEL_BIN)
-	qemu-system-i386 -kernel $(KERNEL_BIN)
+	qemu-system-i386 -kernel $(KERNEL_BIN) -serial stdio
 
 # --- ISO 创建和清理 ---
 $(OS_ISO): $(KERNEL_BIN) grub.cfg
