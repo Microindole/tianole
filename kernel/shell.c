@@ -4,6 +4,8 @@
 #include "../fs/vfs.h"
 #include <stddef.h>  // for NULL
 #include "string.h"  // for strcmp
+#include "syscall.h"
+#include "task.h"
 
 // --- 缓冲区和光标状态 ---
 #define CMD_BUFFER_SIZE 256

@@ -12,4 +12,6 @@ void init_syscalls();
 // fork 的C语言包装函数
 int fork();
 
+void exit();
+
 #endif
