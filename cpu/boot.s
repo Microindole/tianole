@@ -41,6 +41,13 @@ outb:
     out dx, al
     ret
 
+global outw
+outw:
+    mov ax, [esp + 8]
+    mov dx, [esp + 4]
+    out dx, ax
+    ret
+
 global inb
 inb:
     mov dx, [esp + 4]

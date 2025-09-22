@@ -13,6 +13,7 @@
 
 // ATA 命令
 #define ATA_CMD_READ_PIO 0x20
+#define ATA_CMD_WRITE_PIO 0x30
 
 // ATA 状态位
 #define ATA_SR_BSY     0x80 // 忙碌
@@ -45,5 +46,25 @@ void ata_read_sector(uint32_t lba, uint8_t* buffer) {
         uint16_t data = inw(ATA_DATA);
         buffer[i * 2] = data & 0xFF;
         buffer[i * 2 + 1] = (data >> 8) & 0xFF;
+    }
+}
+
+// 向硬盘写入一个扇区
+void ata_write_sector(uint32_t lba, uint8_t* buffer) {
+    ata_wait_bsy();
+    outb(ATA_DRIVE_HEAD, 0xE0 | ((lba >> 24) & 0x0F));
+    outb(ATA_SECT_COUNT, 1);
+    outb(ATA_LBA_LO, lba & 0xFF);
+    outb(ATA_LBA_MID, (lba >> 8) & 0xFF);
+    outb(ATA_LBA_HI, (lba >> 16) & 0xFF);
+    outb(ATA_COMMAND, ATA_CMD_WRITE_PIO);
+
+    ata_wait_bsy();
+    ata_wait_drq();
+
+    // 写入 256 个 16位的值
+    for (int i = 0; i < 256; i++) {
+        uint16_t data = buffer[i * 2] | (buffer[i * 2 + 1] << 8);
+        outw(ATA_DATA, data);
     }
 }

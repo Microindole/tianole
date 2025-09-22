@@ -13,6 +13,7 @@ typedef          char  int8_t;
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
 uint16_t inw(uint16_t port);
+void outw(uint16_t port, uint16_t value);
 
 // 内核打印函数声明 (来自 kernel.c)
 void kprint(const char* str);

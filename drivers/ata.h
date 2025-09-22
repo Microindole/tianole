@@ -8,4 +8,7 @@
 // buffer: 读取数据存放的缓冲区 (必须至少 512 字节)
 void ata_read_sector(uint32_t lba, uint8_t* buffer);
 
+// 向硬盘写入一个扇区
+void ata_write_sector(uint32_t lba, uint8_t* buffer);
+
 #endif

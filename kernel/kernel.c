@@ -204,22 +204,36 @@ void kernel_main(void) {
     init_timer(50);
     init_vfs();
 
-    // --- 硬盘读取测试 ---
-    serial_print("\n--- Reading from ATA drive ---\n");
-    uint8_t buffer[512];
-    ata_read_sector(0, buffer); // 读取第一个扇区 (LBA 0)
+    // --- 硬盘读写测试 ---
+    serial_print("\n--- ATA Drive R/W Test ---\n");
+    
+    // 1. 准备一个 512 字节的缓冲区并填入一些测试数据
+    uint8_t write_buffer[512];
+    for (int i = 0; i < 512; i++) {
+        write_buffer[i] = i % 256; // 填充 0, 1, 2, ..., 255, 0, 1, ...
+    }
+    serial_print("Writing to sector 5...\n");
+    
+    // 2. 将数据写入 LBA 地址为 5 的扇区 (避开0号扇区，更安全)
+    ata_write_sector(5, write_buffer);
+    serial_print("Write finished.\n");
 
-    serial_print("First 16 bytes of sector 0:\n");
+    // 3. 准备一个空的读缓冲区
+    uint8_t read_buffer[512];
+    serial_print("Reading back from sector 5...\n");
+
+    // 4. 从同一扇区读回数据
+    ata_read_sector(5, read_buffer);
+
+    // 5. 验证并打印结果
+    serial_print("First 16 bytes of sector 5 after write:\n");
     for (int i = 0; i < 16; i++) {
         char hex_buf[4];
-        itoa(buffer[i], hex_buf, 4, 16); // 用 itoa 转成16进制
+        itoa(read_buffer[i], hex_buf, 4, 16);
         serial_print(hex_buf);
         serial_print(" ");
     }
-    serial_print("\n--- ATA read test finished ---\n\n");
-    // --- 测试结束 ---
-
-    serial_print("All systems go. Starting shell.\n");
+    serial_print("\n--- ATA R/W test finished ---\n\n");
 
     init_shell();
 
