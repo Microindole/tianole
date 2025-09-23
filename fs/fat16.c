@@ -1,6 +1,7 @@
 #include "fat16.h"
 #include "../drivers/ata.h"
 #include "string.h" // for memset
+#include "../mm/kheap.h"
 
 // 声明一个全局的引导扇区变量，方便后续访问
 fat16_boot_sector_t bpb;
@@ -56,4 +57,28 @@ void init_fat16() {
     uint8_t boot_sector_buffer[512];
     ata_read_sector(0, boot_sector_buffer);
     memcpy(&bpb, boot_sector_buffer, sizeof(fat16_boot_sector_t));
+}
+
+fat16_directory_t* fat16_get_root_directory() {
+    // 1. 计算根目录的起始扇区 LBA 地址
+    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+
+    // 2. 计算根目录占用的总扇区数
+    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+
+    // 3. 为整个根目录分配一块连续的内存
+    uint32_t root_dir_size_bytes = root_dir_sectors * bpb.bytes_per_sector;
+    uint8_t* root_dir_buffer = (uint8_t*)kmalloc(root_dir_size_bytes);
+
+    // 4. 循环读取所有根目录扇区到内存
+    for (uint32_t i = 0; i < root_dir_sectors; i++) {
+        ata_read_sector(root_dir_start_sector + i, root_dir_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    // 5. 创建并填充 fat16_directory_t 结构体
+    fat16_directory_t* root_dir = (fat16_directory_t*)kmalloc(sizeof(fat16_directory_t));
+    root_dir->entries = (fat16_directory_entry_t*)root_dir_buffer;
+    root_dir->entry_count = bpb.root_entry_count;
+
+    return root_dir;
 }

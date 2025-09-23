@@ -48,6 +48,14 @@ typedef struct {
     uint32_t file_size;          // 文件大小 (字节)
 } __attribute__((packed)) fat16_directory_entry_t;
 
+typedef struct {
+    fat16_directory_entry_t* entries;
+    uint32_t entry_count;
+} fat16_directory_t;
+
+// 声明读取根目录的函数
+fat16_directory_t* fat16_get_root_directory();
+
 // 初始化 FAT16 文件系统 (我们下一步要实现的目标)
 void init_fat16();
 void fat16_format();
