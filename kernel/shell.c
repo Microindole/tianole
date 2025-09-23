@@ -247,25 +247,21 @@ void process_command(char *input) {
             }
         }
     } else if (strcmp(command, "append") == 0) {
-        // 'append' 命令的逻辑和 'write' 几乎一样
-        if (args == NULL) {
-            kprint("\nUsage: append <file_name> \"content_to_append\"");
-        } else {
+        if (args == NULL) kprint("\nUsage: append <file_name> \"content_to_append\"");
+        else {
+            // (这里的参数解析逻辑和 write 命令完全一样)
             char* filename = args;
             char* content = NULL;
             int j = 0;
-            // 循环遍历参数字符串
             while(args[j] != '\0') {
-                // 寻找 "空格 + 双引号" 这个组合，它是文件名和内容的分割点
                 if (args[j] == ' ' && args[j+1] == '"') {
-                    args[j] = '\0'; // 将空格替换为字符串结束符，从而分离出文件名
-                    content = &args[j+2]; // 内容从双引号之后开始
+                    args[j] = '\0';
+                    content = &args[j+2];
                     break;
                 }
                 j++;
             }
             if (content) {
-                // 找到内容的结束双引号，并替换为字符串结束符
                 int k = 0;
                 while(content[k] != '\0') {
                     if (content[k] == '"') {
@@ -274,11 +270,8 @@ void process_command(char *input) {
                     }
                     k++;
                 }
-                // 调用 VFS 的 append 函数
-                vfs_append(filename, content);
-            } else {
-                kprint("\nUsage: append <file_name> \"content_to_append\"");
-            }
+                fat16_append(filename, content);
+            } else kprint("\nUsage: append <file_name> \"content_to_append\"");
         }
     } else if (strcmp(command, "forktest") == 0) {
         kprint("\nParent process attempting to fork...\n");

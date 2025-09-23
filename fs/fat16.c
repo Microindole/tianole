@@ -432,3 +432,103 @@ void fat16_cat(const char* filename) {
     kfree(fat_buffer);
     kfree(read_buffer);
 }
+
+void fat16_append(const char* filename, const char* content) {
+    // --- 1. 找到文件的目录条目 ---
+    char fat_filename[11];
+    to_fat16_filename(filename, fat_filename);
+
+    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_sectors * bpb.bytes_per_sector);
+    for (uint32_t i = 0; i < root_dir_sectors; i++) {
+        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    int entry_index = -1;
+    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
+        if (memcmp(root_dir_buffer[i].filename, fat_filename, 11) == 0) {
+            entry_index = i;
+            break;
+        }
+    }
+
+    if (entry_index == -1) {
+        kprint("\nError: File not found.");
+        kfree(root_dir_buffer);
+        return;
+    }
+
+    fat16_directory_entry_t* entry = &root_dir_buffer[entry_index];
+    uint16_t current_cluster = entry->first_cluster_low;
+    uint32_t file_size = entry->file_size;
+
+    // 如果文件为空，append 等同于 write
+    if (current_cluster == 0) {
+        kfree(root_dir_buffer);
+        fat16_write_content(filename, content);
+        return;
+    }
+
+    // --- 2. 找到文件的最后一个簇 ---
+    uint32_t fat_size_bytes = bpb.sectors_per_fat * bpb.bytes_per_sector;
+    uint16_t* fat_buffer = (uint16_t*)kmalloc(fat_size_bytes);
+    uint32_t fat_start_sector = bpb.reserved_sector_count;
+    for (uint32_t i = 0; i < bpb.sectors_per_fat; i++) {
+        ata_read_sector(fat_start_sector + i, (uint8_t*)fat_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    while (fat_buffer[current_cluster] < 0xFFF8) {
+        current_cluster = fat_buffer[current_cluster];
+    }
+    kfree(fat_buffer); // FAT 已经用完，可以释放
+
+    // --- 3. 读取最后一个簇，准备追加 ---
+    uint8_t* cluster_buffer = (uint8_t*)kmalloc(bpb.bytes_per_sector);
+    ata_read_sector(cluster_to_lba(current_cluster), cluster_buffer);
+
+    uint32_t offset_in_cluster = file_size % bpb.bytes_per_sector;
+    uint32_t space_in_cluster = bpb.bytes_per_sector - offset_in_cluster;
+    uint32_t content_len = strlen(content);
+    uint8_t* content_ptr = (uint8_t*)content;
+    uint32_t bytes_to_write_now = (content_len < space_in_cluster) ? content_len : space_in_cluster;
+
+    // a. 先填满最后一个簇的剩余空间
+    memcpy(cluster_buffer + offset_in_cluster, content_ptr, bytes_to_write_now);
+    ata_write_sector(cluster_to_lba(current_cluster), cluster_buffer);
+    
+    content_ptr += bytes_to_write_now;
+    uint32_t bytes_remaining = content_len - bytes_to_write_now;
+
+    // --- 4. 如果还有剩余内容，则启动多簇写入循环 ---
+    while (bytes_remaining > 0) {
+        uint16_t next_cluster = fat16_find_free_cluster();
+        if (next_cluster == 0) {
+            kprint("\nError: Disk is full.");
+            break;
+        }
+
+        // 更新FAT表，将新簇链接到链上
+        fat16_update_fat(current_cluster, next_cluster);
+        current_cluster = next_cluster;
+
+        // 写入剩余内容
+        memset(cluster_buffer, 0, bpb.bytes_per_sector);
+        bytes_to_write_now = (bytes_remaining > 512) ? 512 : bytes_remaining;
+        memcpy(cluster_buffer, content_ptr, bytes_to_write_now);
+        ata_write_sector(cluster_to_lba(current_cluster), cluster_buffer);
+
+        content_ptr += bytes_to_write_now;
+        bytes_remaining -= bytes_to_write_now;
+    }
+
+    // --- 5. 用文件结尾标记终止簇链 ---
+    fat16_update_fat(current_cluster, 0xFFFF);
+    kfree(cluster_buffer);
+
+    // --- 6. 更新目录条目中的文件大小 ---
+    entry->file_size += content_len;
+    uint32_t dir_sector_offset = (entry_index * 32) / bpb.bytes_per_sector;
+    ata_write_sector(root_dir_start_sector + dir_sector_offset, (uint8_t*)root_dir_buffer + dir_sector_offset * bpb.bytes_per_sector);
+    kfree(root_dir_buffer);
+}

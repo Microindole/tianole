@@ -73,8 +73,9 @@ uint16_t fat16_find_free_cluster();
 void fat16_write_content(const char* filename, const char* content);
 void fat16_cat(const char* filename);
 
-// cat
+// cat 和 append
 void fat16_cat(const char* filename);
+void fat16_append(const char* filename, const char* content);
 
 extern fat16_boot_sector_t bpb;
 
