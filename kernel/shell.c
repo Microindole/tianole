@@ -6,6 +6,7 @@
 #include "string.h"  // for strcmp
 #include "syscall.h"
 #include "task.h"
+#include "../fs/fat16.h"
 
 // --- 缓冲区和光标状态 ---
 #define CMD_BUFFER_SIZE 256
@@ -23,6 +24,7 @@ static int history_view_idx = -1;  // 当前正在查看的历史命令索引 (-
 
 // --- 声明外部函数 ---
 void get_current_path(char* buffer);
+void fat16_ls();
 
 // 外部变量，来自 kernel.c
 extern int cursor_x, cursor_y;
@@ -184,16 +186,17 @@ void process_command(char *input) {
     } else if (strcmp(command, "clear") == 0) {
         clear_screen();
     } else if (strcmp(command, "ls") == 0) {
-        ls_current_dir();
+        // ls_current_dir();
+        fat16_ls();
     } else if (strcmp(command, "cd") == 0) {
         if (args == NULL) kprint("\nUsage: cd <dir_name>");
         else vfs_cd(args);
     } else if (strcmp(command, "mkdir") == 0) {
         if (args == NULL) kprint("\nUsage: mkdir <dir_name>");
-        else vfs_mkdir(args);
+        else fat16_mkdir(args);
     } else if (strcmp(command, "touch") == 0) {
         if (args == NULL) kprint("\nUsage: touch <file_name>");
-        else vfs_touch(args);
+        else fat16_touch(args);
     } else if (strcmp(command, "cat") == 0) {
         if (args == NULL) kprint("\nUsage: cat <file_name>");
         else vfs_cat(args);

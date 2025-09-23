@@ -213,29 +213,8 @@ void kernel_main(void) {
     init_fat16();   // 读取引导扇区信息到内存
     serial_print("FAT16 Initialized. Filesystem type: ");
 
-    char fs_type_buf[9];
-    memcpy(fs_type_buf, bpb.fs_type, 8);
-    fs_type_buf[8] = '\0';
-    serial_print(fs_type_buf);
     serial_print("\n\n");
 
-    // --- 在这里添加新的测试代码 ---
-    serial_print("\nReading root directory...\n");
-    fat16_directory_t* root_dir = fat16_get_root_directory();
-    
-    // 验证一下读取是否成功
-    // 一个空的目录，第一个条目的第一个字节应该是 0x00
-    if (root_dir->entries[0].filename[0] == 0x00) {
-        serial_print("Root directory is empty, as expected.\n");
-    } else {
-        serial_print("Root directory is not empty. Something is wrong.\n");
-    }
-
-    // 释放内存 (好习惯)
-    kfree(root_dir->entries);
-    kfree(root_dir);
-    serial_print("\n");
-    // --- 结束 ---
 
     serial_print("All systems go. Starting shell.\n");
 

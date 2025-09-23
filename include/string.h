@@ -20,4 +20,6 @@ uint32_t strlen(const char* str);
 void strcat(char* dest, const char* src);
 void strrev(char* str);
 
+char toupper(char c);
+
 #endif

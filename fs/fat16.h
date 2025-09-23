@@ -56,6 +56,12 @@ typedef struct {
 // 声明读取根目录的函数
 fat16_directory_t* fat16_get_root_directory();
 
+// 创建一个文件
+void fat16_touch(const char* filename);
+
+// 创建一个文件夹
+void fat16_mkdir(const char* dirname);
+
 // 初始化 FAT16 文件系统 (我们下一步要实现的目标)
 void init_fat16();
 void fat16_format();
