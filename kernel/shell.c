@@ -166,17 +166,33 @@ void process_command(char *input) {
         }
     }
     // --- 命令解析逻辑 ---
-    // 找到命令的结束位置 (第一个空格或字符串末尾)
     char* command = input;
     char* args = NULL;
-    int i = 0;
-    while(input[i] != '\0') {
-        if (input[i] == ' ') {
-            input[i] = '\0'; // 分割命令和参数
-            args = &input[i+1];
+    
+    // 1. 跳过命令前的所有空格
+    while (*command == ' ') {
+        command++;
+    }
+
+    // 2. 寻找命令和参数的分割点
+    args = command;
+    while (*args != '\0') {
+        if (*args == ' ') {
+            *args = '\0'; // 将第一个空格替换为结束符
+            args++;       // args指向下一个字符
             break;
         }
-        i++;
+        args++;
+    }
+
+    // 3. 跳过命令和参数之间的所有多余空格
+    while (*args == ' ') {
+        args++;
+    }
+
+    // 4. 如果没有参数，将args设为NULL
+    if (*args == '\0') {
+        args = NULL;
     }
 
     // --- 命令处理逻辑 ---
@@ -286,7 +302,9 @@ void process_command(char *input) {
         kprint("\nUnknown command: ");
         kprint(command);
     }
-    kprint("\n");       // 在命令输出后换行
+    if (cursor_x != 0) { // 如果当前光标不在行首
+        kprint("\n");     // 主动换行，确保提示符在新的一行开始
+    }
     print_prompt();   // 打印新的提示符
 }
 

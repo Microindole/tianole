@@ -44,25 +44,35 @@ void scroll() {
 
 void kputc(char c) {
     unsigned char attribute_byte = 0x0F;
-    if (c == '\n') {
-        cursor_x = 0;
-        cursor_y++;
-    } else if (c == '\b') {
+
+    if (c == '\b') { // 退格键
         if (cursor_x > 0) {
             cursor_x--;
             VIDEO_MEMORY[cursor_y * VGA_WIDTH + cursor_x] = ' ' | (attribute_byte << 8);
         }
-    } else if (c >= ' ') {
+    } else if (c == '\t') { // Tab键
+        cursor_x = (cursor_x + 8) & ~(8 - 1);
+    } else if (c == '\r') { // 回车符
+        cursor_x = 0;
+    } else if (c == '\n') { // 换行符
+        cursor_x = 0;
+        cursor_y++;
+    } else if (c >= ' ') { // 可打印字符
         int offset = cursor_y * VGA_WIDTH + cursor_x;
         VIDEO_MEMORY[offset] = c | (attribute_byte << 8);
         cursor_x++;
     }
 
+    // 将光标检查和滚屏逻辑集中到函数末尾
+    // 确保任何操作后都会执行
     if (cursor_x >= VGA_WIDTH) {
         cursor_x = 0;
         cursor_y++;
     }
+
+    // 每次调用 kputc 后都检查是否需要滚屏
     scroll();
+    // 每次调用 kputc 后都更新硬件光标
     move_cursor();
 }
 
