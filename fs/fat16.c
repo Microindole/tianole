@@ -211,3 +211,172 @@ void fat16_mkdir(const char* dirname) {
     // 7. 释放内存
     kfree(root_dir_buffer);
 }
+
+uint16_t fat16_find_free_cluster() {
+    // 1. 将整个 FAT1 读入内存
+    uint32_t fat_start_sector = bpb.reserved_sector_count;
+    uint32_t fat_size_bytes = bpb.sectors_per_fat * bpb.bytes_per_sector;
+    uint16_t* fat_buffer = (uint16_t*)kmalloc(fat_size_bytes);
+    
+    for (uint32_t i = 0; i < bpb.sectors_per_fat; i++) {
+        ata_read_sector(fat_start_sector + i, (uint8_t*)fat_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    // 2. 遍历 FAT 条目寻找空闲簇
+    //    簇号从 2 开始，0 和 1 是保留的
+    //    总簇数 = (总扇区数 - 数据区起始扇区) / 每簇扇区数
+    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+    uint32_t data_area_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat) + root_dir_sectors;
+    uint32_t total_clusters = (bpb.total_sectors_short - data_area_start_sector) / bpb.sectors_per_cluster;
+
+    uint16_t free_cluster = 0;
+    for (uint16_t i = 2; i < total_clusters; i++) {
+        if (fat_buffer[i] == 0x0000) {
+            free_cluster = i;
+            break;
+        }
+    }
+
+    // 3. 释放内存并返回结果
+    kfree(fat_buffer);
+    return free_cluster;
+}
+
+// 辅助函数：将簇号转换为 LBA 扇区地址
+static uint32_t cluster_to_lba(uint16_t cluster) {
+    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+    uint32_t data_area_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat) + root_dir_sectors;
+    return data_area_start_sector + (cluster - 2) * bpb.sectors_per_cluster;
+}
+
+void fat16_write_content(const char* filename, const char* content) {
+    // --- 1. 准备工作 ---
+    char fat_filename[11];
+    to_fat16_filename(filename, fat_filename);
+    uint32_t content_len = strlen(content);
+
+    // (注意：当前版本仅支持写入小于一个簇/扇区大小的内容)
+    if (content_len >= 512) {
+        kprint("\nError: Content too large for a single cluster.");
+        return;
+    }
+
+    // --- 2. 找到目标文件的目录条目 ---
+    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_sectors * bpb.bytes_per_sector);
+    for (uint32_t i = 0; i < root_dir_sectors; i++) {
+        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    int entry_index = -1;
+    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
+        if (memcmp(root_dir_buffer[i].filename, fat_filename, 11) == 0) {
+            entry_index = i;
+            break;
+        }
+    }
+
+    if (entry_index == -1) {
+        kprint("\nError: File not found.");
+        kfree(root_dir_buffer);
+        return;
+    }
+
+    // --- 3. 分配一个新的空闲簇 ---
+    uint16_t free_cluster = fat16_find_free_cluster();
+    if (free_cluster == 0) {
+        kprint("\nError: No free clusters on disk.");
+        kfree(root_dir_buffer);
+        return;
+    }
+
+    // --- 4. 将内容写入该簇对应的数据区 ---
+    uint32_t target_lba = cluster_to_lba(free_cluster);
+    uint8_t write_buffer[512];
+    memset(write_buffer, 0, 512);
+    memcpy(write_buffer, content, content_len);
+    ata_write_sector(target_lba, write_buffer);
+
+    // --- 5. 更新 FAT 表 ---
+    uint32_t fat_start_sector = bpb.reserved_sector_count;
+    uint32_t fat_size_bytes = bpb.sectors_per_fat * bpb.bytes_per_sector;
+    uint16_t* fat_buffer = (uint16_t*)kmalloc(fat_size_bytes);
+    for (uint32_t i = 0; i < bpb.sectors_per_fat; i++) {
+        ata_read_sector(fat_start_sector + i, (uint8_t*)fat_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    // 在FAT中标记该簇为文件结尾 (0xFFFF)
+    fat_buffer[free_cluster] = 0xFFFF;
+
+    // 将修改后的FAT扇区写回两个FAT表
+    uint32_t fat_sector_offset = (free_cluster * 2) / bpb.bytes_per_sector;
+    ata_write_sector(fat_start_sector + fat_sector_offset, (uint8_t*)fat_buffer + fat_sector_offset * bpb.bytes_per_sector);
+    ata_write_sector(fat_start_sector + bpb.sectors_per_fat + fat_sector_offset, (uint8_t*)fat_buffer + fat_sector_offset * bpb.bytes_per_sector);
+    kfree(fat_buffer);
+
+    // --- 6. 更新根目录条目 ---
+    fat16_directory_entry_t* entry = &root_dir_buffer[entry_index];
+    entry->first_cluster_low = free_cluster;
+    entry->file_size = content_len;
+
+    // 将修改后的根目录扇区写回
+    uint32_t dir_sector_offset = (entry_index * 32) / bpb.bytes_per_sector;
+    ata_write_sector(root_dir_start_sector + dir_sector_offset, (uint8_t*)root_dir_buffer + dir_sector_offset * bpb.bytes_per_sector);
+    kfree(root_dir_buffer);
+}
+
+void fat16_cat(const char* filename) {
+    // --- 1. 准备工作 ---
+    char fat_filename[11];
+    to_fat16_filename(filename, fat_filename);
+
+    // --- 2. 找到目标文件的目录条目 ---
+    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_sectors * bpb.bytes_per_sector);
+    for (uint32_t i = 0; i < root_dir_sectors; i++) {
+        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    int entry_index = -1;
+    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
+        if (memcmp(root_dir_buffer[i].filename, fat_filename, 11) == 0) {
+            entry_index = i;
+            break;
+        }
+    }
+
+    if (entry_index == -1) {
+        kprint("\nError: File not found.");
+        kfree(root_dir_buffer);
+        return;
+    }
+
+    // --- 3. 获取文件的起始簇号和大小 ---
+    fat16_directory_entry_t* entry = &root_dir_buffer[entry_index];
+    uint16_t start_cluster = entry->first_cluster_low;
+    uint32_t file_size = entry->file_size;
+
+    if (start_cluster == 0) {
+        kprint("\nFile is empty.");
+        kfree(root_dir_buffer);
+        return;
+    }
+
+    // --- 4. 读取文件内容 ---
+    // (注意：当前版本仅支持读取单个簇的内容)
+    uint32_t lba = cluster_to_lba(start_cluster);
+    uint8_t* read_buffer = (uint8_t*)kmalloc(bpb.bytes_per_sector);
+    ata_read_sector(lba, read_buffer);
+
+    // --- 5. 打印文件内容到屏幕 ---
+    kprint("\n");
+    for (uint32_t i = 0; i < file_size; i++) {
+        kputc(read_buffer[i]);
+    }
+
+    // --- 6. 清理 ---
+    kfree(root_dir_buffer);
+    kfree(read_buffer);
+}

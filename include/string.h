@@ -22,4 +22,7 @@ void strrev(char* str);
 
 char toupper(char c);
 
+// 比较两块内存区域的内容
+int memcmp(const void* ptr1, const void* ptr2, uint32_t num);
+
 #endif

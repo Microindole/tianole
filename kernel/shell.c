@@ -199,7 +199,7 @@ void process_command(char *input) {
         else fat16_touch(args);
     } else if (strcmp(command, "cat") == 0) {
         if (args == NULL) kprint("\nUsage: cat <file_name>");
-        else vfs_cat(args);
+        else fat16_cat(args);
     } else if (strcmp(command, "write") == 0) {
         if (args == NULL) {
             kprint("\nUsage: write <file_name> \"content\"");
@@ -217,7 +217,6 @@ void process_command(char *input) {
             }
 
             if (content) {
-                // 找到内容的结束引号并替换为 \0
                 int k = 0;
                 while(content[k] != '\0') {
                     if (content[k] == '"') {
@@ -226,7 +225,7 @@ void process_command(char *input) {
                     }
                     k++;
                 }
-                vfs_write(filename, content);
+                fat16_write_content(filename, content);
             } else {
                 kprint("\nUsage: write <file_name> \"content\"");
             }

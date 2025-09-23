@@ -206,13 +206,19 @@ void kernel_main(void) {
     init_timer(50);
     init_vfs();
 
-    // --- 在这里替换掉之前的硬盘测试代码 ---
-    serial_print("\n--- Formatting filesystem ---\n");
-    fat16_format(); // 格式化硬盘
-    serial_print("Format complete. Initializing FAT16...\n");
-    init_fat16();   // 读取引导扇区信息到内存
-    serial_print("FAT16 Initialized. Filesystem type: ");
+    // 1. 先格式化硬盘 (仅用于开发阶段，每次启动都格式化)
+    // fat16_format(); // 你可以选择是否每次都格式化，测试时建议开启
 
+    // 2. 调用 init_fat16() 来读取引导扇区，填充 bpb 变量
+    init_fat16();
+    serial_print("FAT16 Initialized.\n");
+
+    // 3. 现在 bpb 有了正确的值，再调用 find_free_cluster 就安全了
+    uint16_t free_cluster = fat16_find_free_cluster();
+    serial_print("First free cluster found at: ");
+    char num_buf[10];
+    itoa(free_cluster, num_buf, 10, 10);
+    serial_print(num_buf);
     serial_print("\n\n");
 
 

@@ -66,6 +66,16 @@ void fat16_mkdir(const char* dirname);
 void init_fat16();
 void fat16_format();
 
+// 声明一个函数，用于寻找第一个空闲的簇
+uint16_t fat16_find_free_cluster();
+
+// write 和 cat
+void fat16_write_content(const char* filename, const char* content);
+void fat16_cat(const char* filename);
+
+// cat
+void fat16_cat(const char* filename);
+
 extern fat16_boot_sector_t bpb;
 
 #endif

@@ -82,3 +82,14 @@ char toupper(char c) {
     }
     return c;
 }
+
+int memcmp(const void* ptr1, const void* ptr2, uint32_t num) {
+    const unsigned char* v1 = (const unsigned char*)ptr1;
+    const unsigned char* v2 = (const unsigned char*)ptr2;
+    for (uint32_t i = 0; i < num; i++) {
+        if (v1[i] != v2[i]) {
+            return v1[i] < v2[i] ? -1 : 1;
+        }
+    }
+    return 0;
+}
