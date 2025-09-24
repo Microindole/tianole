@@ -25,6 +25,10 @@ SECTIONS
     .data :
     {
         *(.data)
+
+        user_start = .;
+        *(*.bin.o)
+        user_end = .;
     } :data
 
     .bss :

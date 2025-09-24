@@ -149,7 +149,7 @@ void itoa_hex(uint32_t n, char* str, int len) {
 }
 
 // --- 内核入口函数 ---
-
+void init_gdt();
 void init_idt();
 void init_timer(uint32_t frequency);
 
@@ -196,6 +196,7 @@ void heap_test() {
 
 void kernel_main(void) {
     clear_screen();
+    init_gdt();
     init_idt();
 
     init_serial();

@@ -1,21 +1,28 @@
 # --- 项目配置 ---
 BUILD_DIR = build
-SRC_DIRS = cpu drivers fs kernel lib mm
+SRC_DIRS = cpu drivers fs kernel lib mm user
 
 # --- 工具链 ---
 CC = gcc
 AS = nasm
 LD = ld
+OBJCOPY = objcopy
 
 # --- 编译和链接标志 ---
 CFLAGS = -m32 -ffreestanding -c -g -O0 -Wall -Wextra -Wno-unused-parameter -fno-omit-frame-pointer -I. -Iinclude
 ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
+# --- New Userland Toolchain ---
+USER_CC = gcc
+USER_LD = ld
+USER_CFLAGS = -m32 -ffreestanding -c -g -O0 -Wall -Wextra -fno-pie
+USER_LDFLAGS = -m elf_i386 -T user/user.ld
+
 # --- 源文件查找 ---
 # 自动查找所有 .c 和 .s 文件，但排除需要特殊处理的文件
-C_SOURCES = $(filter-out cpu/isr.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
-S_SOURCES = $(filter-out cpu/boot.s cpu/isr.s cpu/paging.s kernel/switch.s cpu/fork_trampoline.s cpu/task_utils.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
+C_SOURCES = $(filter-out cpu/isr.c cpu/gdt.c kernel/exec.c user/hello.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
+S_SOURCES = $(filter-out cpu/boot.s cpu/isr.s cpu/paging.s kernel/switch.s cpu/fork_trampoline.s cpu/task_utils.s cpu/gdt.s cpu/user_mode.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
 
 # 将通用源文件映射到目标文件
 C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SOURCES))
@@ -28,7 +35,17 @@ OBJS = $(C_OBJS) $(S_OBJS) \
        $(BUILD_DIR)/isr_c.o \
        $(BUILD_DIR)/paging_s.o \
        $(BUILD_DIR)/switch.o \
-       $(BUILD_DIR)/fork_trampoline.o
+       $(BUILD_DIR)/fork_trampoline.o \
+       $(BUILD_DIR)/gdt_c.o \
+       $(BUILD_DIR)/gdt_s.o \
+       $(BUILD_DIR)/user_mode_s.o \
+       $(BUILD_DIR)/exec_c.o
+
+# --- User Programs ---
+USER_APPS = user/hello.c
+USER_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(USER_APPS))
+USER_BINS = $(patsubst %.c,$(BUILD_DIR)/%.bin,$(USER_APPS))
+USER_BIN_OBJS = $(patsubst %.bin,%.bin.o,$(USER_BINS))
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
@@ -38,8 +55,8 @@ OS_ISO = $(BUILD_DIR)/my-os.iso
 all: $(OS_ISO)
 
 # --- 核心编译链接规则 ---
-$(KERNEL_BIN): $(OBJS) linker.ld
-	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+$(KERNEL_BIN): $(OBJS) $(USER_BIN_OBJS) linker.ld
+	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(USER_BIN_OBJS)
 
 # --- 通用编译规则 ---
 # VPATH 告诉 make 在哪里寻找源文件
@@ -74,9 +91,30 @@ $(BUILD_DIR)/task_utils.o: cpu/task_utils.s
 	@mkdir -p $(BUILD_DIR)
 	$(AS) $(ASFLAGS) $< -o $@
 
+$(BUILD_DIR)/gdt_c.o: cpu/gdt.c
+	@mkdir -p $(BUILD_DIR)/cpu
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/gdt_s.o: cpu/gdt.s
+	@mkdir -p $(BUILD_DIR)/cpu
+	$(AS) $(ASFLAGS) $< -o $@
+$(BUILD_DIR)/user_mode_s.o: cpu/user_mode.s
+	@mkdir -p $(BUILD_DIR)/cpu
+	$(AS) $(ASFLAGS) $< -o $@
+$(BUILD_DIR)/exec_c.o: kernel/exec.c
+	@mkdir -p $(BUILD_DIR)/kernel
+	$(CC) $(CFLAGS) $< -o $@
+$(BUILD_DIR)/user/%.o: user/%.c
+	@mkdir -p $(dir $@)
+	$(USER_CC) $(USER_CFLAGS) $< -o $@
+$(BUILD_DIR)/user/%.bin: $(BUILD_DIR)/user/%.o user/user.ld
+	$(USER_LD) $(USER_LDFLAGS) -o $@ $<
+$(BUILD_DIR)/user/%.bin.o: $(BUILD_DIR)/user/%.bin
+	$(OBJCOPY) -I binary -O elf32-i386 -B i386 $< $@
+
 # --- 运行和诊断 ---
 run: $(OS_ISO)
-	qemu-system-i386 -cdrom $(OS_ISO)
+	qemu-system-i386 -cdrom $(OS_ISO) -hda hdd.img
 qemu-direct: $(KERNEL_BIN)
 	qemu-system-i386 -kernel $(KERNEL_BIN) -serial stdio -hda hdd.img
 

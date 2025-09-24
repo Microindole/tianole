@@ -43,5 +43,7 @@ extern void switch_task(volatile task_t* old, volatile task_t* new);
 // --- 列出所有进程 ---
 void list_processes();
 
+extern volatile task_t* current_task;
+
 #endif
 

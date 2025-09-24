@@ -4,6 +4,7 @@
 #include "string.h"
 #include "../mm/kheap.h"
 #include <stddef.h>
+#include "../mm/paging.h"
 
 // 外部变量
 extern volatile task_t* current_task;
@@ -154,11 +155,41 @@ void register_syscall(uint8_t num, syscall_handler_t handler) {
     syscall_handlers[num] = handler;
 }
 
+void syscall_print(registers_t* regs) {
+    // 1. 从寄存器获取用户空间的字符串指针
+    char* user_str_ptr = (char*)regs->ebx;
+
+    // 2. 为了安全，我们先把字符串复制到内核空间
+    char kernel_buffer[256];
+    memset(kernel_buffer, 0, 256);
+    
+    // 3. 关键步骤：
+    //    a. 保存当前(内核)的页目录
+    page_directory_t* kernel_dir = current_directory;
+    //    b. 切换到发起系统调用的用户进程的页目录
+    load_page_directory(current_task->directory);
+    
+    //    c. 在用户进程的"世界"里，安全地复制字符串
+    for (int i = 0; i < 255; i++) {
+        kernel_buffer[i] = user_str_ptr[i];
+        if (user_str_ptr[i] == '\0') {
+            break;
+        }
+    }
+    
+    //    d. 立刻切换回内核的页目录，恢复内核的"世界观"
+    load_page_directory(kernel_dir);
+
+    // 4. 现在可以安全地打印复制到内核空间的内容了
+    kprint(kernel_buffer);
+}
+
 void init_syscalls() {
     register_interrupt_handler(128, &syscall_dispatcher);
     register_syscall(0, &syscall_exit);
     register_syscall(1, &syscall_fork);
     register_syscall(2, &syscall_waitpid);
+    register_syscall(3, &syscall_print);
     kprint("Syscalls initialized.\n");
 }
 

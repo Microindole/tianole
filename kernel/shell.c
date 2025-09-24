@@ -7,6 +7,7 @@
 #include "syscall.h"
 #include "task.h"
 #include "../fs/fat16.h"
+#include "exec.h"
 
 // --- 缓冲区和光标状态 ---
 #define CMD_BUFFER_SIZE 256
@@ -310,6 +311,8 @@ void process_command(char *input) {
             kprint(buf);
             kprint("\n");
         }
+    } else if (strcmp(command, "runapp") == 0) {
+        exec_init_user_program();
     } else if (strcmp(command, "ps") == 0) {
         list_processes();
     } else {
