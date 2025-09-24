@@ -23,7 +23,6 @@ static int history_head = 0;       // 指向下一条要插入的位置 (环形�
 static int history_view_idx = -1;  // 当前正在查看的历史命令索引 (-1 表示没在看)
 
 // --- 声明外部函数 ---
-void get_current_path(char* buffer);
 void fat16_ls();
 
 // 外部变量，来自 kernel.c
@@ -148,7 +147,7 @@ void shell_handle_key(uint16_t keycode) {
 // 一个专门打印提示符的函数
 static void print_prompt() {
     char path[256];
-    get_current_path(path);
+    fat16_get_current_path(path);
     kprint(path); 
     kprint("> ");
     // 计算并保存提示符的长度
@@ -206,7 +205,7 @@ void process_command(char *input) {
         fat16_ls();
     } else if (strcmp(command, "cd") == 0) {
         if (args == NULL) kprint("\nUsage: cd <dir_name>");
-        else vfs_cd(args);
+        else fat16_cd(args);
     } else if (strcmp(command, "mkdir") == 0) {
         if (args == NULL) kprint("\nUsage: mkdir <dir_name>");
         else fat16_mkdir(args);

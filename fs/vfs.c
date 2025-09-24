@@ -275,43 +275,34 @@ void vfs_append(const char* name, const char* content) {
 }
 
 void fat16_ls() {
-    // 1. 调用我们之前写好的函数，从硬盘读取根目录
-    fat16_directory_t* root_dir = fat16_get_root_directory();
+    // --- 核心改动：不再读取根目录，而是读取当前目录 ---
+    fat16_directory_t* dir = fat16_read_directory(current_directory_cluster);
 
-    kprint("\n"); // 另起一行
+    kprint("\n");
 
     int entries_found = 0;
-    // 2. 遍历所有目录条目
-    for (uint32_t i = 0; i < root_dir->entry_count; i++) {
-        fat16_directory_entry_t entry = root_dir->entries[i];
+    for (uint32_t i = 0; i < dir->entry_count; i++) {
+        fat16_directory_entry_t entry = dir->entries[i];
 
-        // 3. 检查条目是否有效
-        // 文件名的第一个字节是 0x00 表示目录区结束
         if (entry.filename[0] == 0x00) {
             break; 
         }
-        // 文件名的第一个字节是 0xE5 表示这是一个已删除的文件
         if ((uint8_t)entry.filename[0] == 0xE5) {
             continue;
         }
-        // 我们暂时不显示长文件名(LFN)条目和卷标
         if (entry.attributes == 0x0F || entry.attributes & 0x08) {
             continue;
         }
 
         entries_found++;
 
-        // 4. 解析并打印 8.3 格式的文件名
-        char name_buf[13]; // 8 + 1 + 3 + 1 = 13
+        char name_buf[13];
         int k = 0;
-
-        // 复制文件名 (最多8个字符)
         for (int j = 0; j < 8; j++) {
             if (entry.filename[j] == ' ') break;
             name_buf[k++] = entry.filename[j];
         }
 
-        // 如果有扩展名，加上点和扩展名 (最多3个字符)
         if (entry.extension[0] != ' ') {
             name_buf[k++] = '.';
             for (int j = 0; j < 3; j++) {
@@ -319,23 +310,21 @@ void fat16_ls() {
                 name_buf[k++] = entry.extension[j];
             }
         }
-        name_buf[k] = '\0'; // 添加字符串结束符
+        name_buf[k] = '\0';
 
         kprint(name_buf);
 
-        // 5. 如果是目录，在末尾打印一个斜杠
         if (entry.attributes & 0x10) {
             kprint("/");
         }
 
-        kprint("  "); // 打印一些空格作为分隔
+        kprint("  ");
     }
 
     if (entries_found == 0) {
         kprint("Directory is empty.");
     }
 
-    // 6. 释放之前为目录分配的内存，避免内存泄漏
-    kfree(root_dir->entries);
-    kfree(root_dir);
+    kfree(dir->entries);
+    kfree(dir);
 }

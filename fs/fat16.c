@@ -3,9 +3,42 @@
 #include "string.h" // for memset
 #include "../mm/kheap.h"
 #include "common.h"
+#include <stddef.h>
 
 // 声明一个全局的引导扇区变量，方便后续访问
 fat16_boot_sector_t bpb;
+
+// --- 定义全局变量，用于追踪当前目录的起始簇号 ---
+// 0 代表根目录
+uint16_t current_directory_cluster = 0;
+
+// 辅助函数：将簇号转换为 LBA 扇区地址
+static uint32_t cluster_to_lba(uint16_t cluster) {
+    if (cluster < 2) return 0; // 安全检查
+    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+    uint32_t data_area_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat) + root_dir_sectors;
+    return data_area_start_sector + (cluster - 2) * bpb.sectors_per_cluster;
+}
+
+// 辅助函数：更新FAT表并写回硬盘
+static void fat16_update_fat(uint16_t cluster, uint16_t value) {
+    uint32_t fat_start_sector = bpb.reserved_sector_count;
+    uint32_t fat_size_bytes = bpb.sectors_per_fat * bpb.bytes_per_sector;
+    uint16_t* fat_buffer = (uint16_t*)kmalloc(fat_size_bytes);
+    
+    for (uint32_t i = 0; i < bpb.sectors_per_fat; i++) {
+        ata_read_sector(fat_start_sector + i, (uint8_t*)fat_buffer + (i * bpb.bytes_per_sector));
+    }
+
+    fat_buffer[cluster] = value;
+
+    uint32_t fat_sector_offset = (cluster * 2) / bpb.bytes_per_sector;
+    uint8_t* sector_ptr = (uint8_t*)fat_buffer + fat_sector_offset * bpb.bytes_per_sector;
+    ata_write_sector(fat_start_sector + fat_sector_offset, sector_ptr);
+    ata_write_sector(fat_start_sector + bpb.sectors_per_fat + fat_sector_offset, sector_ptr);
+
+    kfree(fat_buffer);
+}
 
 void fat16_format() {
     // 1. 准备一个512字节的缓冲区
@@ -53,6 +86,85 @@ void fat16_format() {
     }
 }
 
+// --- 核心改动：实现通用的目录读取函数 ---
+fat16_directory_t* fat16_read_directory(uint16_t cluster) {
+    fat16_directory_t* dir = (fat16_directory_t*)kmalloc(sizeof(fat16_directory_t));
+    uint8_t* buffer;
+
+    if (cluster == 0) { // 读取根目录
+        uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+        uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
+        uint32_t root_dir_size_bytes = root_dir_sectors * bpb.bytes_per_sector;
+        
+        buffer = (uint8_t*)kmalloc(root_dir_size_bytes);
+        for (uint32_t i = 0; i < root_dir_sectors; i++) {
+            ata_read_sector(root_dir_start_sector + i, buffer + (i * bpb.bytes_per_sector));
+        }
+        dir->entries = (fat16_directory_entry_t*)buffer;
+        dir->capacity = bpb.root_entry_count;
+        dir->entry_count = bpb.root_entry_count; // For root, count is fixed
+    } else { // 读取子目录
+        // 子目录大小是动态的，我们先假设它至少有一个簇
+        uint32_t dir_size_bytes = bpb.sectors_per_cluster * bpb.bytes_per_sector;
+        buffer = (uint8_t*)kmalloc(dir_size_bytes); // TODO: 支持跨簇的目录
+        
+        uint32_t lba = cluster_to_lba(cluster);
+        ata_read_sector(lba, buffer);
+
+        dir->entries = (fat16_directory_entry_t*)buffer;
+        dir->capacity = dir_size_bytes / 32;
+        dir->entry_count = 0;
+        for(uint32_t i=0; i<dir->capacity; i++) {
+            if (dir->entries[i].filename[0] == 0x00) break;
+            dir->entry_count++;
+        }
+    }
+    return dir;
+}
+
+
+// 辅助函数：将 "HELLO.TXT" 这样的字符串转换为 FAT16 的 8.3 格式
+static void to_fat16_filename(const char* filename, char* out_name) {
+    memset(out_name, ' ', 11);
+
+    int dot_pos = -1;
+    for (int i = 0; filename[i] != '\0'; i++) {
+        if (filename[i] == '.') {
+            dot_pos = i;
+            break;
+        }
+    }
+
+    if (dot_pos == -1) {
+        for (int i = 0; i < 8 && filename[i] != '\0'; i++) {
+            out_name[i] = toupper(filename[i]);
+        }
+    } else {
+        for (int i = 0; i < 8 && i < dot_pos; i++) {
+            out_name[i] = toupper(filename[i]);
+        }
+        for (int i = 0; i < 3 && filename[dot_pos + 1 + i] != '\0'; i++) {
+            out_name[8 + i] = toupper(filename[dot_pos + 1 + i]);
+        }
+    }
+}
+
+// 辅助函数：在目录中查找空条目或同名条目
+static int find_entry_in_dir(fat16_directory_t* dir, const char* fat_filename) {
+    for (uint32_t i = 0; i < dir->capacity; i++) {
+        // 文件名第一个字节为0x00或0xE5表示空位
+        if (!fat_filename && (dir->entries[i].filename[0] == 0x00 || (uint8_t)dir->entries[i].filename[0] == 0xE5)) {
+            return i;
+        }
+        // 比较文件名
+        if (fat_filename && memcmp(dir->entries[i].filename, fat_filename, 11) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
 // 这个函数用于在内核启动时读取并加载引导扇区信息
 void init_fat16() {
     uint8_t boot_sector_buffer[512];
@@ -84,132 +196,123 @@ fat16_directory_t* fat16_get_root_directory() {
     return root_dir;
 }
 
-
-// 一个辅助函数，将 "HELLO.TXT" 这样的字符串转换为 FAT16 的 8.3 格式
-static void to_fat16_filename(const char* filename, char* out_name) {
-    memset(out_name, ' ', 11); // 先用空格填充
-
-    int dot_pos = -1;
-    for (int i = 0; filename[i] != '\0'; i++) {
-        if (filename[i] == '.') {
-            dot_pos = i;
-            break;
-        }
-    }
-
-    if (dot_pos == -1) { // 没有扩展名
-        for (int i = 0; i < 8 && filename[i] != '\0'; i++) {
-            out_name[i] = toupper(filename[i]);
-        }
-    } else { // 有扩展名
-        for (int i = 0; i < 8 && i < dot_pos; i++) {
-            out_name[i] = toupper(filename[i]);
-        }
-        for (int i = 0; i < 3 && filename[dot_pos + 1 + i] != '\0'; i++) {
-            out_name[8 + i] = toupper(filename[dot_pos + 1 + i]);
-        }
-    }
-}
-
 void fat16_touch(const char* filename) {
-    // 1. 将输入的文件名转换为 8.3 格式
     char fat_filename[11];
     to_fat16_filename(filename, fat_filename);
 
-    // 2. 读取整个根目录到内存
-    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
-    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
-    uint32_t root_dir_size_bytes = root_dir_sectors * bpb.bytes_per_sector;
-    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_size_bytes);
-    
-    for (uint32_t i = 0; i < root_dir_sectors; i++) {
-        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
-    }
+    // 使用通用函数读取当前目录
+    fat16_directory_t* current_dir = fat16_read_directory(current_directory_cluster);
 
-    // 3. 寻找一个空的目录条目
-    int free_entry_index = -1;
-    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
-        if (root_dir_buffer[i].filename[0] == 0x00 || (uint8_t)root_dir_buffer[i].filename[0] == 0xE5) {
-            free_entry_index = i;
-            break;
-        }
-    }
-
-    if (free_entry_index == -1) {
-        kprint("\nError: Root directory is full.");
-        kfree(root_dir_buffer);
+    if (find_entry_in_dir(current_dir, fat_filename) != -1) {
+        kprint("\nError: File or directory already exists.");
+        kfree(current_dir->entries);
+        kfree(current_dir);
         return;
     }
 
-    // 4. 填充新的目录条目信息
-    fat16_directory_entry_t* new_entry = &root_dir_buffer[free_entry_index];
-    memcpy(new_entry->filename, fat_filename, 8);
-    memcpy(new_entry->extension, fat_filename + 8, 3);
+    int free_entry_index = find_entry_in_dir(current_dir, NULL);
+    if (free_entry_index == -1) {
+        kprint("\nError: Directory is full.");
+        kfree(current_dir->entries);
+        kfree(current_dir);
+        return;
+    }
+
+    // 填充新的目录条目信息
+    fat16_directory_entry_t* new_entry = &current_dir->entries[free_entry_index];
+    memcpy(new_entry->filename, fat_filename, 11);
     new_entry->attributes = 0x20; // 存档位 (普通文件)
     new_entry->file_size = 0;
     new_entry->first_cluster_low = 0;
-    // (其他时间、日期字段暂时忽略，保持为0)
 
-    // 5. 计算被修改的条目在哪个扇区
-    uint32_t sector_to_write = root_dir_start_sector + (free_entry_index * 32) / bpb.bytes_per_sector;
+    // 计算被修改的扇区并写回
+    uint32_t sector_to_write;
+    uint8_t* buffer_to_write;
+    if (current_directory_cluster == 0) {
+        uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+        sector_to_write = root_dir_start_sector + (free_entry_index * 32) / bpb.bytes_per_sector;
+        buffer_to_write = (uint8_t*)current_dir->entries + (sector_to_write - root_dir_start_sector) * bpb.bytes_per_sector;
+    } else {
+        sector_to_write = cluster_to_lba(current_directory_cluster) + (free_entry_index * 32) / bpb.bytes_per_sector;
+        buffer_to_write = (uint8_t*)current_dir->entries + ((free_entry_index * 32) - ((free_entry_index * 32) % bpb.bytes_per_sector));
+    }
+    ata_write_sector(sector_to_write, buffer_to_write);
 
-    // 6. 将这个修改后的扇区写回硬盘
-    ata_write_sector(sector_to_write, (uint8_t*)root_dir_buffer + (sector_to_write - root_dir_start_sector) * bpb.bytes_per_sector);
-
-    // 7. 释放内存
-    kfree(root_dir_buffer);
+    kfree(current_dir->entries);
+    kfree(current_dir);
 }
 
 void fat16_mkdir(const char* dirname) {
-    // 1. 将输入的目录名转换为 8.3 格式
     char fat_filename[11];
     to_fat16_filename(dirname, fat_filename);
 
-    // 2. 读取整个根目录到内存
-    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
-    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
-    uint32_t root_dir_size_bytes = root_dir_sectors * bpb.bytes_per_sector;
-    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_size_bytes);
-    
-    for (uint32_t i = 0; i < root_dir_sectors; i++) {
-        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
-    }
+    fat16_directory_t* parent_dir = fat16_read_directory(current_directory_cluster);
 
-    // 3. 寻找一个空的目录条目
-    int free_entry_index = -1;
-    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
-        if (root_dir_buffer[i].filename[0] == 0x00 || (uint8_t)root_dir_buffer[i].filename[0] == 0xE5) {
-            free_entry_index = i;
-            break;
-        }
-    }
-
-    if (free_entry_index == -1) {
-        kprint("\nError: Root directory is full.");
-        kfree(root_dir_buffer);
+    if (find_entry_in_dir(parent_dir, fat_filename) != -1) {
+        kprint("\nError: File or directory already exists.");
+        kfree(parent_dir->entries);
+        kfree(parent_dir);
         return;
     }
 
-    // 4. 填充新的目录条目信息
-    fat16_directory_entry_t* new_entry = &root_dir_buffer[free_entry_index];
-    memcpy(new_entry->filename, fat_filename, 8);
-    memcpy(new_entry->extension, fat_filename + 8, 3);
-    
-    // --- 核心区别在这里 ---
-    new_entry->attributes = 0x10; // 0x10 代表这是一个目录 (ATTRIBUTE_DIRECTORY)
-    // --- 核心区别结束 ---
+    int free_entry_index = find_entry_in_dir(parent_dir, NULL);
+    if (free_entry_index == -1) {
+        kprint("\nError: Directory is full.");
+        kfree(parent_dir->entries);
+        kfree(parent_dir);
+        return;
+    }
 
+    uint16_t new_cluster = fat16_find_free_cluster();
+    if (new_cluster == 0) {
+        kprint("\nError: Disk is full.");
+        kfree(parent_dir->entries);
+        kfree(parent_dir);
+        return;
+    }
+    fat16_update_fat(new_cluster, 0xFFFF); // 标记为目录链的结束
+
+    // 1. 填充父目录中的新条目
+    fat16_directory_entry_t* new_entry = &parent_dir->entries[free_entry_index];
+    memcpy(new_entry->filename, fat_filename, 11);
+    new_entry->attributes = 0x10; // 目录属性
     new_entry->file_size = 0;
-    new_entry->first_cluster_low = 0; // 目录刚创建时也没有内容，所以簇号为0
+    new_entry->first_cluster_low = new_cluster;
+    // (省略时间日期)
 
-    // 5. 计算被修改的条目在哪个扇区
-    uint32_t sector_to_write = root_dir_start_sector + (free_entry_index * 32) / bpb.bytes_per_sector;
+    // 2. 将修改后的父目录扇区写回
+    uint32_t sector_to_write;
+    uint8_t* buffer_to_write;
+    if (current_directory_cluster == 0) { // 父目录是根目录
+        uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+        sector_to_write = root_dir_start_sector + (free_entry_index * 32) / bpb.bytes_per_sector;
+        buffer_to_write = (uint8_t*)parent_dir->entries + (sector_to_write - root_dir_start_sector) * bpb.bytes_per_sector;
+    } else { // 父目录是子目录
+        sector_to_write = cluster_to_lba(current_directory_cluster) + (free_entry_index * 32) / bpb.bytes_per_sector;
+         buffer_to_write = (uint8_t*)parent_dir->entries + ( (free_entry_index * 32) - ( (free_entry_index * 32) % bpb.bytes_per_sector) );
+    }
+    ata_write_sector(sector_to_write, buffer_to_write);
+    kfree(parent_dir->entries);
+    kfree(parent_dir);
 
-    // 6. 将这个修改后的扇区写回硬盘
-    ata_write_sector(sector_to_write, (uint8_t*)root_dir_buffer + (sector_to_write - root_dir_start_sector) * bpb.bytes_per_sector);
 
-    // 7. 释放内存
-    kfree(root_dir_buffer);
+    // 3. 创建新目录自己的数据块 (包含 . 和 ..)
+    fat16_directory_entry_t* new_dir_content = (fat16_directory_entry_t*)kmalloc(bpb.bytes_per_sector);
+    memset(new_dir_content, 0, bpb.bytes_per_sector);
+
+    // 创建 "." 条目
+    memcpy(new_dir_content[0].filename, ".          ", 11);
+    new_dir_content[0].attributes = 0x10;
+    new_dir_content[0].first_cluster_low = new_cluster;
+
+    // 创建 ".." 条目
+    memcpy(new_dir_content[1].filename, "..         ", 11);
+    new_dir_content[1].attributes = 0x10;
+    new_dir_content[1].first_cluster_low = current_directory_cluster; // 指向父目录
+
+    // 4. 将这个新块写入新分配的簇
+    ata_write_sector(cluster_to_lba(new_cluster), (uint8_t*)new_dir_content);
+    kfree(new_dir_content);
 }
 
 uint16_t fat16_find_free_cluster() {
@@ -242,66 +345,36 @@ uint16_t fat16_find_free_cluster() {
     return free_cluster;
 }
 
-// 辅助函数：将簇号转换为 LBA 扇区地址
-static uint32_t cluster_to_lba(uint16_t cluster) {
-    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
-    uint32_t data_area_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat) + root_dir_sectors;
-    return data_area_start_sector + (cluster - 2) * bpb.sectors_per_cluster;
-}
-
-// 辅助函数：更新FAT表并写回硬盘
-static void fat16_update_fat(uint16_t cluster, uint16_t value) {
-    uint32_t fat_start_sector = bpb.reserved_sector_count;
-    uint32_t fat_size_bytes = bpb.sectors_per_fat * bpb.bytes_per_sector;
-    uint16_t* fat_buffer = (uint16_t*)kmalloc(fat_size_bytes);
-    
-    // 将FAT1读入内存
-    for (uint32_t i = 0; i < bpb.sectors_per_fat; i++) {
-        ata_read_sector(fat_start_sector + i, (uint8_t*)fat_buffer + (i * bpb.bytes_per_sector));
-    }
-
-    // 在内存中更新FAT
-    fat_buffer[cluster] = value;
-
-    // 计算被修改的扇区
-    uint32_t fat_sector_offset = (cluster * 2) / bpb.bytes_per_sector;
-
-    // 将修改后的扇区同时写回两个FAT表
-    uint8_t* sector_ptr = (uint8_t*)fat_buffer + fat_sector_offset * bpb.bytes_per_sector;
-    ata_write_sector(fat_start_sector + fat_sector_offset, sector_ptr);
-    ata_write_sector(fat_start_sector + bpb.sectors_per_fat + fat_sector_offset, sector_ptr);
-
-    kfree(fat_buffer);
-}
-
 // write 命令的实现 (支持多簇文件)
 void fat16_write_content(const char* filename, const char* content) {
-    // --- 1. 找到文件的目录条目 (与之前类似) ---
     char fat_filename[11];
     to_fat16_filename(filename, fat_filename);
 
-    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
-    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
-    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_sectors * bpb.bytes_per_sector);
-    for (uint32_t i = 0; i < root_dir_sectors; i++) {
-        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
-    }
+    fat16_directory_t* current_dir = fat16_read_directory(current_directory_cluster);
 
-    int entry_index = -1;
-    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
-        if (memcmp(root_dir_buffer[i].filename, fat_filename, 11) == 0) {
-            entry_index = i;
-            break;
-        }
-    }
+    int entry_index = find_entry_in_dir(current_dir, fat_filename);
 
     if (entry_index == -1) {
         kprint("\nError: File not found.");
-        kfree(root_dir_buffer);
+        kfree(current_dir->entries);
+        kfree(current_dir);
         return;
     }
 
-    // --- 2. 准备写入循环 ---
+    fat16_directory_entry_t* entry = &current_dir->entries[entry_index];
+    if (entry->attributes & 0x10) { // 如果是目录
+        kprint("\nError: Cannot write to a directory.");
+        kfree(current_dir->entries);
+        kfree(current_dir);
+        return;
+    }
+
+    // --- 以下的写入逻辑保持不变 ---
+    // 确保文件大小为0，如果不是，需要先清空簇链。为了简化，我们假设之前已清空
+    if (entry->first_cluster_low != 0) {
+        // (这里应该有清空旧簇链的逻辑，但为了简化，我们先跳过)
+    }
+
     uint16_t first_cluster = 0;
     uint16_t current_cluster = 0;
     uint32_t content_len = strlen(content);
@@ -309,91 +382,79 @@ void fat16_write_content(const char* filename, const char* content) {
     uint8_t* content_ptr = (uint8_t*)content;
 
     while (bytes_written < content_len) {
-        // a. 寻找一个新的空闲簇
         uint16_t next_cluster = fat16_find_free_cluster();
         if (next_cluster == 0) {
             kprint("\nError: Disk is full.");
-            // (注意：这里应该有一个回滚机制来释放已分配的簇，但我们暂时简化)
             break;
         }
-        
-        // b. 更新FAT表，将新簇链接到链上
+
         if (current_cluster != 0) {
             fat16_update_fat(current_cluster, next_cluster);
         } else {
-            first_cluster = next_cluster; // 如果是第一个簇，记录下来
+            first_cluster = next_cluster;
         }
         current_cluster = next_cluster;
 
-        // c. 准备要写入的数据
         uint8_t cluster_buffer[512];
         memset(cluster_buffer, 0, 512);
         uint32_t bytes_to_write = (content_len - bytes_written) > 512 ? 512 : (content_len - bytes_written);
         memcpy(cluster_buffer, content_ptr, bytes_to_write);
 
-        // d. 将数据写入数据区
         ata_write_sector(cluster_to_lba(current_cluster), cluster_buffer);
 
-        // e. 更新计数器
         bytes_written += bytes_to_write;
         content_ptr += bytes_to_write;
     }
 
-    // --- 3. 用文件结尾标记来终止簇链 ---
     if (current_cluster != 0) {
         fat16_update_fat(current_cluster, 0xFFFF);
     }
 
-    // --- 4. 更新根目录条目 ---
-    fat16_directory_entry_t* entry = &root_dir_buffer[entry_index];
     entry->first_cluster_low = first_cluster;
     entry->file_size = content_len;
 
-    uint32_t dir_sector_offset = (entry_index * 32) / bpb.bytes_per_sector;
-    ata_write_sector(root_dir_start_sector + dir_sector_offset, (uint8_t*)root_dir_buffer + dir_sector_offset * bpb.bytes_per_sector);
-    
-    kfree(root_dir_buffer);
+    uint32_t sector_to_write;
+    uint8_t* buffer_to_write;
+    if (current_directory_cluster == 0) {
+        uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+        sector_to_write = root_dir_start_sector + (entry_index * 32) / bpb.bytes_per_sector;
+        buffer_to_write = (uint8_t*)current_dir->entries + (sector_to_write - root_dir_start_sector) * bpb.bytes_per_sector;
+    } else {
+        sector_to_write = cluster_to_lba(current_directory_cluster) + (entry_index * 32) / bpb.bytes_per_sector;
+        buffer_to_write = (uint8_t*)current_dir->entries + ((entry_index * 32) - ((entry_index * 32) % bpb.bytes_per_sector));
+    }
+    ata_write_sector(sector_to_write, buffer_to_write);
+
+    kfree(current_dir->entries);
+    kfree(current_dir);
 }
 
 // cat 命令的实现 (支持多簇文件)
 void fat16_cat(const char* filename) {
-    // --- 1. 找到目标文件的目录条目 ---
     char fat_filename[11];
     to_fat16_filename(filename, fat_filename);
 
-    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
-    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
-    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_sectors * bpb.bytes_per_sector);
-    for (uint32_t i = 0; i < root_dir_sectors; i++) {
-        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
-    }
-
-    int entry_index = -1;
-    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
-        if (memcmp(root_dir_buffer[i].filename, fat_filename, 11) == 0) {
-            entry_index = i;
-            break;
-        }
-    }
+    fat16_directory_t* current_dir = fat16_read_directory(current_directory_cluster);
+    int entry_index = find_entry_in_dir(current_dir, fat_filename);
 
     if (entry_index == -1) {
         kprint("\nError: File not found.");
-        kfree(root_dir_buffer);
+        kfree(current_dir->entries);
+        kfree(current_dir);
         return;
     }
 
-    // --- 2. 获取文件的起始簇号和大小 ---
-    fat16_directory_entry_t* entry = &root_dir_buffer[entry_index];
+    fat16_directory_entry_t* entry = &current_dir->entries[entry_index];
     uint16_t current_cluster = entry->first_cluster_low;
     uint32_t file_size = entry->file_size;
 
     if (current_cluster == 0) {
         kprint("\nFile is empty.");
-        kfree(root_dir_buffer);
+        kfree(current_dir->entries);
+        kfree(current_dir);
         return;
     }
 
-    // --- 3. 将 FAT1 完整读入内存，用于查询下一个簇 ---
     uint32_t fat_start_sector = bpb.reserved_sector_count;
     uint32_t fat_size_bytes = bpb.sectors_per_fat * bpb.bytes_per_sector;
     uint16_t* fat_buffer = (uint16_t*)kmalloc(fat_size_bytes);
@@ -401,76 +462,65 @@ void fat16_cat(const char* filename) {
         ata_read_sector(fat_start_sector + i, (uint8_t*)fat_buffer + (i * bpb.bytes_per_sector));
     }
 
-    // --- 4. 循环读取和打印文件内容 ---
     kprint("\n");
     uint8_t* read_buffer = (uint8_t*)kmalloc(bpb.bytes_per_sector);
     uint32_t bytes_remaining = file_size;
 
     while (1) {
-        // 读取当前簇的数据
         uint32_t lba = cluster_to_lba(current_cluster);
         ata_read_sector(lba, read_buffer);
 
-        // 打印数据
         uint32_t bytes_to_print = (bytes_remaining > bpb.bytes_per_sector) ? bpb.bytes_per_sector : bytes_remaining;
         for (uint32_t i = 0; i < bytes_to_print; i++) {
             kputc(read_buffer[i]);
         }
         bytes_remaining -= bytes_to_print;
 
-        // 查找下一个簇
         current_cluster = fat_buffer[current_cluster];
-        
-        // 如果到达文件末尾 (簇链结束) 或数据已读完，则退出循环
+
         if (current_cluster >= 0xFFF8 || bytes_remaining == 0) {
             break;
         }
     }
 
-    // --- 5. 清理 ---
-    kfree(root_dir_buffer);
+    kfree(current_dir->entries);
+    kfree(current_dir);
     kfree(fat_buffer);
     kfree(read_buffer);
 }
 
 void fat16_append(const char* filename, const char* content) {
-    // --- 1. 找到文件的目录条目 ---
     char fat_filename[11];
     to_fat16_filename(filename, fat_filename);
 
-    uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
-    uint32_t root_dir_sectors = (bpb.root_entry_count * 32) / bpb.bytes_per_sector;
-    fat16_directory_entry_t* root_dir_buffer = (fat16_directory_entry_t*)kmalloc(root_dir_sectors * bpb.bytes_per_sector);
-    for (uint32_t i = 0; i < root_dir_sectors; i++) {
-        ata_read_sector(root_dir_start_sector + i, (uint8_t*)root_dir_buffer + (i * bpb.bytes_per_sector));
-    }
-
-    int entry_index = -1;
-    for (uint32_t i = 0; i < bpb.root_entry_count; i++) {
-        if (memcmp(root_dir_buffer[i].filename, fat_filename, 11) == 0) {
-            entry_index = i;
-            break;
-        }
-    }
+    fat16_directory_t* current_dir = fat16_read_directory(current_directory_cluster);
+    int entry_index = find_entry_in_dir(current_dir, fat_filename);
 
     if (entry_index == -1) {
         kprint("\nError: File not found.");
-        kfree(root_dir_buffer);
+        kfree(current_dir->entries);
+        kfree(current_dir);
         return;
     }
 
-    fat16_directory_entry_t* entry = &root_dir_buffer[entry_index];
+    fat16_directory_entry_t* entry = &current_dir->entries[entry_index];
+    if (entry->attributes & 0x10) {
+        kprint("\nError: Cannot append to a directory.");
+        kfree(current_dir->entries);
+        kfree(current_dir);
+        return;
+    }
+
     uint16_t current_cluster = entry->first_cluster_low;
     uint32_t file_size = entry->file_size;
 
-    // 如果文件为空，append 等同于 write
     if (current_cluster == 0) {
-        kfree(root_dir_buffer);
+        kfree(current_dir->entries);
+        kfree(current_dir);
         fat16_write_content(filename, content);
         return;
     }
 
-    // --- 2. 找到文件的最后一个簇 ---
     uint32_t fat_size_bytes = bpb.sectors_per_fat * bpb.bytes_per_sector;
     uint16_t* fat_buffer = (uint16_t*)kmalloc(fat_size_bytes);
     uint32_t fat_start_sector = bpb.reserved_sector_count;
@@ -481,9 +531,8 @@ void fat16_append(const char* filename, const char* content) {
     while (fat_buffer[current_cluster] < 0xFFF8) {
         current_cluster = fat_buffer[current_cluster];
     }
-    kfree(fat_buffer); // FAT 已经用完，可以释放
+    kfree(fat_buffer);
 
-    // --- 3. 读取最后一个簇，准备追加 ---
     uint8_t* cluster_buffer = (uint8_t*)kmalloc(bpb.bytes_per_sector);
     ata_read_sector(cluster_to_lba(current_cluster), cluster_buffer);
 
@@ -493,14 +542,12 @@ void fat16_append(const char* filename, const char* content) {
     uint8_t* content_ptr = (uint8_t*)content;
     uint32_t bytes_to_write_now = (content_len < space_in_cluster) ? content_len : space_in_cluster;
 
-    // a. 先填满最后一个簇的剩余空间
     memcpy(cluster_buffer + offset_in_cluster, content_ptr, bytes_to_write_now);
     ata_write_sector(cluster_to_lba(current_cluster), cluster_buffer);
-    
+
     content_ptr += bytes_to_write_now;
     uint32_t bytes_remaining = content_len - bytes_to_write_now;
 
-    // --- 4. 如果还有剩余内容，则启动多簇写入循环 ---
     while (bytes_remaining > 0) {
         uint16_t next_cluster = fat16_find_free_cluster();
         if (next_cluster == 0) {
@@ -508,11 +555,9 @@ void fat16_append(const char* filename, const char* content) {
             break;
         }
 
-        // 更新FAT表，将新簇链接到链上
         fat16_update_fat(current_cluster, next_cluster);
         current_cluster = next_cluster;
 
-        // 写入剩余内容
         memset(cluster_buffer, 0, bpb.bytes_per_sector);
         bytes_to_write_now = (bytes_remaining > 512) ? 512 : bytes_remaining;
         memcpy(cluster_buffer, content_ptr, bytes_to_write_now);
@@ -522,13 +567,123 @@ void fat16_append(const char* filename, const char* content) {
         bytes_remaining -= bytes_to_write_now;
     }
 
-    // --- 5. 用文件结尾标记终止簇链 ---
     fat16_update_fat(current_cluster, 0xFFFF);
     kfree(cluster_buffer);
 
-    // --- 6. 更新目录条目中的文件大小 ---
     entry->file_size += content_len;
-    uint32_t dir_sector_offset = (entry_index * 32) / bpb.bytes_per_sector;
-    ata_write_sector(root_dir_start_sector + dir_sector_offset, (uint8_t*)root_dir_buffer + dir_sector_offset * bpb.bytes_per_sector);
-    kfree(root_dir_buffer);
+    uint32_t sector_to_write;
+    uint8_t* buffer_to_write;
+    if (current_directory_cluster == 0) {
+        uint32_t root_dir_start_sector = bpb.reserved_sector_count + (bpb.fat_count * bpb.sectors_per_fat);
+        sector_to_write = root_dir_start_sector + (entry_index * 32) / bpb.bytes_per_sector;
+        buffer_to_write = (uint8_t*)current_dir->entries + (sector_to_write - root_dir_start_sector) * bpb.bytes_per_sector;
+    } else {
+        sector_to_write = cluster_to_lba(current_directory_cluster) + (entry_index * 32) / bpb.bytes_per_sector;
+        buffer_to_write = (uint8_t*)current_dir->entries + ((entry_index * 32) - ((entry_index * 32) % bpb.bytes_per_sector));
+    }
+    ata_write_sector(sector_to_write, buffer_to_write);
+    kfree(current_dir->entries);
+    kfree(current_dir);
+}
+
+void fat16_cd(const char* dirname) {
+    // 处理 "cd .."
+    if (strcmp(dirname, "..") == 0) {
+        // 在根目录时，"cd .." 仍然是根目录
+        if (current_directory_cluster == 0) {
+            return;
+        }
+        // 读取当前目录以找到 ".." 条目
+        fat16_directory_t* dir = fat16_read_directory(current_directory_cluster);
+        // ".." 总是第二个条目
+        current_directory_cluster = dir->entries[1].first_cluster_low;
+        kfree(dir->entries);
+        kfree(dir);
+        return;
+    }
+    
+    // 处理 "cd ."
+    if (strcmp(dirname, ".") == 0) {
+        return; // 什么都不做
+    }
+    
+    // 处理 "cd /"
+    if (strcmp(dirname, "/") == 0) {
+        current_directory_cluster = 0;
+        return;
+    }
+
+    // --- 在当前目录中查找目标 ---
+    char fat_filename[11];
+    to_fat16_filename(dirname, fat_filename);
+    
+    fat16_directory_t* dir = fat16_read_directory(current_directory_cluster);
+    int entry_index = find_entry_in_dir(dir, fat_filename);
+
+    if (entry_index == -1) {
+        kprint("\nError: Directory not found: ");
+        kprint(dirname);
+    } else {
+        fat16_directory_entry_t* entry = &dir->entries[entry_index];
+        if (entry->attributes & 0x10) { // 检查是否是目录
+            current_directory_cluster = entry->first_cluster_low;
+        } else {
+            kprint("\nError: Not a directory: ");
+            kprint(dirname);
+        }
+    }
+
+    kfree(dir->entries);
+    kfree(dir);
+}
+
+
+// --- 实现获取当前路径的函数 ---
+void fat16_get_current_path(char* path_buffer) {
+    if (current_directory_cluster == 0) {
+        strcpy(path_buffer, "/");
+        return;
+    }
+
+    char temp_path[256] = {0};
+    uint16_t cluster = current_directory_cluster;
+    uint16_t parent_cluster;
+
+    while (cluster != 0) {
+        fat16_directory_t* dir = fat16_read_directory(cluster);
+        parent_cluster = dir->entries[1].first_cluster_low; // ".." 条目
+
+        fat16_directory_t* parent_dir = fat16_read_directory(parent_cluster);
+        char current_name[13] = {0};
+
+        // 在父目录中找到当前目录的条目以获取其名称
+        for (uint32_t i = 0; i < parent_dir->capacity; i++) {
+            if (parent_dir->entries[i].first_cluster_low == cluster && (parent_dir->entries[i].attributes & 0x10)) {
+                 int k = 0;
+                for (int j = 0; j < 8; j++) {
+                    if (parent_dir->entries[i].filename[j] == ' ') break;
+                    current_name[k++] = parent_dir->entries[i].filename[j];
+                }
+                current_name[k] = '\0';
+                break;
+            }
+        }
+        
+        char part[256] = "/";
+        strcat(part, current_name);
+        strcat(part, temp_path);
+        strcpy(temp_path, part);
+
+        kfree(dir->entries);
+        kfree(dir);
+        kfree(parent_dir->entries);
+        kfree(parent_dir);
+        cluster = parent_cluster;
+    }
+    
+    if (strlen(temp_path) == 0) {
+        strcpy(path_buffer, "/");
+    } else {
+        strcpy(path_buffer, temp_path);
+    }
 }

@@ -51,10 +51,15 @@ typedef struct {
 typedef struct {
     fat16_directory_entry_t* entries;
     uint32_t entry_count;
+    uint32_t capacity; // 新增：用于表示缓冲区总容量
 } fat16_directory_t;
 
-// 声明读取根目录的函数
-fat16_directory_t* fat16_get_root_directory();
+
+// --- 声明当前目录簇号的全局变量 ---
+extern uint16_t current_directory_cluster;
+
+// --- 读取任意目录的函数 ---
+fat16_directory_t* fat16_read_directory(uint16_t cluster);
 
 // 创建一个文件
 void fat16_touch(const char* filename);
@@ -62,7 +67,7 @@ void fat16_touch(const char* filename);
 // 创建一个文件夹
 void fat16_mkdir(const char* dirname);
 
-// 初始化 FAT16 文件系统 (我们下一步要实现的目标)
+// 初始化 FAT16 文件系统
 void init_fat16();
 void fat16_format();
 
@@ -73,9 +78,14 @@ uint16_t fat16_find_free_cluster();
 void fat16_write_content(const char* filename, const char* content);
 void fat16_cat(const char* filename);
 
-// cat 和 append
-void fat16_cat(const char* filename);
+// append
 void fat16_append(const char* filename, const char* content);
+
+// --- cd 命令的函数 ---
+void fat16_cd(const char* dirname);
+
+// --- 获取当前路径的函数 ---
+void fat16_get_current_path(char* buffer);
 
 extern fat16_boot_sector_t bpb;
 
