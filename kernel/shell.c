@@ -288,6 +288,28 @@ void process_command(char *input) {
             kprint(buf);
             kprint("\n");
         }
+    } else if (strcmp(command, "waittest") == 0) {
+        kprint("\nParent process attempting to fork and wait...\n");
+        int pid = fork();
+        if (pid == 0) {
+            // 子进程执行此部分
+            kprint("Child process started. I will exit soon.\n");
+            // (我们在这里没有实际的 exit() 调用，子进程会直接从 child_entry_point 返回并退出)
+        } else {
+            // 父进程执行此部分
+            kprint("Parent: Fork successful! Child PID is ");
+            char buf[8];
+            itoa(pid, buf, 8, 10);
+            kprint(buf);
+            kprint("\nParent: Now waiting for child to exit...\n");
+
+            int status = waitpid(pid); // 等待子进程
+
+            kprint("Parent: Child has exited! waitpid returned: ");
+            itoa(status, buf, 8, 10);
+            kprint(buf);
+            kprint("\n");
+        }
     } else if (strcmp(command, "ps") == 0) {
         list_processes();
     } else {

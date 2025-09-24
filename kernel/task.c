@@ -39,19 +39,18 @@ extern void child_entry_point(void);
 void schedule() {
     if (!current_task) return;
 
-    // --- 步骤 1: 清理所有已死亡的任务 ---
-    // 这是一个更安全的清理循环。我们从当前任务的下一个开始检查，
-    // 确保我们永远不会在循环中释放 current_task 本身。
+    // --- 1: 清理所有已死亡的任务 ---
     volatile task_t* iter = current_task;
     while (iter->next != current_task) {
         if (iter->next->state == TASK_DEAD) {
             volatile task_t* dead_task = iter->next;
-            // 从链表中移除
             iter->next = dead_task->next; 
             
-            // 释放相关内存
             if (dead_task->initial_regs) {
                 kfree((void*)dead_task->initial_regs);
+            }
+            if (dead_task->parent && dead_task->parent->state == TASK_WAITING) {
+                dead_task->parent->state = TASK_READY;
             }
             kfree((void*)dead_task);
         } else {
@@ -59,13 +58,13 @@ void schedule() {
         }
     }
 
-    // --- 步骤 2: 寻找下一个可以运行的任务 ---
+    // --- 2: 寻找下一个可以运行的任务 ---
     volatile task_t* next_task = current_task;
     do {
         next_task = next_task->next;
     } while (next_task->state != TASK_READY && next_task->state != TASK_RUNNING);
 
-    // 如果转了一圈都没找到，或者只有当前任务自己，就不切换
+    // 如果转了一圈都没找到，就不切换
     if (next_task == current_task) {
         return;
     }
@@ -114,7 +113,7 @@ void schedule() {
     switch_task(old_task, current_task);
 }
 
-// --- 实现 list_processes 函数 ---
+// --- 实现 list_processes ---
 void list_processes() {
     kprint("\nPID   STATE\n");
     kprint("-----------\n");
@@ -131,22 +130,16 @@ void list_processes() {
     char* state_str;
 
     do {
-        // 打印 PID
         itoa(p->id, pid_buf, 8, 10);
         kprint(pid_buf);
         kprint("     ");
 
-        // 打印状态
         switch(p->state) {
-            case TASK_RUNNING:
-                state_str = "RUNNING";
-                break;
-            case TASK_READY:
-                state_str = "READY";
-                break;
-            default:
-                state_str = "UNKNOWN";
-                break;
+            case TASK_RUNNING: state_str = "RUNNING"; break;
+            case TASK_READY:   state_str = "READY";   break;
+            case TASK_WAITING: state_str = "WAITING"; break;
+            case TASK_DEAD:    state_str = "DEAD";    break;
+            default:           state_str = "UNKNOWN"; break;
         }
         kprint(state_str);
         kprint("\n");
@@ -154,4 +147,3 @@ void list_processes() {
         p = p->next;
     } while (p != start_task);
 }
-

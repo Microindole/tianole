@@ -29,6 +29,17 @@ int fork() {
     return pid;
 }
 
+// waitpid 的C语言包装函数
+int waitpid(int pid) {
+    int status;
+    asm volatile (
+        "int $0x80"
+        : "=a" (status)
+        : "a" (2), "b" (pid) // 2号系统调用：waitpid
+    );
+    return status;
+}
+
 // 克隆页目录
 page_directory_t* clone_directory(page_directory_t* src) {
     page_directory_t* dir = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
@@ -56,27 +67,77 @@ void syscall_fork(registers_t* regs) {
     child_task->directory = clone_directory(parent_task->directory);
     child_task->kernel_stack_ptr = 0;
 
+    // --- 核心改动：设置父进程指针 ---
+    child_task->parent = parent_task;
+
     child_task->initial_regs = (registers_t*)kmalloc(sizeof(registers_t));
     memcpy(child_task->initial_regs, regs, sizeof(registers_t));
-    child_task->initial_regs->eax = 0;
+    child_task->initial_regs->eax = 0; // 子进程的 fork 返回 0
 
-    regs->eax = child_task->id;
+    regs->eax = child_task->id; // 父进程的 fork 返回子进程 ID
 
+    // 将子进程插入到任务队列中
     child_task->next = parent_task->next;
     parent_task->next = child_task;
     
     asm volatile("sti");
 }
 
+// --- waitpid 的系统调用实现 ---
+void syscall_waitpid(registers_t* regs) {
+    int pid_to_wait_for = regs->ebx;
+
+    // 简单起见，我们暂时只支持等待任意子进程 (-1)
+    // 并且我们在这里只实现阻塞等待
+    
+    // 检查是否有任何子进程已经是僵尸(DEAD)状态
+    _Bool child_exists = 0;
+    volatile task_t* iter = current_task->next;
+    while (iter != current_task) {
+        if (iter->parent == current_task) {
+            child_exists = 1;
+            if (iter->state == TASK_DEAD) {
+                // 如果已经有子进程结束了，直接清理并返回
+                // (此处应有更完善的清理逻辑，暂时简化)
+                regs->eax = iter->id;
+                return;
+            }
+        }
+        iter = iter->next;
+    }
+
+    if (!child_exists) {
+        regs->eax = -1; // 没有子进程可以等待
+        return;
+    }
+
+    // 如果有子进程但都还在运行，则将自己设置为等待状态
+    current_task->state = TASK_WAITING;
+    schedule(); // 主动放弃CPU
+}
+
 // --- exit 的系统调用实现 ---
 void syscall_exit(registers_t* regs) {
-    current_task->state = TASK_DEAD;
+    asm volatile("cli");
+
+    task_t* task_to_exit = (task_t*)current_task;
+
+    // 标记为死亡
+    task_to_exit->state = TASK_DEAD;
+
+    // --- 核心改动：检查并唤醒父进程 ---
+    if (task_to_exit->parent && task_to_exit->parent->state == TASK_WAITING) {
+        task_to_exit->parent->state = TASK_READY;
+    }
+
     kprint("\nProcess ");
     char buf[8];
     itoa(current_task->id, buf, 8, 10);
     kprint(buf);
     kprint(" exited.\n");
-    schedule(); // 主动放弃CPU，让调度器来处理后事
+
+    asm volatile("sti");
+    schedule(); // 主动放弃CPU，让调度器处理后事
 }
 
 // 系统调用处理函数的分发表
@@ -97,6 +158,7 @@ void init_syscalls() {
     register_interrupt_handler(128, &syscall_dispatcher);
     register_syscall(0, &syscall_exit);
     register_syscall(1, &syscall_fork);
+    register_syscall(2, &syscall_waitpid);
     kprint("Syscalls initialized.\n");
 }
 

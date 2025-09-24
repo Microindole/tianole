@@ -9,7 +9,7 @@
 typedef enum {
     TASK_RUNNING,
     TASK_READY,
-    TASK_SLEEPING,
+    TASK_WAITING,
     TASK_DEAD
 } task_state_t;
 
@@ -24,8 +24,11 @@ typedef struct task {
     page_directory_t* directory;
     struct task* next;
     
-    // 新增字段：只用于新创建的进程，用来存放 fork 时保存的父进程中断状态
+    // 只用于新创建的进程，用来存放 fork 时保存的父进程中断状态
     registers_t* initial_regs; 
+    
+    // --- 建立父子关系 ---
+    struct task* parent;
     
 } task_t;
 
@@ -35,10 +38,9 @@ typedef struct task {
 void init_tasking();
 void schedule();
 
-// --- switch_task 现在接收 task_t 指针 ---
 extern void switch_task(volatile task_t* old, volatile task_t* new);
 
-// --- 声明用于列出所有进程的函数 ---
+// --- 列出所有进程 ---
 void list_processes();
 
 #endif
