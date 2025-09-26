@@ -17,7 +17,7 @@ LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 USER_CC = gcc
 USER_LD = ld
 USER_CFLAGS = -m32 -ffreestanding -c -g -O0 -Wall -Wextra -fno-pie
-USER_LDFLAGS = -m elf_i386 -T user/user.ld
+USER_LDFLAGS = -m elf_i386 -T user/user.ld -nostdlib
 
 # --- 源文件查找 ---
 # 自动查找所有 .c 和 .s 文件，但排除需要特殊处理的文件
@@ -117,6 +117,8 @@ run: $(OS_ISO)
 	qemu-system-i386 -cdrom $(OS_ISO) -hda hdd.img
 qemu-direct: $(KERNEL_BIN)
 	qemu-system-i386 -kernel $(KERNEL_BIN) -serial stdio -hda hdd.img
+gdb: $(KERNEL_BIN)
+	qemu-system-i386 -kernel $(KERNEL_BIN) -serial stdio -s -S
 
 # --- ISO 创建和清理 ---
 $(OS_ISO): $(KERNEL_BIN) grub.cfg

@@ -164,12 +164,8 @@ void syscall_print(registers_t* regs) {
     memset(kernel_buffer, 0, 256);
     
     // 3. 关键步骤：
-    //    a. 保存当前(内核)的页目录
-    page_directory_t* kernel_dir = current_directory;
-    //    b. 切换到发起系统调用的用户进程的页目录
-    load_page_directory(current_task->directory);
-    
-    //    c. 在用户进程的"世界"里，安全地复制字符串
+    //    直接在当前上下文（Ring 0, user's page directory）中复制字符串。
+    //    这是安全的，因为我们是内核态。
     for (int i = 0; i < 255; i++) {
         kernel_buffer[i] = user_str_ptr[i];
         if (user_str_ptr[i] == '\0') {
@@ -177,9 +173,6 @@ void syscall_print(registers_t* regs) {
         }
     }
     
-    //    d. 立刻切换回内核的页目录，恢复内核的"世界观"
-    load_page_directory(kernel_dir);
-
     // 4. 现在可以安全地打印复制到内核空间的内容了
     kprint(kernel_buffer);
 }

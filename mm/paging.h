@@ -41,4 +41,7 @@ extern page_directory_t* current_directory;
 // 初始化分页系统
 void init_paging();
 
+// 将虚拟地址转换为物理地址
+uint32_t virtual_to_physical(page_directory_t* dir, uint32_t virt_addr);
+
 #endif

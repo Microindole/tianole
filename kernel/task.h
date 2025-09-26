@@ -44,6 +44,7 @@ extern void switch_task(volatile task_t* old, volatile task_t* new);
 void list_processes();
 
 extern volatile task_t* current_task;
+extern uint32_t next_pid;
 
 #endif
 

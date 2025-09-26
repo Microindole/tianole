@@ -57,4 +57,11 @@ void init_gdt() {
 // 由 exec 调用，用于设置中断发生时要切换到的内核栈
 void set_kernel_stack(uint32_t stack) {
    tss_entry.esp0 = stack;
+
+   // --- 调试打印 ---
+   serial_print("TSS.esp0 set to: ");
+   char buf[12];
+   itoa_hex(stack, buf, 12);
+   serial_print(buf);
+   serial_print("\n");
 }

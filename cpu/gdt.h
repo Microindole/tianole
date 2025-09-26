@@ -39,4 +39,7 @@ typedef struct tss_entry_struct tss_entry_t;
 // GDT 初始化函数
 void init_gdt();
 
+// 设置内核栈
+void set_kernel_stack(uint32_t stack);
+
 #endif

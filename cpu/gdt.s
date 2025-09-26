@@ -24,7 +24,7 @@ gdt_flush:
 
 global tss_flush
 tss_flush:
-    mov ax, 0x2B ; TSS 段选择子 (第5个条目, RPL=3)
+    mov ax, 0x28 ; TSS 段选择子 (第5个条目, RPL=3)
     ltr ax
     ret
 

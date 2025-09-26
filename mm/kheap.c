@@ -1,153 +1,139 @@
+// mm/kheap.c (完全修正版)
+
 #include "kheap.h"
-#include "common.h"
+#include "paging.h" // 需要它来进行物理地址转换
 #include "string.h"
 #include <stddef.h>
 
-// --- 数据结构定义 ---
-
 // 内存块的头部信息
 typedef struct header {
-    uint32_t magic;    // 魔术数字，用于校验
-    uint32_t size;     // 内存块的总大小 (包括头部)
-    _Bool is_free;     // 标记此内存块是否空闲
-    struct header* next; // 指向下一个内存块的指针
-    struct header* prev; // 指向前一个内存块的指针
+    uint32_t magic;      // 魔术数字，用于校验
+    _Bool is_free;       // 标记此内存块是否空闲
+    uint32_t size;       // 内存块的总大小 (包括头部)
 } header_t;
 
+// 内存块的尾部信息
+typedef struct footer {
+    uint32_t magic;      // 魔术数字，与头部对应
+    header_t* header;    // 指向此内存块的头部
+} footer_t;
+
 // --- 全局变量 ---
-static header_t* heap_start = NULL; // 指向堆的起始地址
-extern uint32_t end;                 // 内核的结束地址，由 linker.ld 提供
-
-// --- 内部辅助函数 ---
-
-// 将一个内存块从空闲链表中移除
-static void remove_from_free_list(header_t* block) {
-    if (block->prev) {
-        block->prev->next = block->next;
-    }
-    if (block->next) {
-        block->next->prev = block->prev;
-    }
-    // 如果移除的是链表头，需要更新头指针
-    if (heap_start == block) {
-        heap_start = block->next;
-    }
-    block->prev = NULL;
-    block->next = NULL;
-}
-
-// 将一个内存块添加到空闲链表的头部
-static void add_to_free_list(header_t* block) {
-    block->prev = NULL;
-    block->next = heap_start;
-    if (heap_start) {
-        heap_start->prev = block;
-    }
-    heap_start = block;
-}
-
-// --- 核心功能实现 ---
+static uint32_t heap_start_addr = 0;
+static uint32_t heap_end_addr = 0;
+extern uint32_t end; // 内核的结束地址，由 linker.ld 提供
 
 void init_kheap() {
-    // 将堆的起始位置设置在内核 BSS 段之后，并进行页对齐
-    uint32_t heap_addr = (uint32_t)&end;
-    if (heap_addr & 0xFFF) {
-        heap_addr &= 0xFFFFF000;
-        heap_addr += 0x1000;
+    heap_start_addr = (uint32_t)&end;
+    // 对齐到下一页边界
+    if (heap_start_addr & 0xFFF) {
+        heap_start_addr &= 0xFFFFF000;
+        heap_start_addr += 0x1000;
     }
     
-    // 假设我们有 1MB 的堆空间 (可以根据需要调整)
-    uint32_t heap_size = 1024 * 1024;
+    // 暂时将堆的末尾设置为起始后1MB
+    heap_end_addr = heap_start_addr + 1024 * 1024; 
+
+    // 创建第一个大的空闲块
+    header_t* initial_block = (header_t*)heap_start_addr;
+    initial_block->magic = 0xDEADBEEF;
+    initial_block->is_free = 1;
+    initial_block->size = heap_end_addr - heap_start_addr;
     
-    heap_start = (header_t*)heap_addr;
-    heap_start->magic = 0xDEADBEEF;
-    heap_start->size = heap_size;
-    heap_start->is_free = 1;
-    heap_start->prev = NULL;
-    heap_start->next = NULL;
+    footer_t* initial_footer = (footer_t*) (heap_end_addr - sizeof(footer_t));
+    initial_footer->magic = 0xDEADBEEF;
+    initial_footer->header = initial_block;
 
     kprint("Linked-list heap initialized.\n");
 }
 
-void kfree(void* p) {
-    if (p == NULL) {
-        return;
+void* kmalloc(uint32_t size) {
+    // 加上头部和尾部的大小，并对齐到4字节
+    uint32_t total_size = size + sizeof(header_t) + sizeof(footer_t);
+    if (total_size & 0x3) {
+        total_size &= ~0x3;
+        total_size += 4;
     }
 
-    // 通过用户指针找到内存块的头部
-    header_t* header = (header_t*)((char*)p - sizeof(header_t));
+    // 遍历堆寻找合适的空闲块 (First-fit)
+    header_t* current = (header_t*)heap_start_addr;
+    while ((uint32_t)current < heap_end_addr) {
+        if (current->is_free && current->size >= total_size) {
+            
+            // 如果这个块比需要的大很多，就进行分割
+            if (current->size > total_size + sizeof(header_t) + sizeof(footer_t)) {
+                // 创建新的空闲块
+                header_t* new_block = (header_t*)((uint32_t)current + total_size);
+                new_block->magic = 0xDEADBEEF;
+                new_block->is_free = 1;
+                new_block->size = current->size - total_size;
+                
+                // 为新块写入尾部
+                footer_t* new_footer = (footer_t*)((uint32_t)new_block + new_block->size - sizeof(footer_t));
+                new_footer->magic = 0xDEADBEEF;
+                new_footer->header = new_block;
 
-    // 校验魔术数字，防止释放野指针
+                // 更新当前块的大小
+                current->size = total_size;
+            }
+
+            // 标记当前块为已使用
+            current->is_free = 0;
+            
+            // 为当前块写入尾部
+            footer_t* footer = (footer_t*)((uint32_t)current + current->size - sizeof(footer_t));
+            footer->magic = 0xDEADBEEF;
+            footer->header = current;
+
+            // 返回给用户的地址是头部后面的部分
+            return (void*)((uint32_t)current + sizeof(header_t));
+        }
+        
+        // 移动到下一个块
+        current = (header_t*)((uint32_t)current + current->size);
+    }
+    
+    kprint("Error: kmalloc failed, out of memory!\n");
+    return NULL; // 没有找到
+}
+
+void kfree(void* p) {
+    if (p == NULL) return;
+
+    header_t* header = (header_t*)((uint32_t)p - sizeof(header_t));
     if (header->magic != 0xDEADBEEF) {
-        kprint("Error: Invalid pointer passed to kfree()!\n");
+        // 错误处理
         return;
     }
 
     header->is_free = 1;
-    add_to_free_list(header);
 
     // --- 尝试与后面的块合并 ---
-    header_t* next_block = (header_t*)((char*)header + header->size);
-    // 假设 next_block 也在堆范围内，并且是空闲的
-    if (next_block->magic == 0xDEADBEEF && next_block->is_free) {
-        remove_from_free_list(next_block);
+    header_t* next_block = (header_t*)((uint32_t)header + header->size);
+    if ((uint32_t)next_block < heap_end_addr && next_block->magic == 0xDEADBEEF && next_block->is_free) {
         header->size += next_block->size;
-    }
-
-    // --- 尝试与前面的块合并 ---
-    header_t* prev_block = header->prev; // 从链表中找
-    if (prev_block && prev_block->is_free && ((char*)prev_block + prev_block->size) == (char*)header) {
-        remove_from_free_list(header);
-        prev_block->size += header->size;
-    }
-}
-
-void* kmalloc(uint32_t size) {
-    if (size == 0) {
-        return NULL;
+        // 更新合并后大块的尾部
+        footer_t* footer = (footer_t*)((uint32_t)header + header->size - sizeof(footer_t));
+        footer->header = header;
     }
     
-    // 实际需要分配的大小 = 用户请求的大小 + 头部大小
-    uint32_t required_size = size + sizeof(header_t);
-
-    header_t* current = heap_start;
-    while (current) {
-        // 寻找一个足够大的空闲块
-        if (current->is_free && current->size >= required_size) {
-            
-            // 如果这个块比需要的大很多，就进行分割
-            if (current->size > required_size + sizeof(header_t)) {
-                header_t* new_block = (header_t*)((char*)current + required_size);
-                new_block->magic = 0xDEADBEEF;
-                new_block->is_free = 1;
-                new_block->size = current->size - required_size;
-                
-                // 新分割出的块加入空闲链表
-                add_to_free_list(new_block);
-                remove_from_free_list(current); // 从旧位置移除
-                add_to_free_list(new_block); // 添加新块
-
-                current->size = required_size;
-            }
-            
-            // 标记此块为已使用并从空闲链表移除
-            current->is_free = 0;
-            remove_from_free_list(current);
-            
-            // 返回给用户的是头部后面的地址
-            return (void*)((char*)current + sizeof(header_t));
+    // --- 尝试与前面的块合并 ---
+    footer_t* prev_footer = (footer_t*)((uint32_t)header - sizeof(footer_t));
+    if ((uint32_t)prev_footer > heap_start_addr && prev_footer->magic == 0xDEADBEEF) {
+        header_t* prev_block = prev_footer->header;
+        if (prev_block->is_free) {
+            prev_block->size += header->size;
+            // 更新合并后大块的尾部
+            footer_t* footer = (footer_t*)((uint32_t)prev_block + prev_block->size - sizeof(footer_t));
+            footer->header = prev_block;
         }
-        current = current->next;
     }
-
-    kprint("Error: kmalloc failed, out of memory!\n");
-    return NULL; // 没有找到合适的块
 }
 
-// kmalloc_a (页对齐分配) 的实现可以保持简化，或根据需要实现
+// 分配一块页对齐的内存
 void* kmalloc_a(uint32_t size) {
     // 简单的实现：多分配一些，然后返回对齐的地址
-    // 注意：这会浪费一些内存，并且 kfree 无法正确处理
+    // 注意：这会浪费一些内存，并且 kfree 无法正确处理，但这对于我们的目的来说足够了
     void* mem = kmalloc(size + 4096);
     uint32_t addr = (uint32_t)mem;
     if (addr & 0xFFF) {

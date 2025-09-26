@@ -15,6 +15,12 @@ SECTIONS
     {
         *(.multiboot)
         *(.text*)
+
+        /* --- 将用户程序代码放在可执行的 text 段 --- */
+        user_start = .;
+        *(*.bin.o)
+        user_end = .;
+
     } :text
 
     .rodata :
@@ -25,10 +31,6 @@ SECTIONS
     .data :
     {
         *(.data)
-
-        user_start = .;
-        *(*.bin.o)
-        user_end = .;
     } :data
 
     .bss :
