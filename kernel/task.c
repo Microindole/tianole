@@ -39,7 +39,7 @@ extern void child_entry_point(void);
 void schedule() {
     if (!current_task) return;
 
-    // --- 1: 清理所有已死亡的任务 ---
+    // 1: 清理所有已死亡的任务
     volatile task_t* iter = current_task;
     while (iter->next != current_task) {
         if (iter->next->state == TASK_DEAD) {
@@ -58,7 +58,7 @@ void schedule() {
         }
     }
 
-    // --- 2: 寻找下一个可以运行的任务 ---
+    // 2: 寻找下一个可以运行的任务
     volatile task_t* next_task = current_task;
     do {
         next_task = next_task->next;
@@ -69,7 +69,7 @@ void schedule() {
         return;
     }
 
-    // --- 步骤 3: 执行任务切换 ---
+    // 3: 执行任务切换
     volatile task_t* old_task = current_task;
     current_task = next_task;
 
@@ -78,7 +78,7 @@ void schedule() {
     }
     current_task->state = TASK_RUNNING;
 
-    // --- 步骤 4: 如果是新任务，为其构建内核栈 (这部分逻辑不变) ---
+    // 4: 如果是新任务，构建内核栈
     if (current_task->kernel_stack_ptr == 0 && current_task->initial_regs != NULL) {
         uint32_t stack_top = (uint32_t)kmalloc(4096) + 4096;
         uint32_t esp = stack_top;
@@ -104,7 +104,7 @@ void schedule() {
         current_task->kernel_stack_ptr = esp;
     }
 
-    // --- 步骤 5: 切换页目录并调用汇编代码 (不变) ---
+    // 5: 切换页目录并调用汇编代码
     if (current_task->directory != current_directory) {
         load_page_directory(current_task->directory);
         current_directory = current_task->directory;
@@ -113,7 +113,6 @@ void schedule() {
     switch_task(old_task, current_task);
 }
 
-// --- 实现 list_processes ---
 void list_processes() {
     kprint("\nPID   STATE\n");
     kprint("-----------\n");

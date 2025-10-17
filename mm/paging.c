@@ -17,7 +17,6 @@ void page_fault_handler(registers_t* regs) {
 
     kprint("\n--- PAGE FAULT ---\n");
     
-    // --- 关键修正：使用安全的 itoa_hex ---
     char hex_buf[12];
     itoa_hex(faulting_address, hex_buf, 12);
     kprint("Faulting Address: ");

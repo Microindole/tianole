@@ -67,7 +67,6 @@ void syscall_fork(registers_t* regs) {
     child_task->directory = clone_directory(parent_task->directory);
     child_task->kernel_stack_ptr = 0;
 
-    // --- 核心改动：设置父进程指针 ---
     child_task->parent = parent_task;
 
     child_task->initial_regs = (registers_t*)kmalloc(sizeof(registers_t));
@@ -125,7 +124,6 @@ void syscall_exit(registers_t* regs) {
     // 标记为死亡
     task_to_exit->state = TASK_DEAD;
 
-    // --- 核心改动：检查并唤醒父进程 ---
     if (task_to_exit->parent && task_to_exit->parent->state == TASK_WAITING) {
         task_to_exit->parent->state = TASK_READY;
     }

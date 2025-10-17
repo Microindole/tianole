@@ -275,7 +275,6 @@ void vfs_append(const char* name, const char* content) {
 }
 
 void fat16_ls() {
-    // --- 核心改动：不再读取根目录，而是读取当前目录 ---
     fat16_directory_t* dir = fat16_read_directory(current_directory_cluster);
 
     kprint("\n");

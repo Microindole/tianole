@@ -54,11 +54,9 @@ typedef struct {
     uint32_t capacity; // 新增：用于表示缓冲区总容量
 } fat16_directory_t;
 
-
-// --- 声明当前目录簇号的全局变量 ---
 extern uint16_t current_directory_cluster;
 
-// --- 读取任意目录的函数 ---
+// 读取任意目录
 fat16_directory_t* fat16_read_directory(uint16_t cluster);
 
 // 创建一个文件
@@ -71,7 +69,7 @@ void fat16_mkdir(const char* dirname);
 void init_fat16();
 void fat16_format();
 
-// 声明一个函数，用于寻找第一个空闲的簇
+// 用于寻找第一个空闲的簇
 uint16_t fat16_find_free_cluster();
 
 // write 和 cat
@@ -81,10 +79,10 @@ void fat16_cat(const char* filename);
 // append
 void fat16_append(const char* filename, const char* content);
 
-// --- cd 命令的函数 ---
+// cd 命令的函数
 void fat16_cd(const char* dirname);
 
-// --- 获取当前路径的函数 ---
+// 获取当前路径的函数
 void fat16_get_current_path(char* buffer);
 
 extern fat16_boot_sector_t bpb;

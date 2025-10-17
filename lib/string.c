@@ -47,7 +47,7 @@ uint32_t strlen(const char* str) {
     return len;
 }
 
-// --- 字符串拼接函数 ---
+// 字符串拼接函数
 void strcat(char* dest, const char* src) {
     // 移动到目标字符串的末尾
     while (*dest) {
@@ -60,7 +60,7 @@ void strcat(char* dest, const char* src) {
     *dest = '\0';
 }
 
-// --- 字符串反转函数 ---
+// 字符串反转函数
 void strrev(char* str) {
     int start = 0;
     int end = strlen(str) - 1;

@@ -32,10 +32,9 @@ SECTIONS
         *(.bss)
     } :bss
 
-    end = .; /* 'end' 标记了 BSS 段的结束，即内核的结束 */
+    end = .;
 }
 
-/* Define program headers to ensure correct memory permissions */
 PHDRS
 {
     text PT_LOAD FLAGS(5); /* R-- E-X */

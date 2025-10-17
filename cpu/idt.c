@@ -7,7 +7,7 @@
 #define PIC2_COMMAND 0xA0
 #define PIC2_DATA    0xA1
 
-// --- 声明所有在 isr.s 中定义的汇编 ISR 入口 (无省略) ---
+// 声明所有在 isr.s 中定义的汇编 ISR 入口 
 extern void isr0(); extern void isr1(); extern void isr2(); extern void isr3();
 extern void isr4(); extern void isr5(); extern void isr6(); extern void isr7();
 extern void isr8(); extern void isr9(); extern void isr10(); extern void isr11();

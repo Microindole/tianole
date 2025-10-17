@@ -32,7 +32,7 @@ OBJS = $(C_OBJS) $(S_OBJS) \
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
-OS_ISO = $(BUILD_DIR)/my-os.iso
+OS_ISO = $(BUILD_DIR)/tianole.iso
 
 # 默认目标
 all: $(OS_ISO)

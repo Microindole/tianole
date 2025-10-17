@@ -1,5 +1,3 @@
-; isr.s - (最终决战版)
-
 ; C 语言的统一处理器
 extern interrupt_handler
 
@@ -15,7 +13,6 @@ isr_common_stub:
     mov fs, ax
     mov gs, ax
 
-    ; --- 【核心】直接调用统一的 C 语言入口函数 ---
     push esp 
     call interrupt_handler
     add esp, 4   ; 平衡堆栈，清理参数
@@ -32,7 +29,6 @@ isr_common_stub:
     add esp, 8  ; 清理栈上的 error_code 和 int_no
     iret        ; 从中断安全返回
 
-; --- 宏定义 (不变) ---
 %macro ISR_NOERRCODE 1
 global isr%1
 isr%1:
@@ -50,7 +46,6 @@ isr%1:
     jmp isr_common_stub
 %endmacro
 
-; --- 生成 ISRs (不变) ---
 ISR_NOERRCODE  0
 ISR_NOERRCODE  1
 ISR_NOERRCODE  2

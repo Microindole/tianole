@@ -3,8 +3,6 @@
 #include "string.h"
 #include <stddef.h>
 
-// --- 数据结构定义 ---
-
 // 内存块的头部信息
 typedef struct header {
     uint32_t magic;    // 魔术数字，用于校验
@@ -14,11 +12,9 @@ typedef struct header {
     struct header* prev; // 指向前一个内存块的指针
 } header_t;
 
-// --- 全局变量 ---
 static header_t* heap_start = NULL; // 指向堆的起始地址
 extern uint32_t end;                 // 内核的结束地址，由 linker.ld 提供
 
-// --- 内部辅助函数 ---
 
 // 将一个内存块从空闲链表中移除
 static void remove_from_free_list(header_t* block) {
@@ -46,7 +42,6 @@ static void add_to_free_list(header_t* block) {
     heap_start = block;
 }
 
-// --- 核心功能实现 ---
 
 void init_kheap() {
     // 将堆的起始位置设置在内核 BSS 段之后，并进行页对齐
@@ -56,7 +51,6 @@ void init_kheap() {
         heap_addr += 0x1000;
     }
     
-    // 假设我们有 1MB 的堆空间 (可以根据需要调整)
     uint32_t heap_size = 1024 * 1024;
     
     heap_start = (header_t*)heap_addr;
@@ -86,15 +80,12 @@ void kfree(void* p) {
     header->is_free = 1;
     add_to_free_list(header);
 
-    // --- 尝试与后面的块合并 ---
     header_t* next_block = (header_t*)((char*)header + header->size);
-    // 假设 next_block 也在堆范围内，并且是空闲的
     if (next_block->magic == 0xDEADBEEF && next_block->is_free) {
         remove_from_free_list(next_block);
         header->size += next_block->size;
     }
 
-    // --- 尝试与前面的块合并 ---
     header_t* prev_block = header->prev; // 从链表中找
     if (prev_block && prev_block->is_free && ((char*)prev_block + prev_block->size) == (char*)header) {
         remove_from_free_list(header);

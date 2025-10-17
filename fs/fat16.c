@@ -5,10 +5,8 @@
 #include "common.h"
 #include <stddef.h>
 
-// 声明一个全局的引导扇区变量，方便后续访问
 fat16_boot_sector_t bpb;
 
-// --- 定义全局变量，用于追踪当前目录的起始簇号 ---
 // 0 代表根目录
 uint16_t current_directory_cluster = 0;
 
@@ -86,7 +84,6 @@ void fat16_format() {
     }
 }
 
-// --- 核心改动：实现通用的目录读取函数 ---
 fat16_directory_t* fat16_read_directory(uint16_t cluster) {
     fat16_directory_t* dir = (fat16_directory_t*)kmalloc(sizeof(fat16_directory_t));
     uint8_t* buffer;
@@ -123,7 +120,6 @@ fat16_directory_t* fat16_read_directory(uint16_t cluster) {
 }
 
 
-// 辅助函数：将 "HELLO.TXT" 这样的字符串转换为 FAT16 的 8.3 格式
 static void to_fat16_filename(const char* filename, char* out_name) {
     memset(out_name, ' ', 11);
 
@@ -369,7 +365,6 @@ void fat16_write_content(const char* filename, const char* content) {
         return;
     }
 
-    // --- 以下的写入逻辑保持不变 ---
     // 确保文件大小为0，如果不是，需要先清空簇链。为了简化，我们假设之前已清空
     if (entry->first_cluster_low != 0) {
         // (这里应该有清空旧簇链的逻辑，但为了简化，我们先跳过)
@@ -613,7 +608,6 @@ void fat16_cd(const char* dirname) {
         return;
     }
 
-    // --- 在当前目录中查找目标 ---
     char fat_filename[11];
     to_fat16_filename(dirname, fat_filename);
     
@@ -638,7 +632,7 @@ void fat16_cd(const char* dirname) {
 }
 
 
-// --- 实现获取当前路径的函数 ---
+// 实现获取当前路径的函数
 void fat16_get_current_path(char* path_buffer) {
     if (current_directory_cluster == 0) {
         strcpy(path_buffer, "/");

@@ -14,7 +14,6 @@ switch_task:
     ; --- Step 2: 保存旧任务的状态 ---
     pusha
     
-    ; --- 关键修正：使用正确的偏移量 8 (id:4 + state:4) ---
     ; 将当前栈顶 (esp) 保存到 old_task->kernel_stack_ptr
     mov [edi + 8], esp
     

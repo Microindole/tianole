@@ -94,9 +94,7 @@ void clear_screen() {
     move_cursor();
 }
 
-// --------------------
-// --- 绝对安全的整数转字符串函数 ---
-// --------------------
+// 安全的整数转字符串函数
 static void strrev_kernel(char *s, int len) {
     char *e = s + len - 1;
     while (s < e) {
@@ -155,18 +153,15 @@ void init_timer(uint32_t frequency);
 
 // --- 为子进程创建独立的入口点 ---
 void child_entry_point() {
-    // 这里就是子进程真正的“第一行代码”
     asm volatile("sti");
     kprint("--- I am the CHILD process! My fork() returned 0. ---\n");
     exit(); 
 }
 
-// --- 用于验证 kheap 的测试函数 ---
 void heap_test() {
     kprint("\n--- Starting Heap Test ---\n");
     char hex_buf[12]; // 用于打印地址
 
-    // 1. 连续申请 3 块内存
     kprint("Allocating a, b, c:\n");
     void* a = kmalloc(8);
     void* b = kmalloc(8);
@@ -181,7 +176,6 @@ void heap_test() {
     itoa_hex((uint32_t)c, hex_buf, 12);
     kprint("c: "); kprint(hex_buf); kprint("\n");
 
-    // 2. 释放中间的块 'b'
     kprint("Freeing b...\n");
     kfree(b);
 
