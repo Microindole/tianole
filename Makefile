@@ -15,7 +15,7 @@ LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 # --- 源文件查找 ---
 # 自动查找所有 .c 和 .s 文件，但排除需要特殊处理的文件
 C_SOURCES = $(filter-out cpu/isr.c, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.c)))
-S_SOURCES = $(filter-out cpu/boot.s cpu/isr.s cpu/paging.s kernel/switch.s cpu/fork_trampoline.s cpu/task_utils.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
+S_SOURCES = $(filter-out cpu/boot.s cpu/isr.s cpu/paging.s kernel/switch.s cpu/fork_trampoline.s cpu/task_utils.s cpu/gdt.s cpu/switch_to_usermode.s, $(foreach D,$(SRC_DIRS),$(wildcard $(D)/*.s)))
 
 # 将通用源文件映射到目标文件
 C_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SOURCES))
@@ -28,7 +28,9 @@ OBJS = $(C_OBJS) $(S_OBJS) \
        $(BUILD_DIR)/isr_c.o \
        $(BUILD_DIR)/paging_s.o \
        $(BUILD_DIR)/switch.o \
-       $(BUILD_DIR)/fork_trampoline.o
+       $(BUILD_DIR)/fork_trampoline.o \
+       $(BUILD_DIR)/gdt_s.o \
+       $(BUILD_DIR)/switch_to_usermode.o
 
 # 最终目标
 KERNEL_BIN = $(BUILD_DIR)/kernel.bin
@@ -73,12 +75,32 @@ $(BUILD_DIR)/fork_trampoline.o: cpu/fork_trampoline.s
 $(BUILD_DIR)/task_utils.o: cpu/task_utils.s
 	@mkdir -p $(BUILD_DIR)
 	$(AS) $(ASFLAGS) $< -o $@
+$(BUILD_DIR)/gdt_s.o: cpu/gdt.s
+	@mkdir -p $(BUILD_DIR)
+	$(AS) $(ASFLAGS) $< -o $@
+$(BUILD_DIR)/switch_to_usermode.o: cpu/switch_to_usermode.s
+	@mkdir -p $(BUILD_DIR)
+	$(AS) $(ASFLAGS) $< -o $@
 
 # --- 运行和诊断 ---
 run: $(OS_ISO)
 	qemu-system-i386 -cdrom $(OS_ISO)
 qemu-direct: $(KERNEL_BIN)
 	qemu-system-i386 -kernel $(KERNEL_BIN) -serial stdio -hda hdd.img
+
+# --- Userland程序构建 ---
+userland:
+	$(MAKE) -C userland
+
+# --- 将用户程序写入FAT16镜像 ---
+install-userland: userland
+	@echo "Writing user programs to FAT16 image..."
+	python3 tools/write_to_fat16.py hdd.img $(BUILD_DIR)/userland/hello.bin "HELLO   BIN"
+
+# --- 构建所有内容（内核+用户程序） ---
+all-with-userland: all userland install-userland
+	@echo "Build complete! Kernel and user programs ready."
+	@echo "Run with: make qemu-direct"
 
 # --- ISO 创建和清理 ---
 $(OS_ISO): $(KERNEL_BIN) grub.cfg
@@ -90,4 +112,4 @@ $(OS_ISO): $(KERNEL_BIN) grub.cfg
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all run qemu-direct clean
+.PHONY: all run qemu-direct userland install-userland all-with-userland clean

@@ -2,6 +2,7 @@
 #include "common.h"
 #include "task.h"
 #include "string.h"
+#include "exec.h"
 #include "../mm/kheap.h"
 #include <stddef.h>
 
@@ -38,6 +39,17 @@ int waitpid(int pid) {
         : "a" (2), "b" (pid) // 2号系统调用：waitpid
     );
     return status;
+}
+
+// exec 的C语言包装函数
+int exec(const char* filename) {
+    int result;
+    asm volatile (
+        "int $0x80"
+        : "=a" (result)
+        : "a" (3), "b" (filename) // 3号系统调用：exec
+    );
+    return result;
 }
 
 // 克隆页目录
@@ -157,6 +169,7 @@ void init_syscalls() {
     register_syscall(0, &syscall_exit);
     register_syscall(1, &syscall_fork);
     register_syscall(2, &syscall_waitpid);
+    register_syscall(3, &syscall_exec);
     kprint("Syscalls initialized.\n");
 }
 

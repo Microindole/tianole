@@ -197,7 +197,7 @@ void process_command(char *input) {
     // --- 命令处理逻辑 ---
     if (strcmp(command, "help") == 0) {
         kprint("\nSimple Shell v1.0");
-        kprint("\nCommands: help, clear, ls, mkdir, touch, cat, write, append, forktest, ps");
+        kprint("\nCommands: help, clear, ls, mkdir, touch, cat, write, append, forktest, ps, exec");
     } else if (strcmp(command, "clear") == 0) {
         clear_screen();
     } else if (strcmp(command, "ls") == 0) {
@@ -312,6 +312,19 @@ void process_command(char *input) {
         }
     } else if (strcmp(command, "ps") == 0) {
         list_processes();
+    } else if (strcmp(command, "exec") == 0) {
+        if (args == NULL) {
+            kprint("\nUsage: exec <filename>");
+        } else {
+            kprint("\nExecuting user program: ");
+            kprint(args);
+            kprint("\n");
+            // 调用exec系统调用
+            exec(args);
+            // 如果exec成功，不会返回到这里
+            // 只有失败时才会返回
+            kprint("exec failed!\n");
+        }
     } else {
         kprint("\nUnknown command: ");
         kprint(command);

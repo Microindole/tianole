@@ -17,4 +17,7 @@ void exit();
 // waitpid 的C语言包装函数
 int waitpid(int pid);
 
+// exec 的C语言包装函数
+int exec(const char* filename);
+
 #endif

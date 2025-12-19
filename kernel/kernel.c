@@ -9,6 +9,7 @@
 #include "../drivers/ata.h"
 #include "../fs/fat16.h"
 #include "string.h"
+#include "cpu/gdt.h"
 
 
 unsigned short* const VIDEO_MEMORY = (unsigned short*)0xB8000;
@@ -191,6 +192,8 @@ void heap_test() {
 void kernel_main(void) {
     clear_screen();
     init_idt();
+    init_gdt();
+    serial_print("GDT initialized.\n");
 
     init_serial();
     serial_print("Serial port initialized.\n");
