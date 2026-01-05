@@ -1,10 +1,28 @@
+# Rust
+/target
+Cargo.lock
 
-
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-target/
-
+# OS Build
 *.iso
-
+*.bin
+*.elf
+build/
 limine/
+
+# Serial/Log files
+serial.log
+*.log
+
+# macOS
+.DS_Store
+
+# Backup files
+*.bak
+*~

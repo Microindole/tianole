@@ -1,4 +1,8 @@
 #![no_std] // 这是一个裸机库
+#![feature(abi_x86_interrupt)] // 启用 x86 中断 ABI
+
+#[macro_use]
+extern crate lazy_static;
 
 // 公开定义模块
 pub mod arch;
