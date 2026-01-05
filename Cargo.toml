@@ -2,7 +2,7 @@
 members = [
     "kernel",
     "common",
-    "userland"
+    # "userland"  # 暂时禁用：userland 还未配置为 no_std 环境
 ]
 resolver = "2"
 

@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 common = { path = "../common" }
-limine = "0.3.0"  # 核心引导协议
+limine = "0.5.0"  # 核心引导协议
 x86_64 = "0.14"   # 架构封装
 spin = "0.9"      # 自旋锁
 bitflags = "2.4"

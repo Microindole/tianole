@@ -1,0 +1,8 @@
+[package]
+name = "userland"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# 引用 common 模块，获取系统调用号定义
+common = { path = "../common" }
