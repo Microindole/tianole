@@ -65,6 +65,14 @@ make run-headless
 cat build/debug.log
 ```
 
+本地完整检查：
+
+```bash
+scripts/check.sh
+```
+
+GitHub Actions 会在 push 和 pull request 时运行同一个检查脚本。
+
 ## 文档
 
 - 路线图：[docs/roadmap.md](//wsl.localhost/Ubuntu/home/indole/tianole/docs/roadmap.md)

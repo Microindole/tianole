@@ -130,10 +130,13 @@
 - 独立 `kernel.elf` 加载
 - `kernel_main()` 实际执行
 - `memory map` 已通过 `boot_info` 传递，并能在 kernel 中统计描述符与可用页数
+- `ExitBootServices` 已在进入 kernel 前执行
+- x86 早期日志接口已集中到 `arch/x86/include/tianole/early_log.h`
+- 构建布局已改为接近 Linux 的目录 Makefile 组织方式
+- 本地检查脚本和 GitHub Actions 已接入
 
 当前还没有完成：
 
-- `ExitBootServices`
 - early serial log
 - framebuffer console
 - 真正的内存管理和异常子系统

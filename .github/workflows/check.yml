@@ -1,0 +1,23 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-boot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            lld \
+            qemu-system-x86 \
+            ovmf
+
+      - name: Run project checks
+        run: ./scripts/check.sh

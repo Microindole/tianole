@@ -1,5 +1,5 @@
-#ifndef TIANOLE_ELF_H
-#define TIANOLE_ELF_H
+#ifndef ELF_H
+#define ELF_H
 
 #include <stdint.h>
 
@@ -14,31 +14,31 @@
 #define PT_LOAD 1
 
 typedef struct {
-    unsigned char ident[16];
-    uint16_t type;
-    uint16_t machine;
-    uint32_t version;
-    uint64_t entry;
-    uint64_t phoff;
-    uint64_t shoff;
-    uint32_t flags;
-    uint16_t ehsize;
-    uint16_t phentsize;
-    uint16_t phnum;
-    uint16_t shentsize;
-    uint16_t shnum;
-    uint16_t shstrndx;
+	unsigned char ident[16];
+	uint16_t type;
+	uint16_t machine;
+	uint32_t version;
+	uint64_t entry;
+	uint64_t phoff;
+	uint64_t shoff;
+	uint32_t flags;
+	uint16_t ehsize;
+	uint16_t phentsize;
+	uint16_t phnum;
+	uint16_t shentsize;
+	uint16_t shnum;
+	uint16_t shstrndx;
 } elf64_ehdr_t;
 
 typedef struct {
-    uint32_t type;
-    uint32_t flags;
-    uint64_t offset;
-    uint64_t vaddr;
-    uint64_t paddr;
-    uint64_t filesz;
-    uint64_t memsz;
-    uint64_t align;
+	uint32_t type;
+	uint32_t flags;
+	uint64_t offset;
+	uint64_t vaddr;
+	uint64_t paddr;
+	uint64_t filesz;
+	uint64_t memsz;
+	uint64_t align;
 } elf64_phdr_t;
 
 #endif

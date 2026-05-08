@@ -1,91 +1,43 @@
 SHELL := /bin/bash
 
+ARCH ?= x86_64
+
 CC := clang
 ELF_LD := ld.lld
 LD := lld-link
-ARCH ?= x86_64
+
+BUILD_DIR := build
+KERNEL_ELF := $(BUILD_DIR)/image/kernel.elf
+DEBUG_LOG := $(BUILD_DIR)/debug.log
 
 ifeq ($(ARCH),x86_64)
-ARCH_DIR := arch/x86
-EFI_ARCH_TARGET := x86_64-unknown-windows
-KERNEL_ARCH_TARGET := x86_64-unknown-none-elf
-BOOT_EFI_NAME := BOOTX64.EFI
+ARCH_MAKEFILE := arch/x86/Makefile
 else
 $(error Unsupported ARCH '$(ARCH)')
 endif
 
-BUILD_DIR := build
-EFI_DIR := $(BUILD_DIR)/image/EFI/BOOT
-BOOT_EFI := $(EFI_DIR)/$(BOOT_EFI_NAME)
-BOOT_OBJ := $(BUILD_DIR)/arch/boot/main.obj
-KERNEL_ELF := $(BUILD_DIR)/image/kernel.elf
-KERNEL_OBJS := $(BUILD_DIR)/arch/kernel/entry.o $(BUILD_DIR)/kernel/main.o
-DEBUG_LOG := $(BUILD_DIR)/debug.log
-OVMF_CODE ?= /usr/share/OVMF/OVMF_CODE_4M.fd
-OVMF_VARS_TEMPLATE ?= /usr/share/OVMF/OVMF_VARS_4M.fd
-OVMF_VARS := $(BUILD_DIR)/OVMF_VARS.fd
+include $(ARCH_MAKEFILE)
+include $(ARCH_DIR)/boot/Makefile
+include $(ARCH_DIR)/kernel/Makefile
+include kernel/Makefile
 
-CFLAGS := \
-	-target $(EFI_ARCH_TARGET) \
-	-ffreestanding \
-	-fshort-wchar \
-	-mno-red-zone \
-	-fno-stack-protector \
-	-fno-builtin \
-	-Wall \
-	-Wextra \
-	-Werror \
-	-Iinclude \
-	-I$(ARCH_DIR)/include
-
-KERNEL_CFLAGS := \
-	-target $(KERNEL_ARCH_TARGET) \
-	-ffreestanding \
-	-fno-stack-protector \
-	-fno-builtin \
-	-fno-pic \
-	-mno-red-zone \
-	-Wall \
-	-Wextra \
-	-Werror \
-	-Iinclude \
-	-I$(ARCH_DIR)/include
-
-KERNEL_ASFLAGS := \
-	-target $(KERNEL_ARCH_TARGET) \
-	-ffreestanding
-
-LDFLAGS := \
-	/subsystem:efi_application \
-	/entry:efi_main \
-	/nodefaultlib \
-	/dll \
-	/machine:x64 \
-	/out:$(BOOT_EFI)
-
-KERNEL_LDFLAGS := \
-	-m elf_x86_64 \
-	-nostdlib \
-	-T $(ARCH_DIR)/kernel/linker.ld \
-	-o $(KERNEL_ELF)
-
-.PHONY: all clean run run-headless dirs
+.PHONY: all clean dirs run run-headless
 
 all: $(BOOT_EFI) $(KERNEL_ELF)
 
 dirs:
 	mkdir -p $(BUILD_DIR)/arch/boot $(BUILD_DIR)/arch/kernel $(BUILD_DIR)/kernel $(EFI_DIR)
 
-$(BOOT_OBJ): $(ARCH_DIR)/boot/main.c $(ARCH_DIR)/include/efi.h include/tianole/boot_info.h include/tianole/elf.h | dirs
+$(BUILD_DIR)/arch/boot/%.obj: $(ARCH_DIR)/boot/%.c $(ARCH_DIR)/include/efi.h $(ARCH_DIR)/include/tianole/early_log.h include/tianole/boot_info.h include/tianole/elf.h | dirs
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BOOT_EFI): $(BOOT_OBJ) | dirs
-	$(LD) $(LDFLAGS) $<
+$(BOOT_EFI): $(BOOT_OBJS) | dirs
+	$(LD) $(LDFLAGS) $(BOOT_OBJS)
 
 $(BUILD_DIR)/arch/kernel/entry.o: $(ARCH_DIR)/kernel/entry.S | dirs
 	$(CC) $(KERNEL_ASFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/kernel/main.o: kernel/main.c include/tianole/boot_info.h | dirs
+$(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h $(ARCH_DIR)/include/tianole/early_log.h | dirs
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
 $(KERNEL_ELF): $(KERNEL_OBJS) $(ARCH_DIR)/kernel/linker.ld | dirs
