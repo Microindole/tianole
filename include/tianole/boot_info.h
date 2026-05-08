@@ -14,5 +14,6 @@ typedef struct {
 } tianole_boot_info_t;
 
 #define TIANOLE_BOOT_INFO_VERSION 1u
+#define TIANOLE_BOOT_FLAG_BOOT_SERVICES_ACTIVE (1u << 0)
 
 #endif
