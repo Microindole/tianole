@@ -1,8 +1,8 @@
 #include <stdint.h>
 
-#include "tianole/boot_info.h"
-#include "tianole/early_log.h"
-#include "tianole/kernel_init.h"
+#include <tianole/boot_info.h>
+#include <tianole/early_log.h>
+#include <tianole/kernel_init.h>
 
 static void log_memory_map_summary(const boot_info_t *boot_info)
 {

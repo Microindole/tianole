@@ -1,5 +1,5 @@
-#include "tianole/early_log.h"
-#include "tianole/kernel_init.h"
+#include <tianole/early_log.h>
+#include <tianole/kernel_init.h>
 
 void kernel_main(const boot_info_t *boot_info)
 {

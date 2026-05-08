@@ -2,9 +2,9 @@
 #define X86_BOOT_ELF_LOADER_H
 
 #include <stdint.h>
+#include <tianole/boot_info.h>
 
 #include "efi.h"
-#include "tianole/boot_info.h"
 
 typedef void
 	__attribute__((sysv_abi)) (*kernel_entry_fn_t)(const boot_info_t *);

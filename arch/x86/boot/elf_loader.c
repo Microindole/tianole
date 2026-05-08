@@ -1,6 +1,6 @@
 #include "elf_loader.h"
 
-#include "tianole/elf.h"
+#include <tianole/elf.h>
 
 static void *mem_copy(void *dst, const void *src, uint64_t size)
 {

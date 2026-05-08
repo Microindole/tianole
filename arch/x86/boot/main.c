@@ -1,9 +1,10 @@
+#include <tianole/boot_info.h>
+
 #include "debug_log.h"
 #include "efi.h"
 #include "elf_loader.h"
 #include "file.h"
 #include "memory_map.h"
-#include "tianole/boot_info.h"
 
 static efi_char16_t boot_banner_text[] = u"Tianole x86 bootloader.\r\n";
 static efi_char16_t kernel_path_text[] = u"\\kernel.elf";

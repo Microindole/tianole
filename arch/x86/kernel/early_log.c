@@ -1,6 +1,5 @@
 #include <stdint.h>
-
-#include "tianole/arch.h"
+#include <tianole/arch.h>
 
 #define X86_QEMU_DEBUG_PORT 0xe9
 

@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#include "tianole/arch.h"
-#include "tianole/early_log.h"
+#include <tianole/arch.h>
+#include <tianole/early_log.h>
 
 static int early_log_ready;
 
