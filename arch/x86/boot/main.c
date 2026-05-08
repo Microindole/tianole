@@ -49,6 +49,27 @@ static void mem_zero(void *dst, uint64_t size) {
     }
 }
 
+void *memset(void *dst, int value, __SIZE_TYPE__ size) {
+    uint8_t *out = (uint8_t *)dst;
+    __SIZE_TYPE__ i;
+
+    for (i = 0; i < size; ++i) {
+        out[i] = (uint8_t)value;
+    }
+
+    return dst;
+}
+
+static void debug_put_hex64(uint64_t value) {
+    static const char digits[] = "0123456789abcdef";
+    int shift;
+
+    debug_puts("0x");
+    for (shift = 60; shift >= 0; shift -= 4) {
+        debug_putc(digits[(value >> shift) & 0xf]);
+    }
+}
+
 static efi_status open_root(
     efi_handle image_handle,
     efi_system_table_t *system_table,
@@ -222,6 +243,63 @@ static efi_status load_kernel_image(
     return EFI_SUCCESS;
 }
 
+static efi_status fetch_memory_map(
+    efi_system_table_t *system_table,
+    tianole_boot_info_t *boot_info
+) {
+    tianole_efi_memory_descriptor_t *memory_map;
+    efi_uintn_t memory_map_size;
+    efi_uintn_t map_key;
+    efi_uintn_t descriptor_size;
+    uint32_t descriptor_version;
+    efi_status status;
+
+    memory_map_size = 0;
+    map_key = 0;
+    descriptor_size = 0;
+    descriptor_version = 0;
+    status = system_table->boot_services->get_memory_map(
+        &memory_map_size,
+        0,
+        &map_key,
+        &descriptor_size,
+        &descriptor_version
+    );
+    if (status != EFI_BUFFER_TOO_SMALL) {
+        return status;
+    }
+
+    memory_map_size += descriptor_size * 8;
+    status = system_table->boot_services->allocate_pool(
+        EFI_LOADER_DATA,
+        memory_map_size,
+        (void **)&memory_map
+    );
+    if (status != EFI_SUCCESS) {
+        return status;
+    }
+
+    status = system_table->boot_services->get_memory_map(
+        &memory_map_size,
+        memory_map,
+        &map_key,
+        &descriptor_size,
+        &descriptor_version
+    );
+    if (status != EFI_SUCCESS) {
+        system_table->boot_services->free_pool(memory_map);
+        return status;
+    }
+
+    boot_info->memory_map = (uint64_t)(uintptr_t)memory_map;
+    boot_info->memory_map_size = memory_map_size;
+    boot_info->memory_map_key = map_key;
+    boot_info->memory_descriptor_size = descriptor_size;
+    boot_info->memory_descriptor_version = descriptor_version;
+
+    return EFI_SUCCESS;
+}
+
 efi_status EFIAPI efi_main(efi_handle image_handle, efi_system_table_t *system_table) {
     efi_file_protocol_t *root;
     void *kernel_image;
@@ -254,6 +332,19 @@ efi_status EFIAPI efi_main(efi_handle image_handle, efi_system_table_t *system_t
         debug_puts("failed: load kernel image\n");
         return status;
     }
+
+    status = fetch_memory_map(system_table, &boot_info);
+    if (status != EFI_SUCCESS) {
+        debug_puts("failed: fetch memory map\n");
+        return status;
+    }
+
+    debug_puts("memory_map descriptors_size=");
+    debug_put_hex64(boot_info.memory_descriptor_size);
+    debug_puts("\n");
+    debug_puts("memory_map size=");
+    debug_put_hex64(boot_info.memory_map_size);
+    debug_puts("\n");
 
     debug_puts("jumping to kernel entry\n");
     kernel_entry(&boot_info);

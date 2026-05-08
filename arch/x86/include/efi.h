@@ -141,13 +141,19 @@ struct efi_boot_services {
         efi_physical_address_t *memory
     );
     void *free_pages;
-    void *get_memory_map;
+    efi_status(EFIAPI *get_memory_map)(
+        efi_uintn_t *memory_map_size,
+        void *memory_map,
+        efi_uintn_t *map_key,
+        efi_uintn_t *descriptor_size,
+        uint32_t *descriptor_version
+    );
     efi_status(EFIAPI *allocate_pool)(
         int pool_type,
         efi_uintn_t size,
         void **buffer
     );
-    void *free_pool;
+    efi_status(EFIAPI *free_pool)(void *buffer);
     void *create_event;
     void *set_timer;
     void *wait_for_event;
