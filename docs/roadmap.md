@@ -13,15 +13,16 @@
 - 进入 kernel 前调用 `ExitBootServices`。
 - `memory map` 通过 `boot_info` 传入 kernel。
 - kernel 能统计 memory map 描述符数量和 conventional memory 页数。
-- x86 早期日志接口已集中到 `arch/x86/include/tianole/early_log.h`。
+- kernel early log 已拆成通用前端和 x86 backend。
+- x86 early log backend 同时输出到 QEMU debug port 和 COM1 串口。
+- 最小 `panic()` 已接入 early log 和架构 halt 路径。
 - 构建系统已拆成根 Makefile、`arch/x86/Makefile` 和目录 Makefile。
-- `scripts/check.sh` 和 GitHub Actions 已接入。
+- `scripts/check.sh` 已验证启动日志和串口日志，GitHub Actions 已接入。
 - `.clang-format` 已用于强制当前 C 代码风格。
 
 还没有完成：
 
-- COM1 串口日志。
-- panic/oops 早期错误路径。
+- oops 早期错误路径。
 - GDT/IDT/异常/中断。
 - 物理页分配器、虚拟内存和内核堆。
 - 调度、进程、文件系统、用户态和 shell。
@@ -30,19 +31,14 @@
 
 下一步执行：
 
-- `docs/agents/tasks/01-early-debug.md`
+- `docs/agents/tasks/02-cpu-interrupts.md`
 
 目标：
 
-- 加入 COM1 串口 backend。
-- 保留当前 QEMU debug port backend。
-- 提供统一 early log 前端。
-- 增加最小 `panic()`。
-- 让启动日志可以通过 firmware 之外的路径稳定输出。
-
-这一步完成后进入：
-
-- `docs/agents/tasks/02-cpu-interrupts.md`
+- 建立 x86_64 GDT/TSS/IDT。
+- 建立异常入口和 trap frame。
+- 让未处理异常进入 panic。
+- 为后续 IRQ、timer 和 page fault 做准备。
 
 ## 任务路由
 

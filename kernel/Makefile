@@ -1,6 +1,7 @@
 KERNEL_SRCS := \
 	kernel/main.c \
-	kernel/boot_report.c
+	kernel/boot_report.c \
+	kernel/early_log.c
 
 KERNEL_OBJS := \
 	$(ARCH_KERNEL_OBJS) \

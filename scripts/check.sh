@@ -23,10 +23,27 @@ required_lines=(
 )
 
 for line in "${required_lines[@]}"; do
-  if ! grep -F "$line" build/debug.log >/dev/null; then
+	if ! grep -F "$line" build/debug.log >/dev/null; then
     echo "missing expected boot log line: $line" >&2
     echo "--- build/debug.log ---" >&2
     cat build/debug.log >&2 || true
+    exit 1
+	fi
+done
+
+serial_required_lines=(
+  "kernel_main entered"
+  "boot_info.version ok"
+  "boot services exited"
+  "memory map descriptors="
+  "conventional memory pages="
+)
+
+for line in "${serial_required_lines[@]}"; do
+  if ! grep -F "$line" build/serial.log >/dev/null; then
+    echo "missing expected serial log line: $line" >&2
+    echo "--- build/serial.log ---" >&2
+    cat build/serial.log >&2 || true
     exit 1
   fi
 done

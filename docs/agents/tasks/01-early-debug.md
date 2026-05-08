@@ -37,3 +37,18 @@
 - QEMU 日志中能看到 bootloader 和 kernel 输出。
 - 串口或 debug log 中能看到 `boot services exited`。
 - 人为触发 panic 时能看到 panic 信息并停止。
+
+## 当前状态
+
+已完成：
+
+- kernel early log 已拆成通用前端和 x86 backend。
+- x86 backend 已同时写 QEMU debug port 和 COM1。
+- `panic()` 已接入 early log 和 `arch_halt_forever()`。
+- `scripts/check.sh` 已验证 `build/debug.log` 和 `build/serial.log` 中的关键启动行。
+
+后续进入异常阶段时继续补齐：
+
+- oops 格式。
+- 异常栈输出。
+- 内核符号化输出。
