@@ -40,15 +40,24 @@
 
 ## 当前状态
 
-已完成：
+基础完成：
 
 - kernel early log 已拆成通用前端和 x86 backend。
 - x86 backend 已同时写 QEMU debug port 和 COM1。
 - `panic()` 已接入 early log 和 `arch_halt_forever()`。
 - `scripts/check.sh` 已验证 `build/debug.log` 和 `build/serial.log` 中的关键启动行。
 
-后续进入异常阶段时继续补齐：
+后续扩展：
 
+- printk/log level/ring buffer。
 - oops 格式。
 - 异常栈输出。
 - 内核符号化输出。
+- framebuffer console。
+- crash dump。
+
+验收依据：
+
+- 正常启动日志能进入 QEMU debug log。
+- kernel 日志能进入 COM1 serial log。
+- `panic()` 已被 `02-cpu-interrupts.md` 的 invalid opcode 测试覆盖。

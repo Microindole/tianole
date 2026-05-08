@@ -6,6 +6,7 @@
 
 建议内容：
 
+- `code-style.md`：agent 修改代码时必须遵守的代码组织和风格规则。
 - `session-notes/`：实现日志和阶段结论。
 - `tasks/`：适合 agent 执行的边界清晰任务，按路线阶段拆分。
 - `prompts/`：可复用提示词和约束。
@@ -15,8 +16,9 @@
 
 当前任务入口：
 
+- `code-style.md`：代码风格和文件组织规则。
 - `tasks/README.md`：agent 任务索引。
-- `tasks/01-early-debug.md`：下一阶段，早期串口和 panic。
+- `tasks/02-cpu-interrupts.md`：下一阶段，GDT/TSS/IDT、异常入口和 trap frame。
 - `../roadmap.md`：总路线和阶段依赖。
 
 当 agent 修改代码且影响下列内容时，应该同步更新这里或 `docs/`：

@@ -29,6 +29,7 @@ KERNEL_CFLAGS := \
 	-fno-builtin \
 	-fno-pic \
 	-mno-red-zone \
+	-DKERNEL_TEST_TRAP=$(KERNEL_TEST_TRAP) \
 	-Wall \
 	-Wextra \
 	-Werror \

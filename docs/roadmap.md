@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-已经完成：
+基础已具备：
 
 - 最小 `UEFI -> bootloader -> kernel` 启动链。
 - bootloader 与 kernel 拆分。
@@ -13,32 +13,34 @@
 - 进入 kernel 前调用 `ExitBootServices`。
 - `memory map` 通过 `boot_info` 传入 kernel。
 - kernel 能统计 memory map 描述符数量和 conventional memory 页数。
-- kernel early log 已拆成通用前端和 x86 backend。
-- x86 early log backend 同时输出到 QEMU debug port 和 COM1 串口。
-- 最小 `panic()` 已接入 early log 和架构 halt 路径。
+- early log 基础：通用前端、x86 backend、QEMU debug port、COM1 串口。
+- panic 基础：最小 `panic()` 已接入 early log 和架构 halt 路径。
+- CPU exception 基础：x86_64 GDT/TSS/IDT、exception vector 0-31、统一 trap frame。
+- trap 验证：invalid opcode 已能进入 trap dispatch 并最终进入 panic。
+- 物理内存基础：已从 boot memory map 建立最小物理页 allocator。
+- 物理页验证：`alloc_page/free_page` selftest 已接入启动检查。
 - 构建系统已拆成根 Makefile、`arch/x86/Makefile` 和目录 Makefile。
-- `scripts/check.sh` 已验证启动日志和串口日志，GitHub Actions 已接入。
+- `scripts/check.sh` 已验证启动日志、串口日志和 invalid opcode 异常路径，GitHub Actions 已接入。
 - `.clang-format` 已用于强制当前 C 代码风格。
 
-还没有完成：
+后续未完成：
 
-- oops 早期错误路径。
-- GDT/IDT/异常/中断。
-- 物理页分配器、虚拟内存和内核堆。
-- 调度、进程、文件系统、用户态和 shell。
+- 完整日志体系：printk、log level、ring buffer、oops、符号化、crash dump。
+- 完整中断体系：PIC/APIC、外部 IRQ、timer interrupt。
+- 内存管理扩展：长期内存区域模型、页表、page fault 策略、内核堆。
+- 后续主线：调度、进程、文件系统、用户态和 shell。
 
 ## 当前下一步
 
 下一步执行：
 
-- `docs/agents/tasks/02-cpu-interrupts.md`
+- `docs/agents/tasks/03-memory.md`
 
 目标：
 
-- 建立 x86_64 GDT/TSS/IDT。
-- 建立异常入口和 trap frame。
-- 让未处理异常进入 panic。
-- 为后续 IRQ、timer 和 page fault 做准备。
+- 建立内核页表管理。
+- 建立最小内核堆。
+- 让 page fault 能进入现有异常路径并输出有效诊断。
 
 ## 任务路由
 

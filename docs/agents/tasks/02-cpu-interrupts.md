@@ -39,3 +39,37 @@
 - 主动触发 invalid opcode 或 divide error。
 - 日志输出 vector、rip、rsp、error code。
 - 未处理异常进入 panic。
+
+## 当前状态
+
+基础完成：
+
+- x86_64 GDT 已加载。
+- 最小 TSS 已建立并通过 `ltr` 加载。
+- IDT 已建立，当前覆盖 CPU exception vector 0-31。
+- 异常入口汇编已统一保存通用寄存器现场。
+- C 层 trap dispatch 已接收统一 `trap_frame`。
+- 未处理异常进入 `panic("unhandled CPU exception")`。
+- `KERNEL_TEST_TRAP=1` 会通过 `ud2` 主动触发 invalid opcode。
+- `scripts/check.sh` 已自动验证 invalid opcode 日志和 panic 路径。
+
+后续扩展：
+
+- PIC/APIC 初始化。
+- 外部 IRQ 分发。
+- timer interrupt。
+- page fault 的专门处理策略。
+- double fault 独立 IST 栈。
+- 用户态异常返回。
+- 可恢复异常处理。
+- oops 格式和符号化输出。
+
+验收依据：
+
+- 正常启动日志包含 `traps initialized`。
+- invalid opcode 测试能输出 vector、error code、rip、rsp、rflags。
+- 未处理异常能进入 `panic("unhandled CPU exception")`。
+
+下一阶段：
+
+- `03-memory.md`，先建立物理页、页表和内核堆。

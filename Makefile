@@ -10,6 +10,7 @@ BUILD_DIR := build
 KERNEL_ELF := $(BUILD_DIR)/image/kernel.elf
 DEBUG_LOG := $(BUILD_DIR)/debug.log
 SERIAL_LOG := $(BUILD_DIR)/serial.log
+KERNEL_TEST_TRAP ?= 0
 
 ifeq ($(ARCH),x86_64)
 ARCH_MAKEFILE := arch/x86/Makefile
@@ -20,6 +21,7 @@ endif
 include $(ARCH_MAKEFILE)
 include $(ARCH_DIR)/boot/Makefile
 include $(ARCH_DIR)/kernel/Makefile
+include mm/Makefile
 include kernel/Makefile
 
 .PHONY: all clean dirs run run-headless
@@ -27,7 +29,7 @@ include kernel/Makefile
 all: $(BOOT_EFI) $(KERNEL_ELF)
 
 dirs:
-	mkdir -p $(BUILD_DIR)/arch/boot $(BUILD_DIR)/arch/kernel $(BUILD_DIR)/kernel $(EFI_DIR)
+	mkdir -p $(BUILD_DIR)/arch/boot $(BUILD_DIR)/arch/kernel $(BUILD_DIR)/kernel $(BUILD_DIR)/mm $(EFI_DIR)
 
 $(BUILD_DIR)/arch/boot/%.obj: $(ARCH_DIR)/boot/%.c $(ARCH_DIR)/include/efi.h $(ARCH_DIR)/boot/debug_log.h include/tianole/boot_info.h include/tianole/elf.h | dirs
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -38,10 +40,18 @@ $(BOOT_EFI): $(BOOT_OBJS) | dirs
 $(BUILD_DIR)/arch/kernel/entry.o: $(ARCH_DIR)/kernel/entry.S | dirs
 	$(CC) $(KERNEL_ASFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/arch/kernel/%.o: $(ARCH_DIR)/kernel/%.S | dirs
+	$(CC) $(KERNEL_ASFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/arch/kernel/%.o: $(ARCH_DIR)/kernel/%.c include/tianole/arch.h | dirs
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h include/tianole/arch.h include/tianole/early_log.h | dirs
+$(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h include/tianole/arch.h include/tianole/early_log.h include/tianole/mm.h | dirs
+	mkdir -p $(@D)
+	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/mm/%.o: mm/%.c include/tianole/boot_info.h include/tianole/early_log.h include/tianole/mm.h | dirs
+	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
 $(KERNEL_ELF): $(KERNEL_OBJS) $(ARCH_DIR)/kernel/linker.ld | dirs

@@ -21,6 +21,7 @@ tianole/
   docs/
   include/
   kernel/
+  mm/
   scripts/
 ```
 
@@ -28,6 +29,7 @@ tianole/
 
 - `arch/`：架构相关代码
 - `kernel/`：通用内核主体逐步放这里
+- `mm/`：架构无关内存管理
 - `include/tianole/`：项目自有共享接口
 - `docs/`：正式设计和路线图
 
@@ -71,7 +73,7 @@ cat build/debug.log
 scripts/check.sh
 ```
 
-GitHub Actions 会在 push 和 pull request 时运行同一个检查脚本。
+GitHub Actions 会在 push 和 pull request 时运行同一个检查入口。具体检查拆在 `scripts/checks/`，共享函数放在 `scripts/lib/`。
 
 ## 文档
 
