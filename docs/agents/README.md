@@ -7,11 +7,17 @@
 建议内容：
 
 - `session-notes/`：实现日志和阶段结论。
-- `tasks/`：适合 agent 执行的边界清晰任务。
+- `tasks/`：适合 agent 执行的边界清晰任务，按路线阶段拆分。
 - `prompts/`：可复用提示词和约束。
 - `checklists/`：启动、验证、回归检查单。
 
 正式架构决策仍然放在 `docs/`，然后在 agent 任务文档里引用它们。
+
+当前任务入口：
+
+- `tasks/README.md`：agent 任务索引。
+- `tasks/01-early-debug.md`：下一阶段，早期串口和 panic。
+- `../roadmap.md`：总路线和阶段依赖。
 
 当 agent 修改代码且影响下列内容时，应该同步更新这里或 `docs/`：
 
