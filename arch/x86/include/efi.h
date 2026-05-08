@@ -1,5 +1,5 @@
-#ifndef TIANOLE_EFI_H
-#define TIANOLE_EFI_H
+#ifndef TIANOLE_ARCH_X86_EFI_H
+#define TIANOLE_ARCH_X86_EFI_H
 
 #include <stdint.h>
 
@@ -9,7 +9,6 @@ typedef uint16_t efi_char16_t;
 typedef uint64_t efi_uintn_t;
 
 #define EFI_SUCCESS 0
-#define EFI_RESET_SHUTDOWN 2
 
 #if defined(__x86_64__)
 #define EFIAPI __attribute__((ms_abi))
@@ -26,7 +25,6 @@ typedef struct {
 } efi_table_header_t;
 
 typedef struct efi_simple_text_output_protocol efi_simple_text_output_protocol_t;
-typedef struct efi_runtime_services efi_runtime_services_t;
 typedef struct efi_boot_services efi_boot_services_t;
 
 struct efi_simple_text_output_protocol {
@@ -34,26 +32,6 @@ struct efi_simple_text_output_protocol {
     efi_status(EFIAPI *output_string)(
         efi_simple_text_output_protocol_t *self,
         efi_char16_t *string
-    );
-};
-
-struct efi_runtime_services {
-    efi_table_header_t hdr;
-    void *get_time;
-    void *set_time;
-    void *get_wakeup_time;
-    void *set_wakeup_time;
-    void *set_virtual_address_map;
-    void *convert_pointer;
-    void *get_variable;
-    void *get_next_variable_name;
-    void *set_variable;
-    void *get_next_high_mono_count;
-    void(EFIAPI *reset_system)(
-        uint32_t reset_type,
-        efi_status reset_status,
-        efi_uintn_t data_size,
-        void *reset_data
     );
 };
 
@@ -101,7 +79,7 @@ typedef struct {
     efi_simple_text_output_protocol_t *con_out;
     efi_handle standard_error_handle;
     efi_simple_text_output_protocol_t *std_err;
-    efi_runtime_services_t *runtime_services;
+    void *runtime_services;
     efi_boot_services_t *boot_services;
     uint64_t number_of_table_entries;
     void *configuration_table;

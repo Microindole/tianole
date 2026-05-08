@@ -157,6 +157,22 @@
 - `ExitBootServices`
 - 真正的内核子系统
 
+## 当前代码组织原则
+
+当前先不直接复制 Linux 的完整目录树，但开始采用接近 Linux 的分层方向：
+
+- `arch/`：架构相关实现，目前只放 `x86`
+- `kernel/`：未来放架构无关的内核主体
+- `include/tianole/`：内核与 bootloader 共享的项目自有接口
+- `docs/`：正式设计与路线图
+- `docs/agents/`：agent 协作文档
+
+当前这样拆分的目的不是过早抽象，而是先把边界立住：
+
+- `UEFI` 相关定义留在 `arch/x86/`
+- 通用交接结构放在 `include/tianole/`
+- 以后新增架构时，优先新增新的 `arch/<name>/`，而不是改写通用代码
+
 ## 接下来最近三个里程碑
 
 ### 里程碑 1：独立 kernel 接管

@@ -2,18 +2,27 @@ SHELL := /bin/bash
 
 CC := clang
 LD := lld-link
+ARCH ?= x86_64
+
+ifeq ($(ARCH),x86_64)
+ARCH_DIR := arch/x86
+EFI_ARCH_TARGET := x86_64-unknown-windows
+BOOT_EFI_NAME := BOOTX64.EFI
+else
+$(error Unsupported ARCH '$(ARCH)')
+endif
 
 BUILD_DIR := build
 EFI_DIR := $(BUILD_DIR)/image/EFI/BOOT
-BOOT_EFI := $(EFI_DIR)/BOOTX64.EFI
-BOOT_OBJ := $(BUILD_DIR)/boot/main.obj
+BOOT_EFI := $(EFI_DIR)/$(BOOT_EFI_NAME)
+BOOT_OBJ := $(BUILD_DIR)/arch/boot/main.obj
 DEBUG_LOG := $(BUILD_DIR)/debug.log
 OVMF_CODE ?= /usr/share/OVMF/OVMF_CODE_4M.fd
 OVMF_VARS_TEMPLATE ?= /usr/share/OVMF/OVMF_VARS_4M.fd
 OVMF_VARS := $(BUILD_DIR)/OVMF_VARS.fd
 
 CFLAGS := \
-	-target x86_64-unknown-windows \
+	-target $(EFI_ARCH_TARGET) \
 	-ffreestanding \
 	-fshort-wchar \
 	-mno-red-zone \
@@ -22,7 +31,8 @@ CFLAGS := \
 	-Wall \
 	-Wextra \
 	-Werror \
-	-Iinclude
+	-Iinclude \
+	-I$(ARCH_DIR)/include
 
 LDFLAGS := \
 	/subsystem:efi_application \
@@ -37,9 +47,9 @@ LDFLAGS := \
 all: $(BOOT_EFI)
 
 dirs:
-	mkdir -p $(BUILD_DIR)/boot $(EFI_DIR)
+	mkdir -p $(BUILD_DIR)/arch/boot $(EFI_DIR)
 
-$(BOOT_OBJ): boot/main.c include/efi.h | dirs
+$(BOOT_OBJ): $(ARCH_DIR)/boot/main.c $(ARCH_DIR)/include/efi.h include/tianole/boot_info.h | dirs
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BOOT_EFI): $(BOOT_OBJ) | dirs
