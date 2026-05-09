@@ -45,5 +45,6 @@ void exception_28(void);
 void exception_29(void);
 void exception_30(void);
 void exception_31(void);
+void irq_32(void);
 
 #endif

@@ -2,6 +2,7 @@ ARCH_KERNEL_SRCS := \
 	$(ARCH_DIR)/kernel/early_log.c \
 	$(ARCH_DIR)/kernel/gdt.c \
 	$(ARCH_DIR)/kernel/idt.c \
+	$(ARCH_DIR)/kernel/irq.c \
 	$(ARCH_DIR)/kernel/traps.c
 
 ARCH_KERNEL_OBJS := \

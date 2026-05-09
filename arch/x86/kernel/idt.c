@@ -80,6 +80,7 @@ void idt_init(void)
 	idt_set_gate(29, exception_29);
 	idt_set_gate(30, exception_30);
 	idt_set_gate(31, exception_31);
+	idt_set_gate(32, irq_32);
 
 	load_idt(&idtr);
 }

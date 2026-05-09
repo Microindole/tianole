@@ -15,6 +15,15 @@ exception_\vector:
 	jmp exception_common
 .endm
 
+.macro IRQ vector
+.global irq_\vector
+.type irq_\vector, @function
+irq_\vector:
+	pushq $0
+	pushq $\vector
+	jmp exception_common
+.endm
+
 .section .text
 
 EXCEPTION_NO_ERROR 0
@@ -49,6 +58,8 @@ EXCEPTION_NO_ERROR 28
 EXCEPTION_ERROR 29
 EXCEPTION_ERROR 30
 EXCEPTION_NO_ERROR 31
+
+IRQ 32
 
 .type exception_common, @function
 exception_common:

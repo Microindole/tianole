@@ -41,3 +41,26 @@
 - 线程可以 sleep 并被 timer 唤醒。
 - 调度现场保存和恢复稳定。
 - 基础对象生命周期规则有文档和调用约束。
+
+## 当前状态
+
+基础完成：
+
+- 已建立 x86 PIC remap，外部 IRQ 使用 vector 32-47，不再和 CPU exception 混用。
+- 已接入 PIT periodic timer，当前频率为 100Hz。
+- 已建立通用 `timer_tick()` 入口和 `timer_ticks()` 计数接口。
+- 已在 trap dispatch 中区分 CPU exception 和外部 IRQ。
+- 已对 timer IRQ0 发送 EOI，避免中断只触发一次。
+- `scripts/check.sh` 已验证 `timer initialized` 和 `timer tick=1/2/3`。
+
+后续扩展：
+
+- 把 IRQ 分发扩展为可注册 handler 的表，而不是只处理 timer。
+- 建立 kernel thread 对象和内核栈。
+- 建立上下文切换入口。
+- 建立 run queue 和最小 round-robin scheduler。
+- 建立 `yield()`、`sleep()`、timer wakeup 和 wait queue。
+
+下一阶段：
+
+- 继续在 `04-time-scheduler.md` 内推进最小 kernel thread。

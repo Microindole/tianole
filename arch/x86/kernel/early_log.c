@@ -1,4 +1,7 @@
 #include <stdint.h>
+
+#include <arch/io.h>
+
 #include <tianole/arch.h>
 
 #define X86_QEMU_DEBUG_PORT 0xe9
@@ -14,19 +17,6 @@
 #define X86_COM_LCR_DLAB 0x80
 #define X86_COM_LCR_8N1 0x03
 #define X86_COM_LSR_THRE 0x20
-
-static inline void outb(uint16_t port, uint8_t value)
-{
-	__asm__ volatile("outb %0, %1" : : "a"(value), "Nd"(port));
-}
-
-static inline uint8_t inb(uint16_t port)
-{
-	uint8_t value;
-
-	__asm__ volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
-	return value;
-}
 
 static void debug_port_putc(char ch)
 {

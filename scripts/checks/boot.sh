@@ -22,7 +22,11 @@ check_lines build/debug.log \
 	"kernel page table root active" \
 	"page table selftest ok" \
 	"kernel heap initialized" \
-	"kernel heap selftest ok"
+	"kernel heap selftest ok" \
+	"timer initialized" \
+	"timer tick=1" \
+	"timer tick=2" \
+	"timer tick=3"
 
 check_lines build/serial.log \
 	"kernel_main entered" \
@@ -36,6 +40,10 @@ check_lines build/serial.log \
 	"kernel page table root active" \
 	"page table selftest ok" \
 	"kernel heap initialized" \
-	"kernel heap selftest ok"
+	"kernel heap selftest ok" \
+	"timer initialized" \
+	"timer tick=1" \
+	"timer tick=2" \
+	"timer tick=3"
 
 cat build/debug.log

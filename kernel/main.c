@@ -12,6 +12,7 @@ void kernel_main(const boot_info_t *boot_info)
 	arch_traps_init();
 	kernel_report_boot_state(boot_info);
 	mm_init(boot_info);
+	arch_timer_init();
 
 #if KERNEL_TEST_TRAP
 	__asm__ volatile("ud2");

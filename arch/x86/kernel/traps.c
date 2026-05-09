@@ -57,6 +57,11 @@ void trap_dispatch(struct trap_frame *frame)
 	uint64_t vector = frame->vector;
 	const char *name = "unknown exception";
 
+	if (vector >= 32 && vector < 48) {
+		handle_irq(frame);
+		return;
+	}
+
 	if (vector < 32) {
 		name = exception_names[vector];
 	}

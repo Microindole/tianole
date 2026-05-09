@@ -23,6 +23,7 @@
 - 页表验证：页表 map/unmap/query selftest 已接入启动检查。
 - page fault 基础：已能输出 fault address、错误码、访问类型和权限来源。
 - 内核堆基础：已提供 `kmalloc/kfree`，并接入启动 selftest。
+- timer 基础：已接入 x86 PIC/PIT，timer IRQ 能进入通用 tick 入口。
 - 构建系统已拆成根 Makefile、`arch/x86/Makefile` 和目录 Makefile。
 - `scripts/check.sh` 已验证启动日志、串口日志和 invalid opcode 异常路径，GitHub Actions 已接入。
 - `.clang-format` 已用于强制当前 C 代码风格。
@@ -30,7 +31,7 @@
 后续未完成：
 
 - 完整日志体系：printk、log level、ring buffer、oops、符号化、crash dump。
-- 完整中断体系：PIC/APIC、外部 IRQ、timer interrupt。
+- 完整中断体系：IRQ handler 注册、APIC、外部设备 IRQ、优先级和屏蔽策略。
 - 内存管理扩展：长期内存区域模型、page metadata、buddy/slab、后续完整缺页策略。
 - 后续主线：调度、进程、文件系统、用户态和 shell。
 
@@ -42,7 +43,6 @@
 
 目标：
 
-- 建立 timer interrupt 基础。
 - 建立最小 kernel thread 和调度循环。
 
 ## 任务路由

@@ -27,6 +27,7 @@ struct trap_frame {
 };
 
 void trap_dispatch(struct trap_frame *frame);
+void handle_irq(struct trap_frame *frame);
 void handle_page_fault(struct trap_frame *frame);
 
 #endif
