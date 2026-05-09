@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | `01-early-debug.md` | 基础完成 | 已有 early log 前端、QEMU debug port、COM1 串口和最小 `panic()`。 |
 | `02-cpu-interrupts.md` | 基础完成 | 已有 GDT/TSS/IDT、exception vector 0-31、`trap_frame` 和 invalid opcode 回归测试。 |
-| `03-memory.md` | 进行中 | 已有最小物理页 allocator、页表 map/unmap/query 和 page fault 诊断基础；内核堆未完成。 |
+| `03-memory.md` | 基础完成 | 已有最小物理页 allocator、页表 map/unmap/query、page fault 诊断和内核堆。 |
 | `04-time-scheduler.md` | 未开始 | 需要 timer、kernel thread、调度和等待队列。 |
 | `05-input-events.md` | 未开始 | 需要输入事件模型和键盘接入。 |
 | `06-storage-vfs.md` | 未开始 | 需要块层、缓存、VFS 和基础文件系统。 |
@@ -36,7 +36,7 @@
 | `09-driver-expansion.md` | 未开始 | 需要设备模型、PCI/ACPI、存储、网络等驱动扩展。 |
 | `10-real-machine.md` | 未开始 | 需要 U 盘真机启动验证和硬件差异记录。 |
 
-当前最合适的下一步仍在 `03-memory.md` 内：继续做最小内核堆。
+当前最合适的下一步是 `04-time-scheduler.md`：先建立 timer interrupt，再引入最小 kernel thread 和调度循环。
 
 ## Linux 级能力缺口路由
 

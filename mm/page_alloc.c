@@ -178,4 +178,5 @@ void mm_init(const boot_info_t *boot_info)
 
 	page_allocator_selftest();
 	page_table_selftest();
+	heap_init();
 }

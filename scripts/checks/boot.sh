@@ -20,7 +20,9 @@ check_lines build/debug.log \
 	"physical pages free=" \
 	"physical page allocator selftest ok" \
 	"kernel page table root active" \
-	"page table selftest ok"
+	"page table selftest ok" \
+	"kernel heap initialized" \
+	"kernel heap selftest ok"
 
 check_lines build/serial.log \
 	"kernel_main entered" \
@@ -32,6 +34,8 @@ check_lines build/serial.log \
 	"physical pages free=" \
 	"physical page allocator selftest ok" \
 	"kernel page table root active" \
-	"page table selftest ok"
+	"page table selftest ok" \
+	"kernel heap initialized" \
+	"kernel heap selftest ok"
 
 cat build/debug.log

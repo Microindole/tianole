@@ -1,4 +1,5 @@
 MM_SRCS := \
+	mm/heap.c \
 	mm/page_alloc.c
 
 MM_OBJS := \

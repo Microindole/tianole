@@ -12,6 +12,7 @@ check_lines build/debug.log \
 	"traps initialized" \
 	"kernel page table root active" \
 	"page table selftest ok" \
+	"kernel heap selftest ok" \
 	"exception: page fault" \
 	"vector=14 error=0x0000000000000002" \
 	"page fault: address=0xffffff1000000000 error=0x0000000000000002" \

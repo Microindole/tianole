@@ -56,14 +56,15 @@
 - 已提供最小 `map_page()`、`unmap_page()` 和 `virt_to_phys()` 接口。
 - 已加入页表 map/unmap/query selftest。
 - 已拆出 x86 page fault 诊断路径，能输出 fault address、错误码、访问类型和权限来源。
-- `scripts/check.sh` 已验证 `physical pages free=`、物理页 selftest、页表根切换、页表 selftest 和 page fault 日志。
+- 已建立最小内核堆，提供 `kmalloc()` 和 `kfree()`，底层通过页表按需映射物理页。
+- 已加入内核堆分配、写入、释放、复用 selftest。
+- `scripts/check.sh` 已验证 `physical pages free=`、物理页 selftest、页表根切换、页表 selftest、内核堆 selftest 和 page fault 日志。
 
 后续扩展：
 
 - 长期内存区域模型，不直接依赖 UEFI memory type。
 - page metadata。
 - buddy allocator。
-- 最小内核堆。
 - slab/slub 或等价小对象缓存。
 
 验收依据：
@@ -72,8 +73,11 @@
 - 正常启动日志包含 `physical page allocator selftest ok`。
 - 正常启动日志包含 `kernel page table root active`。
 - 正常启动日志包含 `page table selftest ok`。
+- 正常启动日志包含 `kernel heap initialized`。
+- 正常启动日志包含 `kernel heap selftest ok`。
 - page fault 测试日志包含 `page fault: address=` 和 `access=write mode=kernel reason=not-present`。
 
 下一阶段：
 
-- 继续在 `03-memory.md` 内推进最小内核堆。
+- `03-memory.md` 的最小基础已经闭环。
+- 下一阶段可以进入 timer/scheduler；如果继续打磨内存，则应补 page metadata、buddy allocator 和 slab/slub。
