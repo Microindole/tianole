@@ -27,12 +27,16 @@ check_lines build/debug.log \
 	"kernel thread selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \
-	"thread 1 step=1" \
-	"thread 2 step=1" \
-	"thread 1 step=2" \
-	"thread 2 step=2" \
-	"thread 1 step=3" \
-	"thread 2 step=3" \
+	"preempt thread 1 step=1" \
+	"preempt thread 2 step=1" \
+	"waiter sleeping" \
+	"waker sleeping" \
+	"preempt thread 1 step=2" \
+	"preempt thread 2 step=2" \
+	"preempt thread 1 step=3" \
+	"preempt thread 2 step=3" \
+	"waker wake_one" \
+	"waiter woke" \
 	"timer tick=1" \
 	"timer tick=2" \
 	"timer tick=3"
@@ -54,12 +58,16 @@ check_lines build/serial.log \
 	"kernel thread selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \
-	"thread 1 step=1" \
-	"thread 2 step=1" \
-	"thread 1 step=2" \
-	"thread 2 step=2" \
-	"thread 1 step=3" \
-	"thread 2 step=3" \
+	"preempt thread 1 step=1" \
+	"preempt thread 2 step=1" \
+	"waiter sleeping" \
+	"waker sleeping" \
+	"preempt thread 1 step=2" \
+	"preempt thread 2 step=2" \
+	"preempt thread 1 step=3" \
+	"preempt thread 2 step=3" \
+	"waker wake_one" \
+	"waiter woke" \
 	"timer tick=1" \
 	"timer tick=2" \
 	"timer tick=3"

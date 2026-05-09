@@ -57,14 +57,20 @@
 - 已建立 x86 上下文切换入口，保存/恢复 callee-saved 寄存器和栈指针。
 - 已建立线程 trampoline，新线程能从独立内核栈进入自己的入口函数。
 - 已建立协作式 round-robin，两个 kernel thread 能通过 `sched_yield()` 轮转运行。
-- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok` 和 `thread 1/2` 轮转日志。
+- 已把调度接入 `timer_tick()`，timer tick 会唤醒到期 sleep 线程并触发 round-robin。
+- 已建立 idle thread，所有普通线程 sleep/wait 时由 idle 承接 CPU。
+- 已提供 `sched_sleep()`，线程可以睡眠指定 tick 数并被 timer 唤醒。
+- 已提供 `wait_queue_init()`、`wait_queue_sleep()`、`wait_queue_wake_one()` 和 `wait_queue_wake_all()`。
+- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()` 和 wait queue wakeup。
 
 后续扩展：
 
 - 把 IRQ 分发扩展为可注册 handler 的表，而不是只处理 timer。
-- 把协作式调度接入 timer tick，演进为抢占式调度。
-- 建立 `yield()`、`sleep()`、timer wakeup 和 wait queue。
+- 把当前直接在 timer IRQ 内触发调度的路径收敛为更明确的 interrupt-exit reschedule 模型。
+- 建立基础 spinlock 或 interrupt-safe lock。
+- 为 wait queue 增加条件等待、超时等待和状态检查。
+- 为线程退出增加资源回收路径。
 
 下一阶段：
 
-- 继续在 `04-time-scheduler.md` 内推进 timer 驱动的抢占式调度、`sleep()` 和 wait queue。
+- 继续在 `04-time-scheduler.md` 内推进 interrupt-safe lock、线程退出回收和更严格的 interrupt-exit reschedule。

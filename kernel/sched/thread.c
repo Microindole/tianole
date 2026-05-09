@@ -6,6 +6,7 @@
 #include <tianole/early_log.h>
 #include <tianole/mm.h>
 #include <tianole/sched.h>
+#include <tianole/timer.h>
 
 #define KERNEL_STACK_SIZE (PAGE_SIZE * 4u)
 #define STACK_ALIGNMENT 16u
@@ -16,6 +17,8 @@ static struct thread *current_thread;
 static uintptr_t boot_stack_pointer;
 static uint64_t next_thread_id = 1;
 static int scheduler_ready;
+static int schedule_locked;
+static struct thread *idle_thread;
 
 static void thread_trampoline(void) __attribute__((noreturn));
 
@@ -102,7 +105,9 @@ struct thread *kernel_thread_create(
 	thread->stack_top = align_down_uintptr(stack_top, STACK_ALIGNMENT);
 	thread->stack_pointer = prepare_initial_stack(thread->stack_top);
 	thread->stack_size = KERNEL_STACK_SIZE;
+	thread->wake_tick = 0;
 	thread->next = 0;
+	thread->wait_next = 0;
 	copy_thread_name(thread->name, sizeof(thread->name), name);
 
 	enqueue_thread(thread);
@@ -123,19 +128,36 @@ static struct thread *next_runnable_thread(void)
 
 	thread = start;
 	while (thread != 0) {
-		if (thread->state == THREAD_READY) {
+		if (thread->state == THREAD_READY && thread != idle_thread) {
 			return thread;
 		}
 		thread = thread->next;
 	}
 
 	for (thread = run_queue_head; thread != start; thread = thread->next) {
-		if (thread->state == THREAD_READY) {
+		if (thread->state == THREAD_READY && thread != idle_thread) {
 			return thread;
 		}
 	}
 
+	if (idle_thread != 0 && idle_thread->state == THREAD_READY) {
+		return idle_thread;
+	}
+
 	return 0;
+}
+
+static void wake_sleeping_threads(uint64_t tick)
+{
+	struct thread *thread;
+
+	for (thread = run_queue_head; thread != 0; thread = thread->next) {
+		if (thread->state == THREAD_SLEEPING &&
+			thread->wake_tick <= tick) {
+			thread->wake_tick = 0;
+			thread->state = THREAD_READY;
+		}
+	}
 }
 
 void sched_yield(void)
@@ -143,9 +165,15 @@ void sched_yield(void)
 	struct thread *prev = current_thread;
 	struct thread *next = next_runnable_thread();
 
+	if (schedule_locked != 0) {
+		return;
+	}
+
 	if (next == 0 || next == prev) {
 		return;
 	}
+
+	schedule_locked = 1;
 
 	if (prev != 0 && prev->state == THREAD_RUNNING) {
 		prev->state = THREAD_READY;
@@ -153,6 +181,7 @@ void sched_yield(void)
 
 	next->state = THREAD_RUNNING;
 	current_thread = next;
+	schedule_locked = 0;
 
 	if (prev == 0) {
 		arch_context_switch(&boot_stack_pointer, next->stack_pointer);
@@ -160,6 +189,90 @@ void sched_yield(void)
 	}
 
 	arch_context_switch(&prev->stack_pointer, next->stack_pointer);
+}
+
+void sched_tick(uint64_t tick)
+{
+	wake_sleeping_threads(tick);
+
+	if (current_thread != 0 && current_thread->state == THREAD_RUNNING) {
+		sched_yield();
+	}
+}
+
+void sched_sleep(uint64_t ticks)
+{
+	uint64_t now;
+
+	if (current_thread == 0 || ticks == 0) {
+		return;
+	}
+
+	now = timer_ticks();
+	current_thread->wake_tick = now + ticks;
+	current_thread->state = THREAD_SLEEPING;
+	sched_yield();
+}
+
+void wait_queue_init(struct wait_queue *queue)
+{
+	if (queue == 0) {
+		return;
+	}
+
+	queue->head = 0;
+	queue->tail = 0;
+}
+
+static void wait_queue_enqueue(struct wait_queue *queue, struct thread *thread)
+{
+	thread->wait_next = 0;
+
+	if (queue->tail != 0) {
+		queue->tail->wait_next = thread;
+	} else {
+		queue->head = thread;
+	}
+
+	queue->tail = thread;
+}
+
+void wait_queue_sleep(struct wait_queue *queue)
+{
+	if (queue == 0 || current_thread == 0) {
+		return;
+	}
+
+	wait_queue_enqueue(queue, current_thread);
+	current_thread->state = THREAD_WAITING;
+	sched_yield();
+}
+
+void wait_queue_wake_one(struct wait_queue *queue)
+{
+	struct thread *thread;
+
+	if (queue == 0 || queue->head == 0) {
+		return;
+	}
+
+	thread = queue->head;
+	queue->head = thread->wait_next;
+	if (queue->head == 0) {
+		queue->tail = 0;
+	}
+
+	thread->wait_next = 0;
+	if (thread->state == THREAD_WAITING) {
+		thread->state = THREAD_READY;
+	}
+}
+
+void wait_queue_wake_all(struct wait_queue *queue)
+{
+	while (queue != 0 && queue->head != 0) {
+		wait_queue_wake_one(queue);
+	}
 }
 
 static void thread_trampoline(void)
@@ -218,12 +331,42 @@ static void scheduler_demo_entry(void *arg)
 	uint64_t step;
 
 	for (step = 1; step <= 3; step++) {
-		early_log_puts("thread ");
+		early_log_puts("preempt thread ");
 		early_log_u64_decimal(id);
 		early_log_puts(" step=");
 		early_log_u64_decimal(step);
 		early_log_puts("\n");
-		sched_yield();
+		sched_sleep(2);
+	}
+}
+
+static struct wait_queue demo_wait_queue;
+
+static void wait_queue_demo_waiter(void *arg)
+{
+	(void)arg;
+
+	early_log_puts("waiter sleeping\n");
+	wait_queue_sleep(&demo_wait_queue);
+	early_log_puts("waiter woke\n");
+}
+
+static void wait_queue_demo_waker(void *arg)
+{
+	(void)arg;
+
+	early_log_puts("waker sleeping\n");
+	sched_sleep(4);
+	early_log_puts("waker wake_one\n");
+	wait_queue_wake_one(&demo_wait_queue);
+}
+
+static void idle_thread_entry(void *arg)
+{
+	(void)arg;
+
+	for (;;) {
+		__asm__ volatile("hlt");
 	}
 }
 
@@ -235,6 +378,7 @@ void sched_init(void)
 
 	run_queue_head = 0;
 	run_queue_tail = 0;
+	idle_thread = 0;
 	scheduler_ready = 1;
 
 	early_log_puts("scheduler initialized\n");
@@ -247,11 +391,18 @@ void sched_start(void)
 		"round-robin-a", scheduler_demo_entry, (void *)(uintptr_t)1);
 	struct thread *second = kernel_thread_create(
 		"round-robin-b", scheduler_demo_entry, (void *)(uintptr_t)2);
+	struct thread *waiter =
+		kernel_thread_create("waiter", wait_queue_demo_waiter, 0);
+	struct thread *waker =
+		kernel_thread_create("waker", wait_queue_demo_waker, 0);
+	idle_thread = kernel_thread_create("idle", idle_thread_entry, 0);
 
-	if (first == 0 || second == 0) {
+	if (first == 0 || second == 0 || waiter == 0 || waker == 0 ||
+		idle_thread == 0) {
 		panic("scheduler demo thread creation failed");
 	}
 
+	wait_queue_init(&demo_wait_queue);
 	early_log_puts("scheduler starting\n");
 	sched_yield();
 
