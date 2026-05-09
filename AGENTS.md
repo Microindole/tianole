@@ -6,6 +6,7 @@
 
 - 正式设计、路线图、架构说明放在 `docs/`
 - 面向 agent 的任务、会话记录、检查单放在 `docs/agents/`
+- Linux 顶层目录映射见 `docs/agents/linux-layout.md`
 
 ## 工作规则
 

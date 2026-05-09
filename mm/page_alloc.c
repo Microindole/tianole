@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include <tianole/arch.h>
 #include <tianole/early_log.h>
 #include <tianole/mm.h>
 
@@ -58,6 +59,10 @@ static int page_is_reserved(const boot_info_t *boot_info, uint64_t page)
 		return 1;
 	}
 
+	if (arch_page_table_uses_page(page)) {
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -74,12 +79,23 @@ static void add_conventional_range(
 	const boot_info_t *boot_info, uint64_t start, uint64_t pages)
 {
 	uint64_t page;
+	uint64_t first = align_up(start, PAGE_SIZE);
 	uint64_t end = start + pages * PAGE_SIZE;
+	uint64_t last;
 
-	for (page = align_up(start, PAGE_SIZE); page + PAGE_SIZE <= end;
-		page += PAGE_SIZE) {
+	if (first + PAGE_SIZE > end) {
+		return;
+	}
+
+	last = align_down(end - PAGE_SIZE, PAGE_SIZE);
+
+	for (page = last;; page -= PAGE_SIZE) {
 		if (!page_is_reserved(boot_info, page)) {
 			add_free_page(page);
+		}
+
+		if (page == first) {
+			break;
 		}
 	}
 }
@@ -161,4 +177,5 @@ void mm_init(const boot_info_t *boot_info)
 	early_log_puts("\n");
 
 	page_allocator_selftest();
+	page_table_selftest();
 }

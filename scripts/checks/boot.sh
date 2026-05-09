@@ -18,7 +18,9 @@ check_lines build/debug.log \
 	"memory map descriptors=" \
 	"conventional memory pages=" \
 	"physical pages free=" \
-	"physical page allocator selftest ok"
+	"physical page allocator selftest ok" \
+	"kernel page table root active" \
+	"page table selftest ok"
 
 check_lines build/serial.log \
 	"kernel_main entered" \
@@ -28,6 +30,8 @@ check_lines build/serial.log \
 	"memory map descriptors=" \
 	"conventional memory pages=" \
 	"physical pages free=" \
-	"physical page allocator selftest ok"
+	"physical page allocator selftest ok" \
+	"kernel page table root active" \
+	"page table selftest ok"
 
 cat build/debug.log

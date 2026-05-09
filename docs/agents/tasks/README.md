@@ -21,6 +21,23 @@
 9. `09-driver-expansion.md`：PCI/ACPI/更完整设备驱动，音频等后期设备。
 10. `10-real-machine.md`：真机启动、安全验证、硬件差异处理。
 
+## 当前进度
+
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| `01-early-debug.md` | 基础完成 | 已有 early log 前端、QEMU debug port、COM1 串口和最小 `panic()`。 |
+| `02-cpu-interrupts.md` | 基础完成 | 已有 GDT/TSS/IDT、exception vector 0-31、`trap_frame` 和 invalid opcode 回归测试。 |
+| `03-memory.md` | 进行中 | 已有最小物理页 allocator 和页表 map/unmap/query 基础；page fault 策略和内核堆未完成。 |
+| `04-time-scheduler.md` | 未开始 | 需要 timer、kernel thread、调度和等待队列。 |
+| `05-input-events.md` | 未开始 | 需要输入事件模型和键盘接入。 |
+| `06-storage-vfs.md` | 未开始 | 需要块层、缓存、VFS 和基础文件系统。 |
+| `07-user-mode.md` | 未开始 | 需要 syscall、进程、用户地址空间和 ELF 加载。 |
+| `08-shell-tools.md` | 未开始 | 需要 init、shell、最小用户态工具和 libc 基础。 |
+| `09-driver-expansion.md` | 未开始 | 需要设备模型、PCI/ACPI、存储、网络等驱动扩展。 |
+| `10-real-machine.md` | 未开始 | 需要 U 盘真机启动验证和硬件差异记录。 |
+
+当前最合适的下一步仍在 `03-memory.md` 内：先补 page fault 专门诊断，再接最小内核堆。
+
 ## Linux 级能力缺口路由
 
 这些能力不一定马上实现，但必须在路线中占位，避免后续走偏。

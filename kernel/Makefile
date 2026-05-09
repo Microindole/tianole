@@ -5,5 +5,6 @@ KERNEL_SRCS := \
 
 KERNEL_OBJS := \
 	$(ARCH_KERNEL_OBJS) \
+	$(ARCH_MM_OBJS) \
 	$(patsubst kernel/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS)) \
 	$(MM_OBJS)

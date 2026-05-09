@@ -52,14 +52,16 @@
 - 已建立最小物理页 free-list allocator。
 - 已提供 `alloc_page()` 和 `free_page()`。
 - 已加入物理页分配/释放 selftest。
-- `scripts/check.sh` 已验证 `physical pages free=` 和 selftest 日志。
+- 已切换到内核自有 PML4，不再直接修改固件页表。
+- 已提供最小 `map_page()`、`unmap_page()` 和 `virt_to_phys()` 接口。
+- 已加入页表 map/unmap/query selftest。
+- `scripts/check.sh` 已验证 `physical pages free=`、物理页 selftest、页表根切换和页表 selftest 日志。
 
 后续扩展：
 
 - 长期内存区域模型，不直接依赖 UEFI memory type。
 - page metadata。
 - buddy allocator。
-- 页表 map/unmap。
 - page fault 专门处理。
 - 最小内核堆。
 - slab/slub 或等价小对象缓存。
@@ -68,7 +70,9 @@
 
 - 正常启动日志包含 `physical pages free=`。
 - 正常启动日志包含 `physical page allocator selftest ok`。
+- 正常启动日志包含 `kernel page table root active`。
+- 正常启动日志包含 `page table selftest ok`。
 
 下一阶段：
 
-- 继续在 `03-memory.md` 内推进页表管理和内核堆。
+- 继续在 `03-memory.md` 内推进 page fault 专门处理和最小内核堆。
