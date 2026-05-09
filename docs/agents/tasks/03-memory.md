@@ -55,14 +55,14 @@
 - 已切换到内核自有 PML4，不再直接修改固件页表。
 - 已提供最小 `map_page()`、`unmap_page()` 和 `virt_to_phys()` 接口。
 - 已加入页表 map/unmap/query selftest。
-- `scripts/check.sh` 已验证 `physical pages free=`、物理页 selftest、页表根切换和页表 selftest 日志。
+- 已拆出 x86 page fault 诊断路径，能输出 fault address、错误码、访问类型和权限来源。
+- `scripts/check.sh` 已验证 `physical pages free=`、物理页 selftest、页表根切换、页表 selftest 和 page fault 日志。
 
 后续扩展：
 
 - 长期内存区域模型，不直接依赖 UEFI memory type。
 - page metadata。
 - buddy allocator。
-- page fault 专门处理。
 - 最小内核堆。
 - slab/slub 或等价小对象缓存。
 
@@ -72,7 +72,8 @@
 - 正常启动日志包含 `physical page allocator selftest ok`。
 - 正常启动日志包含 `kernel page table root active`。
 - 正常启动日志包含 `page table selftest ok`。
+- page fault 测试日志包含 `page fault: address=` 和 `access=write mode=kernel reason=not-present`。
 
 下一阶段：
 
-- 继续在 `03-memory.md` 内推进 page fault 专门处理和最小内核堆。
+- 继续在 `03-memory.md` 内推进最小内核堆。

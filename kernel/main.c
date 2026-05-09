@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #include <tianole/arch.h>
 #include <tianole/early_log.h>
 #include <tianole/kernel_init.h>
@@ -13,6 +15,10 @@ void kernel_main(const boot_info_t *boot_info)
 
 #if KERNEL_TEST_TRAP
 	__asm__ volatile("ud2");
+#endif
+
+#if KERNEL_TEST_PAGE_FAULT
+	*(volatile uint64_t *)(uintptr_t)0xffffff1000000000ull = 1;
 #endif
 
 	for (;;) {

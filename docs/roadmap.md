@@ -21,6 +21,7 @@
 - 物理页验证：`alloc_page/free_page` selftest 已接入启动检查。
 - 页表基础：已切换到内核自有 PML4，并提供最小 `map_page/unmap_page/virt_to_phys`。
 - 页表验证：页表 map/unmap/query selftest 已接入启动检查。
+- page fault 基础：已能输出 fault address、错误码、访问类型和权限来源。
 - 构建系统已拆成根 Makefile、`arch/x86/Makefile` 和目录 Makefile。
 - `scripts/check.sh` 已验证启动日志、串口日志和 invalid opcode 异常路径，GitHub Actions 已接入。
 - `.clang-format` 已用于强制当前 C 代码风格。
@@ -29,7 +30,7 @@
 
 - 完整日志体系：printk、log level、ring buffer、oops、符号化、crash dump。
 - 完整中断体系：PIC/APIC、外部 IRQ、timer interrupt。
-- 内存管理扩展：长期内存区域模型、page fault 策略、内核堆。
+- 内存管理扩展：长期内存区域模型、内核堆、后续完整缺页策略。
 - 后续主线：调度、进程、文件系统、用户态和 shell。
 
 ## 当前下一步
@@ -41,7 +42,6 @@
 目标：
 
 - 建立最小内核堆。
-- 让 page fault 能进入现有异常路径并输出有效诊断。
 
 ## 任务路由
 

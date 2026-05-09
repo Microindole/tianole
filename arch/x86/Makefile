@@ -30,6 +30,7 @@ KERNEL_CFLAGS := \
 	-fno-pic \
 	-mno-red-zone \
 	-DKERNEL_TEST_TRAP=$(KERNEL_TEST_TRAP) \
+	-DKERNEL_TEST_PAGE_FAULT=$(KERNEL_TEST_PAGE_FAULT) \
 	-Wall \
 	-Wextra \
 	-Werror \

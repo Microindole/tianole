@@ -1,4 +1,5 @@
 ARCH_MM_SRCS := \
+	$(ARCH_DIR)/mm/fault.c \
 	$(ARCH_DIR)/mm/page_table.c
 
 ARCH_MM_OBJS := \

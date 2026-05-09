@@ -38,6 +38,26 @@ void early_log_puts(const char *text)
 	}
 }
 
+static void early_log_hex_digit(uint8_t digit)
+{
+	if (digit < 10) {
+		early_log_putc((char)('0' + digit));
+		return;
+	}
+
+	early_log_putc((char)('a' + digit - 10));
+}
+
+void early_log_u64_hex(uint64_t value)
+{
+	int shift;
+
+	early_log_puts("0x");
+	for (shift = 60; shift >= 0; shift -= 4) {
+		early_log_hex_digit((uint8_t)((value >> shift) & 0x0f));
+	}
+}
+
 void early_log_u64_decimal(uint64_t value)
 {
 	char digits[20];

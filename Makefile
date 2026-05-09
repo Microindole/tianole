@@ -11,6 +11,7 @@ KERNEL_ELF := $(BUILD_DIR)/image/kernel.elf
 DEBUG_LOG := $(BUILD_DIR)/debug.log
 SERIAL_LOG := $(BUILD_DIR)/serial.log
 KERNEL_TEST_TRAP ?= 0
+KERNEL_TEST_PAGE_FAULT ?= 0
 
 ifeq ($(ARCH),x86_64)
 ARCH_MAKEFILE := arch/x86/Makefile
