@@ -51,16 +51,18 @@
 - 已建立通用 `timer_tick()` 入口和 `timer_ticks()` 计数接口。
 - 已在 trap dispatch 中区分 CPU exception 和外部 IRQ。
 - 已对 timer IRQ0 发送 EOI，避免中断只触发一次。
-- `scripts/check.sh` 已验证 `timer initialized` 和 `timer tick=1/2/3`。
+- 已建立最小 kernel thread 对象，包含 id、状态、入口、参数、内核栈和 run queue 链接。
+- 已建立动态 run queue，不固定写死线程数量。
+- 已能通过 `kernel_thread_create()` 动态分配线程对象和内核栈。
+- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized` 和 `kernel thread selftest ok`。
 
 后续扩展：
 
 - 把 IRQ 分发扩展为可注册 handler 的表，而不是只处理 timer。
-- 建立 kernel thread 对象和内核栈。
 - 建立上下文切换入口。
 - 建立 run queue 和最小 round-robin scheduler。
 - 建立 `yield()`、`sleep()`、timer wakeup 和 wait queue。
 
 下一阶段：
 
-- 继续在 `04-time-scheduler.md` 内推进最小 kernel thread。
+- 继续在 `04-time-scheduler.md` 内推进上下文切换入口和最小 round-robin scheduler。

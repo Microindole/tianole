@@ -2,6 +2,7 @@ KERNEL_SRCS := \
 	kernel/main.c \
 	kernel/boot_report.c \
 	kernel/early_log.c \
+	kernel/sched/thread.c \
 	kernel/time/timer.c
 
 KERNEL_OBJS := \

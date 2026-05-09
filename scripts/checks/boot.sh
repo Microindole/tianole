@@ -23,6 +23,8 @@ check_lines build/debug.log \
 	"page table selftest ok" \
 	"kernel heap initialized" \
 	"kernel heap selftest ok" \
+	"scheduler initialized" \
+	"kernel thread selftest ok" \
 	"timer initialized" \
 	"timer tick=1" \
 	"timer tick=2" \
@@ -41,6 +43,8 @@ check_lines build/serial.log \
 	"page table selftest ok" \
 	"kernel heap initialized" \
 	"kernel heap selftest ok" \
+	"scheduler initialized" \
+	"kernel thread selftest ok" \
 	"timer initialized" \
 	"timer tick=1" \
 	"timer tick=2" \

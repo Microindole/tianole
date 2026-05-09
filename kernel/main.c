@@ -4,6 +4,7 @@
 #include <tianole/early_log.h>
 #include <tianole/kernel_init.h>
 #include <tianole/mm.h>
+#include <tianole/sched.h>
 
 void kernel_main(const boot_info_t *boot_info)
 {
@@ -12,6 +13,7 @@ void kernel_main(const boot_info_t *boot_info)
 	arch_traps_init();
 	kernel_report_boot_state(boot_info);
 	mm_init(boot_info);
+	sched_init();
 	arch_timer_init();
 
 #if KERNEL_TEST_TRAP

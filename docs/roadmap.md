@@ -24,6 +24,7 @@
 - page fault 基础：已能输出 fault address、错误码、访问类型和权限来源。
 - 内核堆基础：已提供 `kmalloc/kfree`，并接入启动 selftest。
 - timer 基础：已接入 x86 PIC/PIT，timer IRQ 能进入通用 tick 入口。
+- kernel thread 基础：已建立线程对象、内核栈和 run queue。
 - 构建系统已拆成根 Makefile、`arch/x86/Makefile` 和目录 Makefile。
 - `scripts/check.sh` 已验证启动日志、串口日志和 invalid opcode 异常路径，GitHub Actions 已接入。
 - `.clang-format` 已用于强制当前 C 代码风格。
@@ -43,7 +44,7 @@
 
 目标：
 
-- 建立最小 kernel thread 和调度循环。
+- 建立上下文切换入口和最小 round-robin 调度循环。
 
 ## 任务路由
 
