@@ -54,15 +54,17 @@
 - 已建立最小 kernel thread 对象，包含 id、状态、入口、参数、内核栈和 run queue 链接。
 - 已建立动态 run queue，不固定写死线程数量。
 - 已能通过 `kernel_thread_create()` 动态分配线程对象和内核栈。
-- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized` 和 `kernel thread selftest ok`。
+- 已建立 x86 上下文切换入口，保存/恢复 callee-saved 寄存器和栈指针。
+- 已建立线程 trampoline，新线程能从独立内核栈进入自己的入口函数。
+- 已建立协作式 round-robin，两个 kernel thread 能通过 `sched_yield()` 轮转运行。
+- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok` 和 `thread 1/2` 轮转日志。
 
 后续扩展：
 
 - 把 IRQ 分发扩展为可注册 handler 的表，而不是只处理 timer。
-- 建立上下文切换入口。
-- 建立 run queue 和最小 round-robin scheduler。
+- 把协作式调度接入 timer tick，演进为抢占式调度。
 - 建立 `yield()`、`sleep()`、timer wakeup 和 wait queue。
 
 下一阶段：
 
-- 继续在 `04-time-scheduler.md` 内推进上下文切换入口和最小 round-robin scheduler。
+- 继续在 `04-time-scheduler.md` 内推进 timer 驱动的抢占式调度、`sleep()` 和 wait queue。

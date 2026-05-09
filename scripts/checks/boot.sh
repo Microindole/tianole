@@ -26,6 +26,13 @@ check_lines build/debug.log \
 	"scheduler initialized" \
 	"kernel thread selftest ok" \
 	"timer initialized" \
+	"scheduler starting" \
+	"thread 1 step=1" \
+	"thread 2 step=1" \
+	"thread 1 step=2" \
+	"thread 2 step=2" \
+	"thread 1 step=3" \
+	"thread 2 step=3" \
 	"timer tick=1" \
 	"timer tick=2" \
 	"timer tick=3"
@@ -46,6 +53,13 @@ check_lines build/serial.log \
 	"scheduler initialized" \
 	"kernel thread selftest ok" \
 	"timer initialized" \
+	"scheduler starting" \
+	"thread 1 step=1" \
+	"thread 2 step=1" \
+	"thread 1 step=2" \
+	"thread 2 step=2" \
+	"thread 1 step=3" \
+	"thread 2 step=3" \
 	"timer tick=1" \
 	"timer tick=2" \
 	"timer tick=3"

@@ -24,7 +24,5 @@ void kernel_main(const boot_info_t *boot_info)
 	*(volatile uint64_t *)(uintptr_t)0xffffff1000000000ull = 1;
 #endif
 
-	for (;;) {
-		__asm__ volatile("hlt");
-	}
+	sched_start();
 }

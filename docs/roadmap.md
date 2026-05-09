@@ -25,6 +25,7 @@
 - 内核堆基础：已提供 `kmalloc/kfree`，并接入启动 selftest。
 - timer 基础：已接入 x86 PIC/PIT，timer IRQ 能进入通用 tick 入口。
 - kernel thread 基础：已建立线程对象、内核栈和 run queue。
+- 调度基础：已建立 x86 上下文切换入口和协作式 round-robin。
 - 构建系统已拆成根 Makefile、`arch/x86/Makefile` 和目录 Makefile。
 - `scripts/check.sh` 已验证启动日志、串口日志和 invalid opcode 异常路径，GitHub Actions 已接入。
 - `.clang-format` 已用于强制当前 C 代码风格。
@@ -44,7 +45,8 @@
 
 目标：
 
-- 建立上下文切换入口和最小 round-robin 调度循环。
+- 把调度接入 timer tick，演进到抢占式调度。
+- 建立 `sleep()`、timer wakeup 和 wait queue。
 
 ## 任务路由
 

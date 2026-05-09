@@ -16,6 +16,7 @@ enum thread_state {
 struct thread {
 	uint64_t id;
 	enum thread_state state;
+	uintptr_t stack_pointer;
 	kernel_thread_entry_t entry;
 	void *arg;
 	void *stack_base;
@@ -28,5 +29,7 @@ struct thread {
 void sched_init(void);
 struct thread *kernel_thread_create(
 	const char *name, kernel_thread_entry_t entry, void *arg);
+void sched_start(void) __attribute__((noreturn));
+void sched_yield(void);
 
 #endif
