@@ -50,26 +50,30 @@
 - 已接入 PIT periodic timer，当前频率为 100Hz。
 - 已建立通用 `timer_tick()` 入口和 `timer_ticks()` 计数接口。
 - 已在 trap dispatch 中区分 CPU exception 和外部 IRQ。
-- 已对 timer IRQ0 发送 EOI，避免中断只触发一次。
+- 已建立 IRQ handler 注册表，timer IRQ0 通过 `irq_register()` 接入分发路径。
+- 已对已处理 IRQ 发送 EOI，避免中断只触发一次。
 - 已建立最小 kernel thread 对象，包含 id、状态、入口、参数、内核栈和 run queue 链接。
 - 已建立动态 run queue，不固定写死线程数量。
 - 已能通过 `kernel_thread_create()` 动态分配线程对象和内核栈。
 - 已建立 x86 上下文切换入口，保存/恢复 callee-saved 寄存器和栈指针。
 - 已建立线程 trampoline，新线程能从独立内核栈进入自己的入口函数。
 - 已建立协作式 round-robin，两个 kernel thread 能通过 `sched_yield()` 轮转运行。
-- 已把调度接入 `timer_tick()`，timer tick 会唤醒到期 sleep 线程并触发 round-robin。
+- 已把调度接入 `timer_tick()`，timer tick 会唤醒到期 sleep 线程并标记 `need_resched`。
 - 已建立 idle thread，所有普通线程 sleep/wait 时由 idle 承接 CPU。
 - 已提供 `sched_sleep()`，线程可以睡眠指定 tick 数并被 timer 唤醒。
 - 已提供 `wait_queue_init()`、`wait_queue_sleep()`、`wait_queue_wake_one()` 和 `wait_queue_wake_all()`。
+- 已建立单 CPU interrupt-safe lock 基础，当前 `spin_lock_irqsave()` 会保存并关闭中断，`spin_unlock_irqrestore()` 会恢复原中断状态。
+- 已把 `kernel_thread_create()` 中的线程 id 分配和 run queue 入队纳入 interrupt-safe lock 保护。
+- 已建立 `sched_irq_exit()`，timer IRQ 只设置 `need_resched`，trap 的 IRQ 返回边界统一消费调度请求。
+- 已建立最小 DEAD 线程回收路径，调度前会释放非当前 DEAD 线程的内核栈和线程对象。
 - `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()` 和 wait queue wakeup。
 
 后续扩展：
 
-- 把 IRQ 分发扩展为可注册 handler 的表，而不是只处理 timer。
-- 把当前直接在 timer IRQ 内触发调度的路径收敛为更明确的 interrupt-exit reschedule 模型。
-- 建立基础 spinlock 或 interrupt-safe lock。
+- 把当前 `sched_irq_exit()` 继续收敛为更严格的 trap-frame aware interrupt-exit reschedule 模型，避免把普通线程栈切换入口长期当成完整抢占式切换。
+- 继续扩大 interrupt-safe lock 覆盖范围，明确可睡眠路径和不可睡眠路径的锁规则。
 - 为 wait queue 增加条件等待、超时等待和状态检查。
-- 为线程退出增加资源回收路径。
+- 为线程退出增加更完整的生命周期状态、引用规则和最终释放约束。
 
 下一阶段：
 

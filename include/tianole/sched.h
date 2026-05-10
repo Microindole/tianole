@@ -39,6 +39,7 @@ struct thread *kernel_thread_create(
 	const char *name, kernel_thread_entry_t entry, void *arg);
 void sched_start(void) __attribute__((noreturn));
 void sched_tick(uint64_t tick);
+void sched_irq_exit(void);
 void sched_yield(void);
 void sched_sleep(uint64_t ticks);
 void wait_queue_init(struct wait_queue *queue);

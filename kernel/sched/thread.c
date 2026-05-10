@@ -6,6 +6,7 @@
 #include <tianole/early_log.h>
 #include <tianole/mm.h>
 #include <tianole/sched.h>
+#include <tianole/spinlock.h>
 #include <tianole/timer.h>
 
 #define KERNEL_STACK_SIZE (PAGE_SIZE * 4u)
@@ -18,7 +19,9 @@ static uintptr_t boot_stack_pointer;
 static uint64_t next_thread_id = 1;
 static int scheduler_ready;
 static int schedule_locked;
+static int need_resched;
 static struct thread *idle_thread;
+static struct spinlock scheduler_lock = SPINLOCK_INITIALIZER;
 
 static void thread_trampoline(void) __attribute__((noreturn));
 
@@ -59,6 +62,40 @@ static void enqueue_thread(struct thread *thread)
 	run_queue_tail = thread;
 }
 
+static void release_thread(struct thread *thread)
+{
+	kfree(thread->stack_base);
+	kfree(thread);
+}
+
+static void reap_dead_threads(void)
+{
+	struct thread *prev = 0;
+	struct thread *thread = run_queue_head;
+
+	while (thread != 0) {
+		struct thread *next = thread->next;
+
+		if (thread->state == THREAD_DEAD && thread != current_thread) {
+			if (prev != 0) {
+				prev->next = next;
+			} else {
+				run_queue_head = next;
+			}
+
+			if (run_queue_tail == thread) {
+				run_queue_tail = prev;
+			}
+
+			release_thread(thread);
+		} else {
+			prev = thread;
+		}
+
+		thread = next;
+	}
+}
+
 static uintptr_t prepare_initial_stack(uintptr_t stack_top)
 {
 	uintptr_t *stack = (uintptr_t *)stack_top;
@@ -80,6 +117,7 @@ struct thread *kernel_thread_create(
 {
 	struct thread *thread;
 	uintptr_t stack_top;
+	uint64_t flags;
 
 	if (entry == 0) {
 		return 0;
@@ -98,7 +136,6 @@ struct thread *kernel_thread_create(
 
 	stack_top = (uintptr_t)thread->stack_base + KERNEL_STACK_SIZE;
 
-	thread->id = next_thread_id++;
 	thread->state = THREAD_READY;
 	thread->entry = entry;
 	thread->arg = arg;
@@ -110,7 +147,10 @@ struct thread *kernel_thread_create(
 	thread->wait_next = 0;
 	copy_thread_name(thread->name, sizeof(thread->name), name);
 
+	spin_lock_irqsave(&scheduler_lock, &flags);
+	thread->id = next_thread_id++;
 	enqueue_thread(thread);
+	spin_unlock_irqrestore(&scheduler_lock, flags);
 
 	return thread;
 }
@@ -162,12 +202,17 @@ static void wake_sleeping_threads(uint64_t tick)
 
 void sched_yield(void)
 {
-	struct thread *prev = current_thread;
-	struct thread *next = next_runnable_thread();
+	struct thread *prev;
+	struct thread *next;
 
 	if (schedule_locked != 0) {
 		return;
 	}
+
+	reap_dead_threads();
+
+	prev = current_thread;
+	next = next_runnable_thread();
 
 	if (next == 0 || next == prev) {
 		return;
@@ -196,8 +241,18 @@ void sched_tick(uint64_t tick)
 	wake_sleeping_threads(tick);
 
 	if (current_thread != 0 && current_thread->state == THREAD_RUNNING) {
-		sched_yield();
+		need_resched = 1;
 	}
+}
+
+void sched_irq_exit(void)
+{
+	if (need_resched == 0 || current_thread == 0 || schedule_locked != 0) {
+		return;
+	}
+
+	need_resched = 0;
+	sched_yield();
 }
 
 void sched_sleep(uint64_t ticks)
@@ -298,10 +353,14 @@ static void thread_selftest_entry(void *arg)
 
 static void scheduler_selftest(void)
 {
+	struct spinlock test_lock;
 	struct thread *first =
 		kernel_thread_create("worker-a", thread_selftest_entry, 0);
 	struct thread *second =
 		kernel_thread_create("worker-b", thread_selftest_entry, 0);
+	uint64_t flags;
+
+	test_lock.locked = 0;
 
 	if (first == 0 || second == 0 || first == second) {
 		panic("kernel thread selftest allocation failed");
@@ -321,6 +380,9 @@ static void scheduler_selftest(void)
 		run_queue_tail != second) {
 		panic("kernel thread selftest run queue failed");
 	}
+
+	spin_lock_irqsave(&test_lock, &flags);
+	spin_unlock_irqrestore(&test_lock, flags);
 
 	early_log_puts("kernel thread selftest ok\n");
 }

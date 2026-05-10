@@ -2,6 +2,7 @@
 
 #include <tianole/arch.h>
 #include <tianole/early_log.h>
+#include <tianole/sched.h>
 
 #include "cpu.h"
 
@@ -59,6 +60,7 @@ void trap_dispatch(struct trap_frame *frame)
 
 	if (vector >= 32 && vector < 48) {
 		handle_irq(frame);
+		sched_irq_exit();
 		return;
 	}
 
