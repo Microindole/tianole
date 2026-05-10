@@ -31,12 +31,18 @@ check_lines build/debug.log \
 	"preempt thread 2 step=1" \
 	"waiter sleeping" \
 	"waker sleeping" \
+	"condition waiter sleeping" \
+	"condition waker sleeping" \
+	"timeout waiter sleeping" \
 	"preempt thread 1 step=2" \
 	"preempt thread 2 step=2" \
+	"timeout waiter timed out" \
 	"preempt thread 1 step=3" \
 	"preempt thread 2 step=3" \
 	"waker wake_one" \
 	"waiter woke" \
+	"condition waker wake_all" \
+	"condition waiter woke" \
 	"timer tick=1" \
 	"timer tick=2" \
 	"timer tick=3"
@@ -62,12 +68,18 @@ check_lines build/serial.log \
 	"preempt thread 2 step=1" \
 	"waiter sleeping" \
 	"waker sleeping" \
+	"condition waiter sleeping" \
+	"condition waker sleeping" \
+	"timeout waiter sleeping" \
 	"preempt thread 1 step=2" \
 	"preempt thread 2 step=2" \
+	"timeout waiter timed out" \
 	"preempt thread 1 step=3" \
 	"preempt thread 2 step=3" \
 	"waker wake_one" \
 	"waiter woke" \
+	"condition waker wake_all" \
+	"condition waiter woke" \
 	"timer tick=1" \
 	"timer tick=2" \
 	"timer tick=3"
