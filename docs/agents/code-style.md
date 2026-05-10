@@ -67,6 +67,8 @@
 - 可独立执行的检查放在 `scripts/checks/`。
 - 多个检查共享的函数放在 `scripts/lib/`。
 - 不把所有检查逻辑持续堆进 `scripts/check.sh`。
+- 项目结构规则放在 `scripts/checks/structure.sh`，优先用宿主 Linux/LLVM 工具实现底层扫描，把 Tianole 自己的目录和 include 约束固化在脚本里。
+- 启动阶段内核自测集中放在 `kernel/selftest/`，不要散落在具体实现目录里。
 
 ## 验证
 

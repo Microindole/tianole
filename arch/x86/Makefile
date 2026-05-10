@@ -34,7 +34,9 @@ KERNEL_CFLAGS := \
 	-Wall \
 	-Wextra \
 	-Werror \
+	-I. \
 	-Iinclude \
+	-Ikernel \
 	-I$(ARCH_DIR)/include
 
 KERNEL_ASFLAGS := \

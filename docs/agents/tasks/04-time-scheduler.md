@@ -12,7 +12,12 @@
 
 ## 建议边界
 
-- `kernel/sched/`：线程、调度器、等待队列。
+- `kernel/sched/core.c`：run queue、调度选择、tick 和 IRQ exit 调度边界。
+- `kernel/sched/thread.c`：线程对象创建、初始栈、退出和 DEAD 线程回收。
+- `kernel/sched/wait.c`：等待队列。
+- `kernel/sched/idle.c`：idle thread。
+- `kernel/sched/sched.h`：调度子系统私有接口，不向通用内核层公开内部状态。
+- `kernel/selftest/sched.c`：当前阶段的调度自测和启动演示线程。
 - `kernel/time/`：通用时间与 timer 抽象。
 - `arch/x86/`：具体 timer、上下文切换。
 
@@ -66,6 +71,7 @@
 - 已把 `kernel_thread_create()` 中的线程 id 分配和 run queue 入队纳入 interrupt-safe lock 保护。
 - 已建立 `sched_irq_exit()`，timer IRQ 只设置 `need_resched`，trap 的 IRQ 返回边界统一消费调度请求。
 - 已建立最小 DEAD 线程回收路径，调度前会释放非当前 DEAD 线程的内核栈和线程对象。
+- 已把调度代码按职责拆分为 `core.c`、`thread.c`、`wait.c`、`idle.c` 和私有 `sched.h`，并把当前阶段自测/演示线程移到 `kernel/selftest/sched.c`。
 - `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()` 和 wait queue wakeup。
 
 后续扩展：

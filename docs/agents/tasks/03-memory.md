@@ -12,7 +12,10 @@
 ## 建议边界
 
 - `mm/`：架构无关内存管理。
-- `arch/x86/mm/`：页表格式、地址空间切换、TLB 操作。
+- `arch/x86/mm/page_table.c`：页表格式、地址空间切换、TLB 操作和 map/unmap/query 主路径。
+- `arch/x86/mm/fault.c`：page fault 诊断。
+- `arch/x86/mm/page_table.h`：x86 页表子目录私有接口。
+- `kernel/selftest/page_table.c`：页表 map/unmap/query 启动自测。
 - `include/tianole/`：通用内存接口。
 
 ## 实现内容
@@ -55,6 +58,7 @@
 - 已切换到内核自有 PML4，不再直接修改固件页表。
 - 已提供最小 `map_page()`、`unmap_page()` 和 `virt_to_phys()` 接口。
 - 已加入页表 map/unmap/query selftest。
+- 已把 x86 页表 selftest 从 `page_table.c` 移到 `kernel/selftest/page_table.c`，避免页表主路径和启动验证逻辑混在同一目录边界。
 - 已拆出 x86 page fault 诊断路径，能输出 fault address、错误码、访问类型和权限来源。
 - 已建立最小内核堆，提供 `kmalloc()` 和 `kfree()`，底层通过页表按需映射物理页。
 - 已加入内核堆分配、写入、释放、复用 selftest。
