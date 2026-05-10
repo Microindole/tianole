@@ -65,6 +65,16 @@ static void scheduler_demo_entry(void *arg)
 }
 
 static struct wait_queue demo_wait_queue;
+static struct wait_queue condition_wait_queue;
+static struct wait_queue timeout_wait_queue;
+static int condition_ready;
+
+static int condition_is_ready(void *arg)
+{
+	int *ready = arg;
+
+	return *ready != 0;
+}
 
 static void wait_queue_demo_waiter(void *arg)
 {
@@ -85,6 +95,45 @@ static void wait_queue_demo_waker(void *arg)
 	wait_queue_wake_one(&demo_wait_queue);
 }
 
+static void condition_wait_demo_waiter(void *arg)
+{
+	(void)arg;
+
+	early_log_puts("condition waiter sleeping\n");
+	if (wait_queue_wait(&condition_wait_queue,
+		    condition_is_ready,
+		    &condition_ready) != 0) {
+		panic("condition wait failed");
+	}
+	early_log_puts("condition waiter woke\n");
+}
+
+static void condition_wait_demo_waker(void *arg)
+{
+	(void)arg;
+
+	early_log_puts("condition waker sleeping\n");
+	sched_sleep(5);
+	condition_ready = 1;
+	early_log_puts("condition waker wake_all\n");
+	wait_queue_wake_all(&condition_wait_queue);
+}
+
+static void timeout_wait_demo_waiter(void *arg)
+{
+	int never_ready = 0;
+
+	(void)arg;
+
+	early_log_puts("timeout waiter sleeping\n");
+	if (wait_queue_wait_timeout(
+		    &timeout_wait_queue, condition_is_ready, &never_ready, 3) !=
+		-1) {
+		panic("timeout wait did not time out");
+	}
+	early_log_puts("timeout waiter timed out\n");
+}
+
 void sched_demo_start(void)
 {
 	struct thread *first = kernel_thread_create(
@@ -95,12 +144,23 @@ void sched_demo_start(void)
 		kernel_thread_create("waiter", wait_queue_demo_waiter, 0);
 	struct thread *waker =
 		kernel_thread_create("waker", wait_queue_demo_waker, 0);
+	struct thread *condition_waiter = kernel_thread_create(
+		"condition-waiter", condition_wait_demo_waiter, 0);
+	struct thread *condition_waker = kernel_thread_create(
+		"condition-waker", condition_wait_demo_waker, 0);
+	struct thread *timeout_waiter = kernel_thread_create(
+		"timeout-waiter", timeout_wait_demo_waiter, 0);
 
-	if (first == 0 || second == 0 || waiter == 0 || waker == 0) {
+	if (first == 0 || second == 0 || waiter == 0 || waker == 0 ||
+		condition_waiter == 0 || condition_waker == 0 ||
+		timeout_waiter == 0) {
 		panic("scheduler demo thread creation failed");
 	}
 
 	wait_queue_init(&demo_wait_queue);
+	wait_queue_init(&condition_wait_queue);
+	wait_queue_init(&timeout_wait_queue);
+	condition_ready = 0;
 	early_log_puts("scheduler starting\n");
 	sched_yield();
 

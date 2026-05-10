@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 typedef void (*kernel_thread_entry_t)(void *arg);
+typedef int (*wait_condition_t)(void *arg);
 
 enum thread_state {
 	THREAD_READY,
@@ -44,6 +45,12 @@ void sched_yield(void);
 void sched_sleep(uint64_t ticks);
 void wait_queue_init(struct wait_queue *queue);
 void wait_queue_sleep(struct wait_queue *queue);
+int wait_queue_wait(
+	struct wait_queue *queue, wait_condition_t condition, void *arg);
+int wait_queue_wait_timeout(struct wait_queue *queue,
+	wait_condition_t condition,
+	void *arg,
+	uint64_t ticks);
 void wait_queue_wake_one(struct wait_queue *queue);
 void wait_queue_wake_all(struct wait_queue *queue);
 

@@ -67,18 +67,19 @@
 - 已建立 idle thread，所有普通线程 sleep/wait 时由 idle 承接 CPU。
 - 已提供 `sched_sleep()`，线程可以睡眠指定 tick 数并被 timer 唤醒。
 - 已提供 `wait_queue_init()`、`wait_queue_sleep()`、`wait_queue_wake_one()` 和 `wait_queue_wake_all()`。
+- 已提供 `wait_queue_wait()` 和 `wait_queue_wait_timeout()`，调用方可以等待条件成立，并在超时路径上获得失败返回值。
 - 已建立单 CPU interrupt-safe lock 基础，当前 `spin_lock_irqsave()` 会保存并关闭中断，`spin_unlock_irqrestore()` 会恢复原中断状态。
 - 已把 `kernel_thread_create()` 中的线程 id 分配和 run queue 入队纳入 interrupt-safe lock 保护。
 - 已建立 `sched_irq_exit()`，timer IRQ 只设置 `need_resched`，trap 的 IRQ 返回边界统一消费调度请求。
 - 已建立最小 DEAD 线程回收路径，调度前会释放非当前 DEAD 线程的内核栈和线程对象。
 - 已把调度代码按职责拆分为 `core.c`、`thread.c`、`wait.c`、`idle.c` 和私有 `sched.h`，并把当前阶段自测/演示线程移到 `kernel/selftest/sched.c`。
-- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()` 和 wait queue wakeup。
+- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()`、wait queue wakeup、条件等待和超时等待。
 
 后续扩展：
 
 - 把当前 `sched_irq_exit()` 继续收敛为更严格的 trap-frame aware interrupt-exit reschedule 模型，避免把普通线程栈切换入口长期当成完整抢占式切换。
 - 继续扩大 interrupt-safe lock 覆盖范围，明确可睡眠路径和不可睡眠路径的锁规则。
-- 为 wait queue 增加条件等待、超时等待和状态检查。
+- 为 wait queue 增加更严格的状态检查，并把条件检查与 wakeup 边界纳入明确锁规则。
 - 为线程退出增加更完整的生命周期状态、引用规则和最终释放约束。
 
 下一阶段：
