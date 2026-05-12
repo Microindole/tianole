@@ -3,10 +3,20 @@
 
 #include <stdint.h>
 
+/**
+ * struct spinlock - Early interrupt-safe lock.
+ * @locked: Non-zero while the lock is held.
+ *
+ * Current implementation is single-CPU and panics on contention. The API is
+ * shaped so it can later grow toward a real SMP spinlock.
+ */
 struct spinlock {
 	int locked;
 };
 
+/**
+ * SPINLOCK_INITIALIZER - Static initializer for struct spinlock.
+ */
 #define SPINLOCK_INITIALIZER                                                   \
 	{                                                                      \
 		0                                                              \

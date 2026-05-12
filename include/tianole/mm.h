@@ -6,13 +6,38 @@
 
 #include <tianole/boot_info.h>
 
+/**
+ * PAGE_SIZE - Base page size used by the current memory manager.
+ */
 #define PAGE_SIZE 4096u
 
+/**
+ * typedef phys_addr_t - Physical address value.
+ *
+ * Represents addresses in physical memory, not directly dereferenceable by C.
+ */
 typedef uint64_t phys_addr_t;
+
+/**
+ * typedef virt_addr_t - Virtual address value.
+ *
+ * Represents addresses in the active virtual address space.
+ */
 typedef uint64_t virt_addr_t;
 
+/**
+ * PAGE_PRESENT - Mapping flag that marks a page table entry present.
+ */
 #define PAGE_PRESENT (1ull << 0)
+
+/**
+ * PAGE_WRITABLE - Mapping flag that allows writes through a page mapping.
+ */
 #define PAGE_WRITABLE (1ull << 1)
+
+/**
+ * PAGE_NO_EXECUTE - Mapping flag that blocks instruction fetches.
+ */
 #define PAGE_NO_EXECUTE (1ull << 63)
 
 /**

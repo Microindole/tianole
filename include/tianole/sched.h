@@ -6,9 +6,31 @@
 
 #include <tianole/spinlock.h>
 
+/**
+ * typedef kernel_thread_entry_t - Kernel thread entry function.
+ * @arg: Opaque argument supplied at thread creation.
+ *
+ * The function runs in kernel thread context. Returning from it is equivalent
+ * to calling kernel_thread_exit().
+ */
 typedef void (*kernel_thread_entry_t)(void *arg);
+
+/**
+ * typedef wait_condition_t - Wait queue condition predicate.
+ * @arg: Opaque predicate argument supplied by the caller.
+ *
+ * Return: Non-zero when the condition is satisfied, zero to keep waiting.
+ */
 typedef int (*wait_condition_t)(void *arg);
 
+/**
+ * enum thread_state - Scheduler-visible thread lifecycle state.
+ * @THREAD_READY: Thread is runnable and may be selected by the scheduler.
+ * @THREAD_RUNNING: Thread is currently executing on the CPU.
+ * @THREAD_SLEEPING: Thread is blocked until a timer deadline.
+ * @THREAD_WAITING: Thread is blocked on a wait queue.
+ * @THREAD_DEAD: Thread has exited and is waiting for safe reclamation.
+ */
 enum thread_state {
 	THREAD_READY,
 	THREAD_RUNNING,
@@ -17,12 +39,39 @@ enum thread_state {
 	THREAD_DEAD,
 };
 
+/**
+ * struct wait_queue - Queue of threads blocked on an event or condition.
+ * @lock: Interrupt-safe lock protecting queue links and wakeup state.
+ * @head: Oldest waiting thread.
+ * @tail: Newest waiting thread.
+ *
+ * The queue owns only wait links. The condition being waited on may be owned
+ * by another subsystem and must have a documented synchronization rule.
+ */
 struct wait_queue {
 	struct spinlock lock;
 	struct thread *head;
 	struct thread *tail;
 };
 
+/**
+ * struct thread - Kernel scheduler thread object.
+ * @id: Scheduler-assigned thread identifier.
+ * @state: Current scheduler state.
+ * @stack_pointer: Saved context stack pointer for context switching.
+ * @entry: Thread entry function.
+ * @arg: Entry function argument.
+ * @stack_base: Allocated kernel stack base.
+ * @stack_top: Aligned initial stack top.
+ * @stack_size: Kernel stack size in bytes.
+ * @wake_tick: Timer tick deadline for sleeping threads.
+ * @next: Run queue link owned by the scheduler.
+ * @wait_next: Wait queue link owned by wait queue code.
+ * @name: Diagnostic thread name.
+ *
+ * This structure is public only as an early-stage compromise. Long term, most
+ * fields should move behind scheduler-private helpers or an opaque handle.
+ */
 struct thread {
 	uint64_t id;
 	enum thread_state state;

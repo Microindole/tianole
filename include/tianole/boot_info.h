@@ -3,8 +3,26 @@
 
 #include <stdint.h>
 
+/**
+ * BOOT_MEMORY_TYPE_CONVENTIONAL - Firmware memory type for usable RAM.
+ *
+ * Mirrors the UEFI conventional memory type used by the bootloader handoff.
+ * The kernel converts this into its own long-term memory model during MM init.
+ */
 #define BOOT_MEMORY_TYPE_CONVENTIONAL 7u
 
+/**
+ * typedef boot_memory_descriptor_t - Boot memory map descriptor.
+ * @type: Firmware memory type.
+ * @pad: Reserved padding used to keep the handoff layout stable.
+ * @physical_start: Physical base address of this region.
+ * @virtual_start: Firmware virtual address field, currently preserved only.
+ * @number_of_pages: Region size in 4 KiB pages.
+ * @attribute: Firmware attributes for the region.
+ *
+ * Describes one memory map entry copied from firmware-owned data into the
+ * Tianole boot handoff format.
+ */
 typedef struct {
 	uint32_t type;
 	uint32_t pad;
@@ -14,10 +32,19 @@ typedef struct {
 	uint64_t attribute;
 } boot_memory_descriptor_t;
 
-/*
- * Boot-time handoff data owned by Tianole rather than by a specific
- * firmware or architecture API. Fields can grow over time while the
- * kernel entry stays stable.
+/**
+ * typedef boot_info_t - Bootloader-to-kernel handoff data.
+ * @version: Handoff structure version.
+ * @boot_flags: Flags describing the firmware handoff state.
+ * @memory_map: Physical address of boot_memory_descriptor_t entries.
+ * @memory_map_size: Total memory map size in bytes.
+ * @memory_map_key: Firmware key captured before ExitBootServices().
+ * @memory_descriptor_size: Size of each memory descriptor entry.
+ * @memory_descriptor_version: Firmware descriptor version.
+ * @reserved0: Reserved field for alignment and future expansion.
+ *
+ * Boot-time handoff data owned by Tianole rather than by a specific firmware
+ * or architecture API. Fields can grow while the kernel entry stays stable.
  */
 typedef struct {
 	uint32_t version;
@@ -30,7 +57,14 @@ typedef struct {
 	uint32_t reserved0;
 } boot_info_t;
 
+/**
+ * BOOT_INFO_VERSION - Current boot_info_t layout version.
+ */
 #define BOOT_INFO_VERSION 1u
+
+/**
+ * BOOT_FLAG_SERVICES_ACTIVE - Firmware boot services were active at handoff.
+ */
 #define BOOT_FLAG_SERVICES_ACTIVE (1u << 0)
 
 #endif

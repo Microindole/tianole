@@ -152,6 +152,71 @@ def collect_function_declarations(lines: list[str]) -> list[tuple[int, int, str]
 	return decls
 
 
+def is_public_type_start(line: str) -> bool:
+	stripped = line.strip()
+
+	if stripped.startswith(("struct ", "enum ", "union ")):
+		return stripped.endswith("{") or "{" in stripped
+
+	if not stripped.startswith("typedef "):
+		return False
+
+	return "(" not in stripped
+
+
+def collect_public_type_declarations(lines: list[str]) -> list[tuple[int, int, str]]:
+	decls = []
+	index = 0
+
+	while index < len(lines):
+		if not is_public_type_start(lines[index]):
+			index += 1
+			continue
+
+		start = index
+		text = lines[index].strip()
+		while ";" not in lines[index]:
+			index += 1
+			if index >= len(lines):
+				break
+			text += " " + lines[index].strip()
+
+		if index < len(lines):
+			decls.append((start, index, text))
+
+		index += 1
+
+	return decls
+
+
+def is_documented_public_define(lines: list[str], index: int, guard: str | None) -> bool:
+	stripped = lines[index].strip()
+
+	if not stripped.startswith("#define "):
+		return False
+
+	parts = stripped.split()
+	if len(parts) < 2:
+		return False
+
+	name = parts[1].split("(", 1)[0]
+	if name == guard:
+		return False
+
+	return True
+
+
+def header_guard_name(lines: list[str]) -> str | None:
+	for line in lines:
+		stripped = line.strip()
+		if stripped.startswith("#define "):
+			parts = stripped.split()
+			if len(parts) >= 2:
+				return parts[1]
+
+	return None
+
+
 def has_kernel_doc_before(lines: list[str], start: int) -> bool:
 	index = start - 1
 
@@ -187,26 +252,56 @@ def has_blank_line_before_doc(lines: list[str], start: int) -> bool:
 	return lines[index - 1].strip() == ""
 
 
-def check_public_header_function_docs(root: Path, files: list[Path]) -> list[str]:
+def symbol_name_from_type_declaration(text: str) -> str:
+	if text.startswith("typedef "):
+		return text.rsplit("}", 1)[-1].strip().rstrip(";").split()[-1]
+
+	parts = text.split()
+	if len(parts) >= 2:
+		return parts[1]
+
+	return "<unknown>"
+
+
+def check_kernel_doc_block(
+	errors: list[str], path: Path, lines: list[str], start: int, kind: str, name: str
+) -> None:
+	line_no = start + 1
+
+	if not has_kernel_doc_before(lines, start):
+		errors.append(
+			f"{path}:{line_no}: public {kind} '{name}' needs "
+			"a kernel-doc comment immediately before it"
+		)
+		return
+
+	if not has_blank_line_before_doc(lines, start):
+		errors.append(
+			f"{path}:{line_no}: public {kind} '{name}' "
+			"comment block must be separated by a blank line"
+		)
+
+
+def check_public_header_docs(root: Path, files: list[Path]) -> list[str]:
 	errors = []
 
 	for path in files:
 		lines = read_text(root, path).splitlines()
 		for start, _end, text in collect_function_declarations(lines):
-			line_no = start + 1
 			name = text.split("(", 1)[0].split()[-1].lstrip("*")
-			if not has_kernel_doc_before(lines, start):
-				errors.append(
-					f"{path}:{line_no}: public function '{name}' needs "
-					"a kernel-doc comment immediately before it"
-				)
+			check_kernel_doc_block(errors, path, lines, start, "function", name)
+
+		for start, _end, text in collect_public_type_declarations(lines):
+			name = symbol_name_from_type_declaration(text)
+			check_kernel_doc_block(errors, path, lines, start, "type", name)
+
+		guard = header_guard_name(lines)
+		for index, line in enumerate(lines):
+			if not is_documented_public_define(lines, index, guard):
 				continue
 
-			if not has_blank_line_before_doc(lines, start):
-				errors.append(
-					f"{path}:{line_no}: public function '{name}' "
-					"comment block must be separated by a blank line"
-				)
+			name = line.strip().split()[1].split("(", 1)[0]
+			check_kernel_doc_block(errors, path, lines, index, "macro", name)
 
 	return errors
 
@@ -313,7 +408,7 @@ def main() -> int:
 
 	errors = []
 	errors.extend(check_no_relative_parent_includes(root, source_files(files)))
-	errors.extend(check_public_header_function_docs(root, public_headers(files)))
+	errors.extend(check_public_header_docs(root, public_headers(files)))
 	errors.extend(check_selftests_are_centralized(c_files(files)))
 	errors.extend(check_makefile_source_lists(root, files, all_mode))
 
