@@ -26,6 +26,41 @@
 - 之后再接 PIC/APIC 和 IRQ。
 - 异常路径输出异常栈、寄存器现场和符号化所需信息。
 
+### 1. CPU descriptor tables
+
+- GDT/TSS/IDT 初始化集中在 arch 层。
+- TSS 至少要为后续 IST、double fault 和用户态栈切换留位置。
+- IDT gate 属性必须集中设置，不能由每个 vector 零散指定。
+- 后续进入用户态前，要补 ring 3 相关段、syscall/sysret 或 int syscall 的入口边界。
+
+### 2. Trap frame 与入口汇编
+
+- 所有异常和 IRQ 入口都统一构造 `trap_frame`。
+- 汇编入口只负责保存现场、补齐 error code 形态、切换到 C handler。
+- C handler 不应依赖某个 vector 的临时栈布局。
+- trap frame 要保存后续诊断和用户态返回所需的寄存器、vector、error code、rip、rsp、rflags。
+
+### 3. Exception policy
+
+- CPU exception 分发和 panic/oops 策略要分离。
+- page fault、invalid opcode、general protection、double fault 等常见异常要逐步拆出专门处理策略。
+- 当前 kernel-mode 未处理异常可以 panic；未来 user-mode 异常应终止进程而不是拖垮 kernel。
+- 异常日志要输出足够定位的信息，但不能把日志输出当成异常处理策略。
+
+### 4. IRQ dispatch
+
+- 外部 IRQ vector 不能和 CPU exception vector 混用。
+- IRQ 分发应通过 handler 注册表，不把具体设备逻辑写进 trap dispatch。
+- EOI 时机必须清楚：已处理 IRQ 要发送，未识别 IRQ 的策略要单独记录。
+- 后续 APIC、IOAPIC、MSI/MSI-X 要能替换 PIC 路径，而不改通用 IRQ consumer。
+
+## Linux 参考原则
+
+- 参考 Linux arch entry 分层：入口汇编保存现场，通用 C 层做分发和策略。
+- 参考 Linux trap/irq 区分：exception 是 CPU 同步异常，IRQ 是外部异步事件，两者共享入口框架但语义分开。
+- 参考 Linux irqdomain/irqchip 思路：设备使用通用 IRQ 号和注册接口，硬件中断控制器细节留在 arch/driver 层。
+- 参考 Linux IST 使用方式：double fault、NMI 等高风险异常需要独立栈，不能依赖可能已经损坏的当前栈。
+
 ## 非玩具化约束
 
 - 汇编入口只保存现场和跳转，不写策略。
@@ -33,12 +68,20 @@
 - exception 和 IRQ 的入口可共享框架，但语义要区分。
 - 不把中断处理写进 `kernel/main.c`。
 - oops/panic 策略要和 trap 分发分离。
+- IRQ handler 注册、EOI 和调度请求不能互相混在一个设备专用路径里。
+- 用户态异常策略要提前预留，不能默认所有异常都 panic。
+- arch 层可以知道 vector 和 gate，通用层不应知道 IDT 编码细节。
+- double fault 等严重异常不能长期依赖普通内核栈。
 
 ## 验收方式
 
 - 主动触发 invalid opcode 或 divide error。
 - 日志输出 vector、rip、rsp、error code。
 - 未处理异常进入 panic。
+- 外部 IRQ vector 和 CPU exception vector 不冲突。
+- IRQ handler 可注册和分发，设备逻辑不在 trap dispatch 中硬编码。
+- page fault 路径能输出 fault address 和访问来源。
+- 后续用户态异常可以在不重写 trap frame 的前提下接入。
 
 ## 当前状态
 
@@ -63,6 +106,9 @@
 - 用户态异常返回。
 - 可恢复异常处理。
 - oops 格式和符号化输出。
+- syscall/sysret 或 int syscall 入口。
+- nested interrupt 和 preempt/reschedule 边界。
+- NMI、spurious IRQ 和未知 vector 策略。
 
 验收依据：
 

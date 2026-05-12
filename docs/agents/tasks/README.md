@@ -28,7 +28,7 @@
 | `01-early-debug.md` | 基础完成 | 已有 early log 前端、QEMU debug port、COM1 串口和最小 `panic()`。 |
 | `02-cpu-interrupts.md` | 基础完成 | 已有 GDT/TSS/IDT、exception vector 0-31、`trap_frame` 和 invalid opcode 回归测试。 |
 | `03-memory.md` | 基础完成 | 已有最小物理页 allocator、页表 map/unmap/query、page fault 诊断和内核堆。 |
-| `04-time-scheduler.md` | 进行中 | 已有 PIT timer interrupt、通用 tick、kernel thread、内核栈、上下文切换、timer 驱动 round-robin、sleep 和 wait queue 基础；锁、退出回收和更严格的中断返回调度未完成。 |
+| `04-time-scheduler.md` | 进行中 | 已有 PIT timer interrupt、通用 tick、kernel thread、内核栈、上下文切换、timer 驱动 round-robin、sleep、wait queue、条件等待、timeout 等待、基础 interrupt-safe lock、IRQ exit reschedule 和最小 DEAD 回收；下一步要收紧 wait queue 锁语义、线程生命周期和 trap-frame aware interrupt-exit reschedule。 |
 | `05-input-events.md` | 未开始 | 需要输入事件模型和键盘接入。 |
 | `06-storage-vfs.md` | 未开始 | 需要块层、缓存、VFS 和基础文件系统。 |
 | `07-user-mode.md` | 未开始 | 需要 syscall、进程、用户地址空间和 ELF 加载。 |
@@ -36,7 +36,7 @@
 | `09-driver-expansion.md` | 未开始 | 需要设备模型、PCI/ACPI、存储、网络等驱动扩展。 |
 | `10-real-machine.md` | 未开始 | 需要 U 盘真机启动验证和硬件差异记录。 |
 
-当前最合适的下一步仍在 `04-time-scheduler.md` 内：补 interrupt-safe lock、线程退出回收，并把调度路径收敛为更明确的 interrupt-exit reschedule。
+当前最合适的下一步仍在 `04-time-scheduler.md` 内：先把 wait queue 条件检查、wakeup、timeout 和锁规则补成不会丢唤醒的模型，再收紧线程生命周期和更明确的 interrupt-exit reschedule。`05-input-events.md` 的键盘驱动应等这些边界稳定后再开始。
 
 ## Linux 级能力缺口路由
 
