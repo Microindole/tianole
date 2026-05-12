@@ -109,6 +109,21 @@ def check_no_relative_parent_includes(root: Path, files: list[Path]) -> list[str
 	return errors
 
 
+def check_no_bare_negative_errno(root: Path, files: list[Path]) -> list[str]:
+	errors = []
+	return_re = re.compile(r"\breturn\s+-[0-9]+\s*;")
+
+	for path in files:
+		for line_no, line in enumerate(read_text(root, path).splitlines(), 1):
+			if return_re.search(line):
+				errors.append(
+					f"{path}:{line_no}: return a symbolic negative errno "
+					"such as -EINVAL instead of a bare negative number"
+				)
+
+	return errors
+
+
 def is_function_declaration_start(line: str) -> bool:
 	stripped = line.strip()
 
@@ -408,6 +423,7 @@ def main() -> int:
 
 	errors = []
 	errors.extend(check_no_relative_parent_includes(root, source_files(files)))
+	errors.extend(check_no_bare_negative_errno(root, source_files(files)))
 	errors.extend(check_public_header_docs(root, public_headers(files)))
 	errors.extend(check_selftests_are_centralized(c_files(files)))
 	errors.extend(check_makefile_source_lists(root, files, all_mode))

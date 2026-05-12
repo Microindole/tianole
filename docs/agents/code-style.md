@@ -90,4 +90,6 @@
   `-EINVAL`、`-ENOMEM`、`-ENOENT`、`-EBUSY`、`-EEXIST`、`-ETIMEDOUT`。
 - 不要用裸 `-1` 表达多个失败原因；调用者需要能区分输入错误、资源耗尽、
   对象已存在和超时。
+- 不要直接返回 `-22` 这类负数字面量；使用 `-EINVAL` 这类符号化 errno，
+  结构检查会拒绝裸负数返回。
 - errno 常量放在 `include/tianole/errno.h`，只增加当前内核实际使用的值。
