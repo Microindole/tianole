@@ -1,3 +1,4 @@
+#include <tianole/errno.h>
 #include <tianole/sched.h>
 #include <tianole/timer.h>
 
@@ -96,7 +97,7 @@ int wait_queue_wait(
 	uint64_t flags;
 
 	if (queue == 0 || condition == 0 || current_thread == 0) {
-		return -1;
+		return -EINVAL;
 	}
 
 	for (;;) {
@@ -127,7 +128,7 @@ int wait_queue_wait_timeout(struct wait_queue *queue,
 	uint64_t flags;
 
 	if (queue == 0 || condition == 0 || current_thread == 0) {
-		return -1;
+		return -EINVAL;
 	}
 
 	if (condition(arg) != 0) {
@@ -135,7 +136,7 @@ int wait_queue_wait_timeout(struct wait_queue *queue,
 	}
 
 	if (ticks == 0) {
-		return -1;
+		return -ETIMEDOUT;
 	}
 
 	deadline = timer_ticks() + ticks;
@@ -152,7 +153,7 @@ int wait_queue_wait_timeout(struct wait_queue *queue,
 		if (now >= deadline) {
 			current_thread->wake_tick = 0;
 			spin_unlock_irqrestore(&queue->lock, flags);
-			return -1;
+			return -ETIMEDOUT;
 		}
 
 		thread_set_sleeping(current_thread, deadline);

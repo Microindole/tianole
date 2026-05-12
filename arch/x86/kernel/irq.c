@@ -5,6 +5,7 @@
 
 #include <tianole/arch.h>
 #include <tianole/early_log.h>
+#include <tianole/errno.h>
 #include <tianole/irq.h>
 #include <tianole/timer.h>
 
@@ -102,14 +103,14 @@ int irq_register(uint8_t irq, irq_handler_t handler, void *data)
 	uint64_t flags;
 
 	if (irq >= IRQ_COUNT || handler == 0) {
-		return -1;
+		return -EINVAL;
 	}
 
 	flags = arch_irq_save();
 
 	if (irq_actions[irq].handler != 0) {
 		arch_irq_restore(flags);
-		return -1;
+		return -EBUSY;
 	}
 
 	irq_actions[irq].handler = handler;

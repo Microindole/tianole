@@ -85,7 +85,7 @@ void kfree(void *ptr);
  * @phys: Physical page address.
  * @flags: Generic page flags such as PAGE_WRITABLE.
  *
- * Return: 0 on success, negative value on failure.
+ * Return: 0 on success, -EINVAL, -ENOMEM or -EEXIST on failure.
  */
 int map_page(virt_addr_t virt, phys_addr_t phys, uint64_t flags);
 
@@ -93,7 +93,7 @@ int map_page(virt_addr_t virt, phys_addr_t phys, uint64_t flags);
  * unmap_page() - Remove one virtual page mapping.
  * @virt: Virtual page address to unmap.
  *
- * Return: 0 on success, negative value on failure.
+ * Return: 0 on success, -EINVAL or -ENOENT on failure.
  */
 int unmap_page(virt_addr_t virt);
 
@@ -102,7 +102,7 @@ int unmap_page(virt_addr_t virt);
  * @virt: Virtual address to query.
  * @phys: Output storage for the resolved physical address.
  *
- * Return: 0 when a mapping exists, negative value otherwise.
+ * Return: 0 when a mapping exists, -EINVAL or -ENOENT otherwise.
  */
 int virt_to_phys(virt_addr_t virt, phys_addr_t *phys);
 

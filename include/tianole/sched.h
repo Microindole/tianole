@@ -175,7 +175,7 @@ void wait_queue_sleep(struct wait_queue *queue);
  * @condition: Predicate checked before and after sleeping.
  * @arg: Opaque predicate argument.
  *
- * Return: 0 when the condition is true, negative value on invalid input.
+ * Return: 0 when the condition is true, -EINVAL on invalid input.
  */
 int wait_queue_wait(
 	struct wait_queue *queue, wait_condition_t condition, void *arg);
@@ -187,7 +187,7 @@ int wait_queue_wait(
  * @arg: Opaque predicate argument.
  * @ticks: Maximum number of timer ticks to wait.
  *
- * Return: 0 when the condition is true, negative value on timeout or error.
+ * Return: 0 when the condition is true, -EINVAL or -ETIMEDOUT otherwise.
  */
 int wait_queue_wait_timeout(struct wait_queue *queue,
 	wait_condition_t condition,

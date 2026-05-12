@@ -83,3 +83,11 @@
 - 新增或大改 C/H 文件后运行 `clang-format`。
 - 提交前至少运行 `scripts/check.sh`。
 - 如果只是文档修改，至少运行 `git diff --check`。
+
+## 错误码
+
+- 可恢复的内核内部错误优先返回 Linux 风格的负 errno，例如
+  `-EINVAL`、`-ENOMEM`、`-ENOENT`、`-EBUSY`、`-EEXIST`、`-ETIMEDOUT`。
+- 不要用裸 `-1` 表达多个失败原因；调用者需要能区分输入错误、资源耗尽、
+  对象已存在和超时。
+- errno 常量放在 `include/tianole/errno.h`，只增加当前内核实际使用的值。

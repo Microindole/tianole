@@ -1,3 +1,4 @@
+#include <tianole/errno.h>
 #include <tianole/sched.h>
 
 #include "sched.h"
@@ -15,7 +16,7 @@ int sched_idle_create(void)
 {
 	idle_thread = kernel_thread_create("idle", idle_thread_entry, 0);
 	if (idle_thread == 0) {
-		return -1;
+		return -ENOMEM;
 	}
 
 	return 0;

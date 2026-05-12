@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include <tianole/early_log.h>
+#include <tianole/errno.h>
 #include <tianole/mm.h>
 
 #define HEAP_BASE 0xffffff2000000000ull
@@ -85,12 +86,16 @@ static int map_heap_range(virt_addr_t start, size_t bytes)
 
 	for (current = start; current < end; current += PAGE_SIZE) {
 		phys_addr_t page = alloc_page();
+		int ret;
 
-		if (page == 0 ||
-			map_page(current,
-				page,
-				PAGE_WRITABLE | PAGE_NO_EXECUTE) != 0) {
-			return -1;
+		if (page == 0) {
+			return -ENOMEM;
+		}
+
+		ret = map_page(current, page, PAGE_WRITABLE | PAGE_NO_EXECUTE);
+		if (ret != 0) {
+			free_page(page);
+			return ret;
 		}
 	}
 
@@ -102,9 +107,11 @@ static int heap_extend(size_t min_size)
 	size_t bytes =
 		align_up_size(min_size + sizeof(struct heap_block), PAGE_SIZE);
 	struct heap_block *block = (struct heap_block *)(uintptr_t)heap_end;
+	int ret;
 
-	if (map_heap_range(heap_end, bytes) != 0) {
-		return -1;
+	ret = map_heap_range(heap_end, bytes);
+	if (ret != 0) {
+		return ret;
 	}
 
 	heap_end += bytes;

@@ -2,6 +2,7 @@
 
 #include <tianole/arch.h>
 #include <tianole/early_log.h>
+#include <tianole/errno.h>
 #include <tianole/mm.h>
 
 #include "page_table.h"
@@ -172,7 +173,7 @@ static int ensure_next_table(uint64_t *table, uint64_t index, uint64_t **next)
 
 	page = alloc_page();
 	if (page == 0) {
-		return -1;
+		return -ENOMEM;
 	}
 
 	clear_page(page);
@@ -193,24 +194,34 @@ static int page_entry(virt_addr_t virt, int create, uint64_t **entry)
 	uint64_t pt_index = table_index(virt, 12);
 
 	if (create != 0) {
-		if (ensure_next_table(pml4, pml4_index, &pdpt) != 0 ||
-			ensure_next_table(pdpt, pdpt_index, &pd) != 0 ||
-			ensure_next_table(pd, pd_index, &pt) != 0) {
-			return -1;
+		int ret = ensure_next_table(pml4, pml4_index, &pdpt);
+
+		if (ret != 0) {
+			return ret;
+		}
+
+		ret = ensure_next_table(pdpt, pdpt_index, &pd);
+		if (ret != 0) {
+			return ret;
+		}
+
+		ret = ensure_next_table(pd, pd_index, &pt);
+		if (ret != 0) {
+			return ret;
 		}
 	} else {
 		if ((pml4[pml4_index] & PAGE_PRESENT) == 0) {
-			return -1;
+			return -ENOENT;
 		}
 		pdpt = entry_table(pml4[pml4_index]);
 
 		if ((pdpt[pdpt_index] & PAGE_PRESENT) == 0) {
-			return -1;
+			return -ENOENT;
 		}
 		pd = entry_table(pdpt[pdpt_index]);
 
 		if ((pd[pd_index] & PAGE_PRESENT) == 0) {
-			return -1;
+			return -ENOENT;
 		}
 		pt = entry_table(pd[pd_index]);
 	}
@@ -222,17 +233,19 @@ static int page_entry(virt_addr_t virt, int create, uint64_t **entry)
 int map_page(virt_addr_t virt, phys_addr_t phys, uint64_t flags)
 {
 	uint64_t *entry;
+	int ret;
 
 	if ((virt & (PAGE_SIZE - 1)) != 0 || (phys & (PAGE_SIZE - 1)) != 0) {
-		return -1;
+		return -EINVAL;
 	}
 
-	if (page_entry(virt, 1, &entry) != 0) {
-		return -1;
+	ret = page_entry(virt, 1, &entry);
+	if (ret != 0) {
+		return ret;
 	}
 
 	if ((*entry & PAGE_PRESENT) != 0) {
-		return -1;
+		return -EEXIST;
 	}
 
 	*entry = (phys & PAGE_MASK) | flags | PAGE_PRESENT;
@@ -243,13 +256,15 @@ int map_page(virt_addr_t virt, phys_addr_t phys, uint64_t flags)
 int unmap_page(virt_addr_t virt)
 {
 	uint64_t *entry;
+	int ret;
 
 	if ((virt & (PAGE_SIZE - 1)) != 0) {
-		return -1;
+		return -EINVAL;
 	}
 
-	if (page_entry(virt, 0, &entry) != 0 || (*entry & PAGE_PRESENT) == 0) {
-		return -1;
+	ret = page_entry(virt, 0, &entry);
+	if (ret != 0 || (*entry & PAGE_PRESENT) == 0) {
+		return -ENOENT;
 	}
 
 	*entry = 0;
@@ -260,10 +275,15 @@ int unmap_page(virt_addr_t virt)
 int virt_to_phys(virt_addr_t virt, phys_addr_t *phys)
 {
 	uint64_t *entry;
+	int ret;
 
-	if (phys == 0 || page_entry(virt, 0, &entry) != 0 ||
-		(*entry & PAGE_PRESENT) == 0) {
-		return -1;
+	if (phys == 0) {
+		return -EINVAL;
+	}
+
+	ret = page_entry(virt, 0, &entry);
+	if (ret != 0 || (*entry & PAGE_PRESENT) == 0) {
+		return -ENOENT;
 	}
 
 	*phys = (*entry & PAGE_MASK) | (virt & (PAGE_SIZE - 1));

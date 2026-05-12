@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include <tianole/early_log.h>
+#include <tianole/errno.h>
 #include <tianole/sched.h>
 #include <tianole/spinlock.h>
 
@@ -128,7 +129,7 @@ static void timeout_wait_demo_waiter(void *arg)
 	early_log_puts("timeout waiter sleeping\n");
 	if (wait_queue_wait_timeout(
 		    &timeout_wait_queue, condition_is_ready, &never_ready, 3) !=
-		-1) {
+		-ETIMEDOUT) {
 		panic("timeout wait did not time out");
 	}
 	early_log_puts("timeout waiter timed out\n");
