@@ -152,9 +152,10 @@
 - 已把 `kernel_thread_create()` 中的线程 id 分配和 run queue 入队纳入 interrupt-safe lock 保护。
 - 已建立 `sched_irq_exit()`，timer IRQ 只设置 `need_resched`，trap 的 IRQ 返回边界统一消费调度请求。
 - 已建立最小 DEAD 线程回收路径，调度前会释放非当前 DEAD 线程的内核栈和线程对象。
+- 已建立统一 `kernel_thread_exit()`/`sched_thread_exit()`，线程入口返回和显式退出都会进入明确退出路径，再由调度安全边界回收非当前 DEAD 线程。
 - 已在调度私有头中加入 thread state helper，调度核心、线程退出和 wait queue 路径不再直接散写主要状态转换。
 - 已把调度代码按职责拆分为 `core.c`、`thread.c`、`wait.c`、`idle.c` 和私有 `sched.h`，并把当前阶段自测/演示线程移到 `kernel/selftest/sched.c`。
-- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()`、wait queue wakeup、条件等待和超时等待。
+- `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()`、wait queue wakeup、条件等待、超时等待、线程返回退出、显式退出和 DEAD 线程回收。
 
 后续扩展：
 
@@ -181,7 +182,7 @@
 ### D. thread lifecycle
 
 - 为线程退出增加更完整的生命周期状态、引用规则和最终释放约束。
-- 补充“当前线程不能释放自身内核栈”的文档和自测。
+- 继续补充“当前线程不能释放自身内核栈”的更严格断言和未来 join/wait 语义。
 - 为未来 `kthread_stop()`、join/wait 和进程退出保留接口空间。
 - 回收路径需要覆盖等待队列残留、run queue 残留和 timer sleep 残留。
 

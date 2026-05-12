@@ -74,6 +74,7 @@ static inline void thread_set_dead(struct thread *thread)
 
 void enqueue_thread(struct thread *thread);
 void sched_reap_dead_threads(void);
+void sched_thread_exit(void) __attribute__((noreturn));
 void sched_selftest(void);
 int sched_idle_create(void);
 void sched_demo_start(void) __attribute__((noreturn));

@@ -98,6 +98,9 @@ struct thread *kernel_thread_create(
 
 static void release_thread(struct thread *thread)
 {
+	early_log_puts("thread reaped ");
+	early_log_puts(thread->name);
+	early_log_puts("\n");
 	kfree(thread->stack_base);
 	kfree(thread);
 }
@@ -106,7 +109,10 @@ void sched_reap_dead_threads(void)
 {
 	struct thread *prev = 0;
 	struct thread *thread = run_queue_head;
+	struct thread *reap_list = 0;
+	uint64_t flags;
 
+	spin_lock_irqsave(&scheduler_lock, &flags);
 	while (thread != 0) {
 		struct thread *next = thread->next;
 
@@ -121,13 +127,41 @@ void sched_reap_dead_threads(void)
 				run_queue_tail = prev;
 			}
 
-			release_thread(thread);
+			thread->next = reap_list;
+			reap_list = thread;
 		} else {
 			prev = thread;
 		}
 
 		thread = next;
 	}
+	spin_unlock_irqrestore(&scheduler_lock, flags);
+
+	while (reap_list != 0) {
+		struct thread *next = reap_list->next;
+
+		reap_list->next = 0;
+		release_thread(reap_list);
+		reap_list = next;
+	}
+}
+
+void sched_thread_exit(void)
+{
+	if (current_thread == 0) {
+		panic("thread exit without current thread");
+	}
+
+	thread_set_dead(current_thread);
+
+	for (;;) {
+		sched_yield();
+	}
+}
+
+void kernel_thread_exit(void)
+{
+	sched_thread_exit();
 }
 
 static void thread_trampoline(void)
@@ -139,9 +173,5 @@ static void thread_trampoline(void)
 	}
 
 	thread->entry(thread->arg);
-	thread_set_dead(thread);
-
-	for (;;) {
-		sched_yield();
-	}
+	kernel_thread_exit();
 }

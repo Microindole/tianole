@@ -41,6 +41,7 @@ struct thread {
 void sched_init(void);
 struct thread *kernel_thread_create(
 	const char *name, kernel_thread_entry_t entry, void *arg);
+void kernel_thread_exit(void) __attribute__((noreturn));
 void sched_start(void) __attribute__((noreturn));
 void sched_tick(uint64_t tick);
 void sched_irq_exit(void);

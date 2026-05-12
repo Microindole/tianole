@@ -34,6 +34,12 @@ check_lines build/debug.log \
 	"condition waiter sleeping" \
 	"condition waker sleeping" \
 	"timeout waiter sleeping" \
+	"return exit thread returning" \
+	"explicit exit thread exiting" \
+	"thread reaped worker-a" \
+	"thread reaped worker-b" \
+	"thread reaped return-exit" \
+	"thread reaped explicit-exit" \
 	"preempt thread 1 step=2" \
 	"preempt thread 2 step=2" \
 	"timeout waiter timed out" \
@@ -71,6 +77,12 @@ check_lines build/serial.log \
 	"condition waiter sleeping" \
 	"condition waker sleeping" \
 	"timeout waiter sleeping" \
+	"return exit thread returning" \
+	"explicit exit thread exiting" \
+	"thread reaped worker-a" \
+	"thread reaped worker-b" \
+	"thread reaped return-exit" \
+	"thread reaped explicit-exit" \
 	"preempt thread 1 step=2" \
 	"preempt thread 2 step=2" \
 	"timeout waiter timed out" \

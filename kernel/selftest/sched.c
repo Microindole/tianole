@@ -134,6 +134,21 @@ static void timeout_wait_demo_waiter(void *arg)
 	early_log_puts("timeout waiter timed out\n");
 }
 
+static void return_exit_demo_thread(void *arg)
+{
+	(void)arg;
+
+	early_log_puts("return exit thread returning\n");
+}
+
+static void explicit_exit_demo_thread(void *arg)
+{
+	(void)arg;
+
+	early_log_puts("explicit exit thread exiting\n");
+	kernel_thread_exit();
+}
+
 void sched_demo_start(void)
 {
 	struct thread *first = kernel_thread_create(
@@ -150,10 +165,14 @@ void sched_demo_start(void)
 		"condition-waker", condition_wait_demo_waker, 0);
 	struct thread *timeout_waiter = kernel_thread_create(
 		"timeout-waiter", timeout_wait_demo_waiter, 0);
+	struct thread *return_exit =
+		kernel_thread_create("return-exit", return_exit_demo_thread, 0);
+	struct thread *explicit_exit = kernel_thread_create(
+		"explicit-exit", explicit_exit_demo_thread, 0);
 
 	if (first == 0 || second == 0 || waiter == 0 || waker == 0 ||
 		condition_waiter == 0 || condition_waker == 0 ||
-		timeout_waiter == 0) {
+		timeout_waiter == 0 || return_exit == 0 || explicit_exit == 0) {
 		panic("scheduler demo thread creation failed");
 	}
 
