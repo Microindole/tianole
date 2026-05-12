@@ -15,15 +15,84 @@ typedef uint64_t virt_addr_t;
 #define PAGE_WRITABLE (1ull << 1)
 #define PAGE_NO_EXECUTE (1ull << 63)
 
+/**
+ * mm_init() - Initialize the generic memory manager.
+ * @boot_info: Bootloader-provided memory map and handoff data.
+ *
+ * Converts boot memory information into Tianole-owned page allocator state.
+ */
 void mm_init(const boot_info_t *boot_info);
+
+/**
+ * alloc_page() - Allocate one physical page.
+ *
+ * Return: Physical page base address, or 0 when no page is available.
+ */
 phys_addr_t alloc_page(void);
+
+/**
+ * free_page() - Return one physical page to the allocator.
+ * @page: Physical page base address previously returned by alloc_page().
+ *
+ * The page must not still be mapped or owned by another subsystem.
+ */
 void free_page(phys_addr_t page);
+
+/**
+ * kmalloc() - Allocate small kernel heap memory.
+ * @size: Number of bytes requested.
+ *
+ * Return: Kernel virtual pointer, or NULL when allocation fails.
+ */
 void *kmalloc(size_t size);
+
+/**
+ * kfree() - Free memory allocated by kmalloc().
+ * @ptr: Pointer returned by kmalloc(), or NULL.
+ *
+ * Releases the allocation back to the kernel heap.
+ */
 void kfree(void *ptr);
+
+/**
+ * map_page() - Map one virtual page to one physical page.
+ * @virt: Virtual page address.
+ * @phys: Physical page address.
+ * @flags: Generic page flags such as PAGE_WRITABLE.
+ *
+ * Return: 0 on success, negative value on failure.
+ */
 int map_page(virt_addr_t virt, phys_addr_t phys, uint64_t flags);
+
+/**
+ * unmap_page() - Remove one virtual page mapping.
+ * @virt: Virtual page address to unmap.
+ *
+ * Return: 0 on success, negative value on failure.
+ */
 int unmap_page(virt_addr_t virt);
+
+/**
+ * virt_to_phys() - Resolve a virtual address to a physical address.
+ * @virt: Virtual address to query.
+ * @phys: Output storage for the resolved physical address.
+ *
+ * Return: 0 when a mapping exists, negative value otherwise.
+ */
 int virt_to_phys(virt_addr_t virt, phys_addr_t *phys);
+
+/**
+ * heap_init() - Initialize the kernel heap.
+ *
+ * Sets up kmalloc()/kfree() after page allocation and page tables are ready.
+ */
 void heap_init(void);
+
+/**
+ * page_table_selftest() - Run boot-time page table checks.
+ *
+ * Verifies map, unmap and address translation behavior during early boot.
+ */
 void page_table_selftest(void);
 
 #endif

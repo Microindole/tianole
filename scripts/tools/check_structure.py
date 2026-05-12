@@ -72,6 +72,16 @@ def source_files(files: set[Path]) -> list[Path]:
 	return sorted(path for path in files if path.suffix in (".c", ".h"))
 
 
+def public_headers(files: set[Path]) -> list[Path]:
+	return sorted(
+		path
+		for path in files
+		if path.suffix == ".h"
+		and len(path.parts) == 3
+		and path.parts[:2] == ("include", "tianole")
+	)
+
+
 def c_files(files: set[Path]) -> list[Path]:
 	return sorted(
 		path
@@ -94,6 +104,108 @@ def check_no_relative_parent_includes(root: Path, files: list[Path]) -> list[str
 				errors.append(
 					f"{path}:{line_no}: do not use ../ includes; "
 					"promote shared headers or add a private include root"
+				)
+
+	return errors
+
+
+def is_function_declaration_start(line: str) -> bool:
+	stripped = line.strip()
+
+	if stripped == "" or stripped.startswith("#"):
+		return False
+
+	if stripped.startswith(("typedef ", "struct ", "enum ", "union ")):
+		return False
+
+	if "(" not in stripped or stripped.startswith("*"):
+		return False
+
+	if "(*" in stripped or stripped.endswith("{"):
+		return False
+
+	return True
+
+
+def collect_function_declarations(lines: list[str]) -> list[tuple[int, int, str]]:
+	decls = []
+	index = 0
+
+	while index < len(lines):
+		if not is_function_declaration_start(lines[index]):
+			index += 1
+			continue
+
+		start = index
+		text = lines[index].strip()
+		while ";" not in lines[index]:
+			index += 1
+			if index >= len(lines):
+				break
+			text += " " + lines[index].strip()
+
+		if index < len(lines):
+			decls.append((start, index, text))
+
+		index += 1
+
+	return decls
+
+
+def has_kernel_doc_before(lines: list[str], start: int) -> bool:
+	index = start - 1
+
+	while index >= 0 and lines[index].strip() == "":
+		index -= 1
+
+	if index < 0 or lines[index].strip() != "*/":
+		return False
+
+	while index >= 0:
+		if lines[index].strip().startswith("/**"):
+			return True
+		index -= 1
+
+	return False
+
+
+def has_blank_line_before_doc(lines: list[str], start: int) -> bool:
+	index = start - 1
+
+	while index >= 0 and lines[index].strip() == "":
+		index -= 1
+
+	if index < 0 or lines[index].strip() != "*/":
+		return True
+
+	while index >= 0 and not lines[index].strip().startswith("/**"):
+		index -= 1
+
+	if index <= 0:
+		return True
+
+	return lines[index - 1].strip() == ""
+
+
+def check_public_header_function_docs(root: Path, files: list[Path]) -> list[str]:
+	errors = []
+
+	for path in files:
+		lines = read_text(root, path).splitlines()
+		for start, _end, text in collect_function_declarations(lines):
+			line_no = start + 1
+			name = text.split("(", 1)[0].split()[-1].lstrip("*")
+			if not has_kernel_doc_before(lines, start):
+				errors.append(
+					f"{path}:{line_no}: public function '{name}' needs "
+					"a kernel-doc comment immediately before it"
+				)
+				continue
+
+			if not has_blank_line_before_doc(lines, start):
+				errors.append(
+					f"{path}:{line_no}: public function '{name}' "
+					"comment block must be separated by a blank line"
 				)
 
 	return errors
@@ -201,6 +313,7 @@ def main() -> int:
 
 	errors = []
 	errors.extend(check_no_relative_parent_includes(root, source_files(files)))
+	errors.extend(check_public_header_function_docs(root, public_headers(files)))
 	errors.extend(check_selftests_are_centralized(c_files(files)))
 	errors.extend(check_makefile_source_lists(root, files, all_mode))
 
