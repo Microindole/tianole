@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include <tianole/early_log.h>
+#include <tianole/errno.h>
 #include <tianole/mm.h>
 
 #include "arch/x86/mm/page_table.h"
@@ -20,8 +21,24 @@ void page_table_selftest(void)
 
 	page_tables_init();
 
+	if (map_page(TEST_VIRTUAL_PAGE + 1, page, PAGE_WRITABLE) != -EINVAL) {
+		panic("page table selftest unaligned map errno failed");
+	}
+
+	if (virt_to_phys(TEST_VIRTUAL_PAGE, 0) != -EINVAL) {
+		panic("page table selftest null output errno failed");
+	}
+
+	if (virt_to_phys(TEST_VIRTUAL_PAGE, &resolved) != -ENOENT) {
+		panic("page table selftest missing resolve errno failed");
+	}
+
 	if (map_page(TEST_VIRTUAL_PAGE, page, PAGE_WRITABLE) != 0) {
 		panic("page table selftest map failed");
+	}
+
+	if (map_page(TEST_VIRTUAL_PAGE, page, PAGE_WRITABLE) != -EEXIST) {
+		panic("page table selftest duplicate map errno failed");
 	}
 
 	if (virt_to_phys(TEST_VIRTUAL_PAGE, &resolved) != 0 ||
@@ -36,6 +53,10 @@ void page_table_selftest(void)
 
 	if (unmap_page(TEST_VIRTUAL_PAGE) != 0) {
 		panic("page table selftest unmap failed");
+	}
+
+	if (unmap_page(TEST_VIRTUAL_PAGE) != -ENOENT) {
+		panic("page table selftest missing unmap errno failed");
 	}
 
 	free_page(page);

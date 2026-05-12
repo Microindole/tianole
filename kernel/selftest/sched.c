@@ -14,9 +14,16 @@ static void thread_selftest_entry(void *arg)
 	(void)arg;
 }
 
+static int selftest_condition_false(void *arg)
+{
+	(void)arg;
+	return 0;
+}
+
 void sched_selftest(void)
 {
 	struct spinlock test_lock;
+	struct wait_queue test_wait_queue;
 	struct thread *first =
 		kernel_thread_create("worker-a", thread_selftest_entry, 0);
 	struct thread *second =
@@ -46,6 +53,15 @@ void sched_selftest(void)
 
 	spin_lock_irqsave(&test_lock, &flags);
 	spin_unlock_irqrestore(&test_lock, flags);
+
+	wait_queue_init(&test_wait_queue);
+	if (wait_queue_wait(0, selftest_condition_false, 0) != -EINVAL) {
+		panic("wait queue selftest null queue errno failed");
+	}
+
+	if (wait_queue_wait(&test_wait_queue, 0, 0) != -EINVAL) {
+		panic("wait queue selftest null condition errno failed");
+	}
 
 	early_log_puts("kernel thread selftest ok\n");
 }
@@ -127,6 +143,12 @@ static void timeout_wait_demo_waiter(void *arg)
 	(void)arg;
 
 	early_log_puts("timeout waiter sleeping\n");
+	if (wait_queue_wait_timeout(
+		    &timeout_wait_queue, condition_is_ready, &never_ready, 0) !=
+		-ETIMEDOUT) {
+		panic("timeout wait zero tick errno failed");
+	}
+
 	if (wait_queue_wait_timeout(
 		    &timeout_wait_queue, condition_is_ready, &never_ready, 3) !=
 		-ETIMEDOUT) {
