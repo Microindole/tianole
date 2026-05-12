@@ -75,7 +75,10 @@
 - 可独立执行的检查放在 `scripts/checks/`。
 - 多个检查共享的函数放在 `scripts/lib/`。
 - 不把所有检查逻辑持续堆进 `scripts/check.sh`。
-- 项目结构规则放在 `scripts/tools/check_structure.py`，由 `scripts/checks/structure.sh` 调用；优先用宿主 Linux/LLVM 工具实现底层检查，把 Tianole 自己的目录和 include 约束固化在轻量 Python 工具里。
+- 项目结构规则由 `scripts/tools/check_structure.py` 编排，具体规则拆到
+  `scripts/tools/structure_checks/`；不要把 Python 工具堆成单个超大文件。
+- 优先用宿主 Linux/LLVM 工具实现底层检查，把 Tianole 自己的目录和 include
+  约束固化在轻量 Python 工具里。
 - 启动阶段内核自测集中放在 `kernel/selftest/`，不要散落在具体实现目录里。
 
 ## 验证
