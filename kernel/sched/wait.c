@@ -60,10 +60,8 @@ static void wait_queue_remove_locked(
 
 static void wait_queue_mark_ready_locked(struct thread *thread)
 {
-	if (thread->state == THREAD_WAITING ||
-		thread->state == THREAD_SLEEPING) {
-		thread->wake_tick = 0;
-		thread->state = THREAD_READY;
+	if (thread_is_waiting(thread) || thread_is_sleeping(thread)) {
+		thread_set_ready(thread);
 	}
 }
 
@@ -77,14 +75,14 @@ void wait_queue_sleep(struct wait_queue *queue)
 
 	spin_lock_irqsave(&queue->lock, &flags);
 	wait_queue_enqueue_locked(queue, current_thread);
-	current_thread->state = THREAD_WAITING;
+	thread_set_waiting(current_thread);
 	spin_unlock_irqrestore(&queue->lock, flags);
 
 	for (;;) {
 		sched_yield();
 
 		spin_lock_irqsave(&queue->lock, &flags);
-		if (current_thread->state != THREAD_WAITING) {
+		if (!thread_is_waiting(current_thread)) {
 			spin_unlock_irqrestore(&queue->lock, flags);
 			return;
 		}
@@ -109,7 +107,7 @@ int wait_queue_wait(
 		}
 
 		wait_queue_enqueue_locked(queue, current_thread);
-		current_thread->state = THREAD_WAITING;
+		thread_set_waiting(current_thread);
 		spin_unlock_irqrestore(&queue->lock, flags);
 
 		sched_yield();
@@ -157,8 +155,7 @@ int wait_queue_wait_timeout(struct wait_queue *queue,
 			return -1;
 		}
 
-		current_thread->wake_tick = deadline;
-		current_thread->state = THREAD_SLEEPING;
+		thread_set_sleeping(current_thread, deadline);
 		wait_queue_enqueue_locked(queue, current_thread);
 		spin_unlock_irqrestore(&queue->lock, flags);
 

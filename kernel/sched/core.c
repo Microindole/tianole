@@ -45,19 +45,19 @@ static struct thread *next_runnable_thread(void)
 
 	thread = start;
 	while (thread != 0) {
-		if (thread->state == THREAD_READY && thread != idle_thread) {
+		if (thread_is_ready(thread) && thread != idle_thread) {
 			return thread;
 		}
 		thread = thread->next;
 	}
 
 	for (thread = run_queue_head; thread != start; thread = thread->next) {
-		if (thread->state == THREAD_READY && thread != idle_thread) {
+		if (thread_is_ready(thread) && thread != idle_thread) {
 			return thread;
 		}
 	}
 
-	if (idle_thread != 0 && idle_thread->state == THREAD_READY) {
+	if (thread_is_ready(idle_thread)) {
 		return idle_thread;
 	}
 
@@ -69,10 +69,8 @@ static void wake_sleeping_threads(uint64_t tick)
 	struct thread *thread;
 
 	for (thread = run_queue_head; thread != 0; thread = thread->next) {
-		if (thread->state == THREAD_SLEEPING &&
-			thread->wake_tick <= tick) {
-			thread->wake_tick = 0;
-			thread->state = THREAD_READY;
+		if (thread_is_sleeping(thread) && thread->wake_tick <= tick) {
+			thread_set_ready(thread);
 		}
 	}
 }
@@ -97,11 +95,11 @@ void sched_yield(void)
 
 	schedule_locked = 1;
 
-	if (prev != 0 && prev->state == THREAD_RUNNING) {
-		prev->state = THREAD_READY;
+	if (thread_is_running(prev)) {
+		thread_set_ready(prev);
 	}
 
-	next->state = THREAD_RUNNING;
+	thread_set_running(next);
 	current_thread = next;
 	schedule_locked = 0;
 
@@ -117,7 +115,7 @@ void sched_tick(uint64_t tick)
 {
 	wake_sleeping_threads(tick);
 
-	if (current_thread != 0 && current_thread->state == THREAD_RUNNING) {
+	if (thread_is_running(current_thread)) {
 		need_resched = 1;
 	}
 }
@@ -141,8 +139,7 @@ void sched_sleep(uint64_t ticks)
 	}
 
 	now = timer_ticks();
-	current_thread->wake_tick = now + ticks;
-	current_thread->state = THREAD_SLEEPING;
+	thread_set_sleeping(current_thread, now + ticks);
 	sched_yield();
 }
 

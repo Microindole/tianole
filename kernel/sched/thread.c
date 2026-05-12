@@ -77,7 +77,7 @@ struct thread *kernel_thread_create(
 
 	stack_top = (uintptr_t)thread->stack_base + KERNEL_STACK_SIZE;
 
-	thread->state = THREAD_READY;
+	thread_set_ready(thread);
 	thread->entry = entry;
 	thread->arg = arg;
 	thread->stack_top = align_down_uintptr(stack_top, STACK_ALIGNMENT);
@@ -110,7 +110,7 @@ void sched_reap_dead_threads(void)
 	while (thread != 0) {
 		struct thread *next = thread->next;
 
-		if (thread->state == THREAD_DEAD && thread != current_thread) {
+		if (thread_is_dead(thread) && thread != current_thread) {
 			if (prev != 0) {
 				prev->next = next;
 			} else {
@@ -139,7 +139,7 @@ static void thread_trampoline(void)
 	}
 
 	thread->entry(thread->arg);
-	thread->state = THREAD_DEAD;
+	thread_set_dead(thread);
 
 	for (;;) {
 		sched_yield();
