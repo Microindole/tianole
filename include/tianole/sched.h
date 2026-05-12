@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <tianole/spinlock.h>
+
 typedef void (*kernel_thread_entry_t)(void *arg);
 typedef int (*wait_condition_t)(void *arg);
 
@@ -16,6 +18,7 @@ enum thread_state {
 };
 
 struct wait_queue {
+	struct spinlock lock;
 	struct thread *head;
 	struct thread *tail;
 };

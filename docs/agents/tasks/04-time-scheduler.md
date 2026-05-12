@@ -147,6 +147,7 @@
 - 已提供 `sched_sleep()`，线程可以睡眠指定 tick 数并被 timer 唤醒。
 - 已提供 `wait_queue_init()`、`wait_queue_sleep()`、`wait_queue_wake_one()` 和 `wait_queue_wake_all()`。
 - 已提供 `wait_queue_wait()` 和 `wait_queue_wait_timeout()`，调用方可以等待条件成立，并在超时路径上获得失败返回值。
+- wait queue 已有内部 interrupt-safe lock，条件检查、等待入队和 wakeup 队列修改已收敛到同一同步边界，降低 lost wakeup 风险。
 - 已建立单 CPU interrupt-safe lock 基础，当前 `spin_lock_irqsave()` 会保存并关闭中断，`spin_unlock_irqrestore()` 会恢复原中断状态。
 - 已把 `kernel_thread_create()` 中的线程 id 分配和 run queue 入队纳入 interrupt-safe lock 保护。
 - 已建立 `sched_irq_exit()`，timer IRQ 只设置 `need_resched`，trap 的 IRQ 返回边界统一消费调度请求。
@@ -165,7 +166,7 @@
 ### B. wait queue 锁语义
 
 - 为 wait queue 增加内部锁或要求调用方持有指定锁，并在接口命名中体现约束。
-- 把条件检查、等待入队和睡眠切换收敛成一个不会丢唤醒的模式。
+- 继续把条件所属数据的修改规则文档化；当前 wait queue 内部锁已经覆盖条件检查、等待入队和 wakeup 队列修改。
 - 区分 `wake_one`、`wake_all`、timeout wakeup 和条件 wakeup 的状态处理。
 - 检查 wakeup 是否可能唤醒 DEAD、RUNNING 或未入队线程。
 
