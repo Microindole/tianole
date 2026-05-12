@@ -18,7 +18,12 @@ void wait_queue_init(struct wait_queue *queue)
 static void wait_queue_enqueue_locked(
 	struct wait_queue *queue, struct thread *thread)
 {
+	if (thread->wait_queue != 0) {
+		panic("thread already queued on wait queue");
+	}
+
 	thread->wait_next = 0;
+	thread->wait_queue = queue;
 
 	if (queue->tail != 0) {
 		queue->tail->wait_next = thread;
@@ -29,14 +34,36 @@ static void wait_queue_enqueue_locked(
 	queue->tail = thread;
 }
 
-static void wait_queue_remove_locked(
+static struct thread *wait_queue_remove_head_locked(struct wait_queue *queue)
+{
+	struct thread *thread = queue->head;
+
+	if (thread == 0) {
+		return 0;
+	}
+
+	queue->head = thread->wait_next;
+	if (queue->head == 0) {
+		queue->tail = 0;
+	}
+
+	thread->wait_next = 0;
+	thread->wait_queue = 0;
+	return thread;
+}
+
+static int wait_queue_remove_locked(
 	struct wait_queue *queue, struct thread *target)
 {
 	struct thread *prev = 0;
 	struct thread *thread;
 
 	if (queue == 0 || target == 0) {
-		return;
+		return 0;
+	}
+
+	if (target->wait_queue != queue) {
+		return 0;
 	}
 
 	for (thread = queue->head; thread != 0; thread = thread->wait_next) {
@@ -52,11 +79,14 @@ static void wait_queue_remove_locked(
 			}
 
 			thread->wait_next = 0;
-			return;
+			thread->wait_queue = 0;
+			return 1;
 		}
 
 		prev = thread;
 	}
+
+	panic("wait queue membership is inconsistent");
 }
 
 static void wait_queue_mark_ready_locked(struct thread *thread)
@@ -178,18 +208,7 @@ void wait_queue_wake_one(struct wait_queue *queue)
 	}
 
 	spin_lock_irqsave(&queue->lock, &flags);
-	if (queue->head == 0) {
-		spin_unlock_irqrestore(&queue->lock, flags);
-		return;
-	}
-
-	thread = queue->head;
-	queue->head = thread->wait_next;
-	if (queue->head == 0) {
-		queue->tail = 0;
-	}
-
-	thread->wait_next = 0;
+	thread = wait_queue_remove_head_locked(queue);
 	wait_queue_mark_ready_locked(thread);
 	spin_unlock_irqrestore(&queue->lock, flags);
 }
@@ -205,13 +224,7 @@ void wait_queue_wake_all(struct wait_queue *queue)
 
 	spin_lock_irqsave(&queue->lock, &flags);
 	while (queue->head != 0) {
-		thread = queue->head;
-		queue->head = thread->wait_next;
-		if (queue->head == 0) {
-			queue->tail = 0;
-		}
-
-		thread->wait_next = 0;
+		thread = wait_queue_remove_head_locked(queue);
 		wait_queue_mark_ready_locked(thread);
 	}
 	spin_unlock_irqrestore(&queue->lock, flags);

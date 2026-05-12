@@ -67,6 +67,7 @@ struct wait_queue {
  * @wake_tick: Timer tick deadline for sleeping threads.
  * @next: Run queue link owned by the scheduler.
  * @wait_next: Wait queue link owned by wait queue code.
+ * @wait_queue: Wait queue currently owning @wait_next, or NULL.
  * @name: Diagnostic thread name.
  *
  * This structure is public only as an early-stage compromise. Long term, most
@@ -84,6 +85,7 @@ struct thread {
 	uint64_t wake_tick;
 	struct thread *next;
 	struct thread *wait_next;
+	struct wait_queue *wait_queue;
 	char name[32];
 };
 

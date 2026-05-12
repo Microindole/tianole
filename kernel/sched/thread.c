@@ -86,6 +86,7 @@ struct thread *kernel_thread_create(
 	thread->wake_tick = 0;
 	thread->next = 0;
 	thread->wait_next = 0;
+	thread->wait_queue = 0;
 	copy_thread_name(thread->name, sizeof(thread->name), name);
 
 	spin_lock_irqsave(&scheduler_lock, &flags);
@@ -98,6 +99,10 @@ struct thread *kernel_thread_create(
 
 static void release_thread(struct thread *thread)
 {
+	if (thread->wait_queue != 0) {
+		panic("reaping thread still on wait queue");
+	}
+
 	early_log_puts("thread reaped ");
 	early_log_puts(thread->name);
 	early_log_puts("\n");

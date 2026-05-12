@@ -72,6 +72,10 @@ void sched_selftest(void)
 		panic("kernel thread selftest state failed");
 	}
 
+	if (first->wait_queue != 0 || second->wait_queue != 0) {
+		panic("kernel thread selftest wait queue ownership failed");
+	}
+
 	if ((first->stack_top & (STACK_ALIGNMENT - 1)) != 0 ||
 		(second->stack_top & (STACK_ALIGNMENT - 1)) != 0) {
 		panic("kernel thread selftest stack alignment failed");
