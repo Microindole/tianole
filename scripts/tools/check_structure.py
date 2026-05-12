@@ -124,6 +124,25 @@ def check_no_bare_negative_errno(root: Path, files: list[Path]) -> list[str]:
 	return errors
 
 
+def check_scheduler_state_writes(root: Path, files: list[Path]) -> list[str]:
+	errors = []
+	state_write_re = re.compile(r"->state\s*=")
+	allowed_path = Path("kernel/sched/sched.h")
+
+	for path in files:
+		if path == allowed_path:
+			continue
+
+		for line_no, line in enumerate(read_text(root, path).splitlines(), 1):
+			if state_write_re.search(line):
+				errors.append(
+					f"{path}:{line_no}: thread state writes must use "
+					"kernel/sched/sched.h helpers"
+				)
+
+	return errors
+
+
 def is_function_declaration_start(line: str) -> bool:
 	stripped = line.strip()
 
@@ -424,6 +443,7 @@ def main() -> int:
 	errors = []
 	errors.extend(check_no_relative_parent_includes(root, source_files(files)))
 	errors.extend(check_no_bare_negative_errno(root, source_files(files)))
+	errors.extend(check_scheduler_state_writes(root, source_files(files)))
 	errors.extend(check_public_header_docs(root, public_headers(files)))
 	errors.extend(check_selftests_are_centralized(c_files(files)))
 	errors.extend(check_makefile_source_lists(root, files, all_mode))

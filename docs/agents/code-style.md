@@ -93,3 +93,10 @@
 - 不要直接返回 `-22` 这类负数字面量；使用 `-EINVAL` 这类符号化 errno，
   结构检查会拒绝裸负数返回。
 - errno 常量放在 `include/tianole/errno.h`，只增加当前内核实际使用的值。
+
+## 调度状态
+
+- 线程状态转换必须通过 `kernel/sched/sched.h` 中的 helper 完成。
+- 不要在调度实现或其他子系统里直接写 `thread->state = ...`；结构检查会拒绝
+  这种写法。
+- 新增状态或转换规则时，必须同步更新状态转换 helper 和 scheduler selftest。

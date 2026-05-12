@@ -20,6 +20,35 @@ static int selftest_condition_false(void *arg)
 	return 0;
 }
 
+static void assert_thread_transition(
+	enum thread_state from, enum thread_state to, int expected)
+{
+	if (thread_state_transition_is_valid(from, to) != expected) {
+		panic("thread state transition selftest failed");
+	}
+}
+
+static void sched_state_machine_selftest(void)
+{
+	assert_thread_transition(THREAD_READY, THREAD_RUNNING, 1);
+	assert_thread_transition(THREAD_RUNNING, THREAD_READY, 1);
+	assert_thread_transition(THREAD_RUNNING, THREAD_SLEEPING, 1);
+	assert_thread_transition(THREAD_RUNNING, THREAD_WAITING, 1);
+	assert_thread_transition(THREAD_RUNNING, THREAD_DEAD, 1);
+	assert_thread_transition(THREAD_SLEEPING, THREAD_READY, 1);
+	assert_thread_transition(THREAD_WAITING, THREAD_READY, 1);
+	assert_thread_transition(THREAD_SLEEPING, THREAD_DEAD, 1);
+	assert_thread_transition(THREAD_WAITING, THREAD_DEAD, 1);
+
+	assert_thread_transition(THREAD_READY, THREAD_SLEEPING, 0);
+	assert_thread_transition(THREAD_READY, THREAD_WAITING, 0);
+	assert_thread_transition(THREAD_READY, THREAD_DEAD, 0);
+	assert_thread_transition(THREAD_SLEEPING, THREAD_RUNNING, 0);
+	assert_thread_transition(THREAD_WAITING, THREAD_RUNNING, 0);
+	assert_thread_transition(THREAD_DEAD, THREAD_READY, 0);
+	assert_thread_transition(THREAD_DEAD, THREAD_RUNNING, 0);
+}
+
 void sched_selftest(void)
 {
 	struct spinlock test_lock;
@@ -29,6 +58,8 @@ void sched_selftest(void)
 	struct thread *second =
 		kernel_thread_create("worker-b", thread_selftest_entry, 0);
 	uint64_t flags;
+
+	sched_state_machine_selftest();
 
 	test_lock.locked = 0;
 

@@ -77,7 +77,7 @@ struct thread *kernel_thread_create(
 
 	stack_top = (uintptr_t)thread->stack_base + KERNEL_STACK_SIZE;
 
-	thread_set_ready(thread);
+	thread_init_ready(thread);
 	thread->entry = entry;
 	thread->arg = arg;
 	thread->stack_top = align_down_uintptr(stack_top, STACK_ALIGNMENT);
