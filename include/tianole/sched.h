@@ -29,13 +29,15 @@ typedef int (*wait_condition_t)(void *arg);
  * @THREAD_RUNNING: Thread is currently executing on the CPU.
  * @THREAD_SLEEPING: Thread is blocked until a timer deadline.
  * @THREAD_WAITING: Thread is blocked on a wait queue.
- * @THREAD_DEAD: Thread has exited and is waiting for safe reclamation.
+ * @THREAD_ZOMBIE: Thread exited; resources are kept until safe reclamation.
+ * @THREAD_DEAD: Thread is detached from scheduler queues and being released.
  */
 enum thread_state {
 	THREAD_READY,
 	THREAD_RUNNING,
 	THREAD_SLEEPING,
 	THREAD_WAITING,
+	THREAD_ZOMBIE,
 	THREAD_DEAD,
 };
 
@@ -112,8 +114,9 @@ struct thread *kernel_thread_create(
 /**
  * kernel_thread_exit() - Terminate the current kernel thread.
  *
- * Marks the current thread dead and yields forever until the scheduler
- * switches away and later reclaims it from a safe context.
+ * Marks the current thread as zombie and yields forever until the scheduler
+ * switches away. Reclamation happens only after the thread is no longer
+ * current.
  */
 void kernel_thread_exit(void) __attribute__((noreturn));
 

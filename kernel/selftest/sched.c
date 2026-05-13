@@ -34,17 +34,23 @@ static void sched_state_machine_selftest(void)
 	assert_thread_transition(THREAD_RUNNING, THREAD_READY, 1);
 	assert_thread_transition(THREAD_RUNNING, THREAD_SLEEPING, 1);
 	assert_thread_transition(THREAD_RUNNING, THREAD_WAITING, 1);
-	assert_thread_transition(THREAD_RUNNING, THREAD_DEAD, 1);
+	assert_thread_transition(THREAD_RUNNING, THREAD_ZOMBIE, 1);
 	assert_thread_transition(THREAD_SLEEPING, THREAD_READY, 1);
 	assert_thread_transition(THREAD_WAITING, THREAD_READY, 1);
-	assert_thread_transition(THREAD_SLEEPING, THREAD_DEAD, 1);
-	assert_thread_transition(THREAD_WAITING, THREAD_DEAD, 1);
+	assert_thread_transition(THREAD_SLEEPING, THREAD_ZOMBIE, 1);
+	assert_thread_transition(THREAD_WAITING, THREAD_ZOMBIE, 1);
+	assert_thread_transition(THREAD_ZOMBIE, THREAD_DEAD, 1);
 
 	assert_thread_transition(THREAD_READY, THREAD_SLEEPING, 0);
 	assert_thread_transition(THREAD_READY, THREAD_WAITING, 0);
-	assert_thread_transition(THREAD_READY, THREAD_DEAD, 0);
 	assert_thread_transition(THREAD_SLEEPING, THREAD_RUNNING, 0);
 	assert_thread_transition(THREAD_WAITING, THREAD_RUNNING, 0);
+	assert_thread_transition(THREAD_READY, THREAD_ZOMBIE, 0);
+	assert_thread_transition(THREAD_READY, THREAD_DEAD, 0);
+	assert_thread_transition(THREAD_SLEEPING, THREAD_DEAD, 0);
+	assert_thread_transition(THREAD_WAITING, THREAD_DEAD, 0);
+	assert_thread_transition(THREAD_ZOMBIE, THREAD_READY, 0);
+	assert_thread_transition(THREAD_ZOMBIE, THREAD_RUNNING, 0);
 	assert_thread_transition(THREAD_DEAD, THREAD_READY, 0);
 	assert_thread_transition(THREAD_DEAD, THREAD_RUNNING, 0);
 }

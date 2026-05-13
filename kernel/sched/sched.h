@@ -38,6 +38,11 @@ static inline int thread_is_waiting(const struct thread *thread)
 	return thread != 0 && thread->state == THREAD_WAITING;
 }
 
+static inline int thread_is_zombie(const struct thread *thread)
+{
+	return thread != 0 && thread->state == THREAD_ZOMBIE;
+}
+
 static inline int thread_is_dead(const struct thread *thread)
 {
 	return thread != 0 && thread->state == THREAD_DEAD;
@@ -55,10 +60,12 @@ static inline int thread_state_transition_is_valid(
 		return to == THREAD_RUNNING;
 	case THREAD_RUNNING:
 		return to == THREAD_READY || to == THREAD_SLEEPING ||
-			to == THREAD_WAITING || to == THREAD_DEAD;
+			to == THREAD_WAITING || to == THREAD_ZOMBIE;
 	case THREAD_SLEEPING:
 	case THREAD_WAITING:
-		return to == THREAD_READY || to == THREAD_DEAD;
+		return to == THREAD_READY || to == THREAD_ZOMBIE;
+	case THREAD_ZOMBIE:
+		return to == THREAD_DEAD;
 	case THREAD_DEAD:
 		return 0;
 	default:
@@ -113,6 +120,12 @@ static inline void thread_set_sleeping(
 static inline void thread_set_waiting(struct thread *thread)
 {
 	thread_set_state(thread, THREAD_WAITING);
+	thread->wake_tick = 0;
+}
+
+static inline void thread_set_zombie(struct thread *thread)
+{
+	thread_set_state(thread, THREAD_ZOMBIE);
 	thread->wake_tick = 0;
 }
 

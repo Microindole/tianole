@@ -13,11 +13,27 @@
 
 static void thread_trampoline(void) __attribute__((noreturn));
 
+/**
+ * align_down_uintptr() - Round a pointer value down to an alignment.
+ * @value: Pointer-sized value to align.
+ * @alignment: Power-of-two alignment boundary.
+ *
+ * Return: @value rounded down to the nearest @alignment boundary.
+ */
 static uintptr_t align_down_uintptr(uintptr_t value, uintptr_t alignment)
 {
 	return value & ~(alignment - 1);
 }
 
+/**
+ * copy_thread_name() - Copy a bounded diagnostic thread name.
+ * @dest: Destination name buffer.
+ * @dest_size: Size of @dest in bytes.
+ * @src: Caller supplied name, or NULL for the default name.
+ *
+ * The scheduler keeps names only for early logging. This helper mirrors the
+ * kernel pattern of avoiding unbounded string copies in low-level code.
+ */
 static void copy_thread_name(char *dest, size_t dest_size, const char *src)
 {
 	size_t index;
@@ -37,6 +53,16 @@ static void copy_thread_name(char *dest, size_t dest_size, const char *src)
 	dest[index] = '\0';
 }
 
+/**
+ * prepare_initial_stack() - Build the first saved context for a new thread.
+ * @stack_top: Aligned top of the allocated kernel stack.
+ *
+ * The architecture switch code restores callee-saved registers and returns
+ * through the saved return address, so the initial frame points at
+ * thread_trampoline().
+ *
+ * Return: Stack pointer to store in struct thread::stack_pointer.
+ */
 static uintptr_t prepare_initial_stack(uintptr_t stack_top)
 {
 	uintptr_t *stack = (uintptr_t *)stack_top;
@@ -97,10 +123,34 @@ struct thread *kernel_thread_create(
 	return thread;
 }
 
+/**
+ * release_thread() - Free a detached thread object and its kernel stack.
+ * @thread: Thread that has already moved through THREAD_DEAD.
+ *
+ * A running thread cannot free its own stack. The scheduler first marks an
+ * exited task ZOMBIE, switches away, then reaps it here after it is no longer
+ * current and has been unlinked from scheduler queues.
+ */
 static void release_thread(struct thread *thread)
 {
-	if (thread->wait_queue != 0) {
+	if (thread == 0 || thread == current_thread) {
+		panic("invalid thread release target");
+	}
+
+	if (!thread_is_dead(thread)) {
+		panic("reaping thread before DEAD state");
+	}
+
+	if (thread->wait_queue != 0 || thread->wait_next != 0) {
 		panic("reaping thread still on wait queue");
+	}
+
+	if (thread->wake_tick != 0) {
+		panic("reaping thread still has wake deadline");
+	}
+
+	if (thread->stack_base == 0 || thread->stack_size == 0) {
+		panic("reaping thread without kernel stack");
 	}
 
 	early_log_puts("thread reaped ");
@@ -110,6 +160,14 @@ static void release_thread(struct thread *thread)
 	kfree(thread);
 }
 
+/**
+ * sched_reap_dead_threads() - Reclaim exited threads at a safe boundary.
+ *
+ * Walks the run queue under the scheduler lock, detaches non-current zombie
+ * threads, transitions them to DEAD, then frees memory after dropping the
+ * lock. This keeps queue mutation serialized while avoiding allocator work
+ * inside the scheduler critical section.
+ */
 void sched_reap_dead_threads(void)
 {
 	struct thread *prev = 0;
@@ -121,7 +179,8 @@ void sched_reap_dead_threads(void)
 	while (thread != 0) {
 		struct thread *next = thread->next;
 
-		if (thread_is_dead(thread) && thread != current_thread) {
+		if (thread_is_zombie(thread) && thread != current_thread) {
+			thread_set_dead(thread);
 			if (prev != 0) {
 				prev->next = next;
 			} else {
@@ -151,13 +210,24 @@ void sched_reap_dead_threads(void)
 	}
 }
 
+/**
+ * sched_thread_exit() - Terminate the current thread without freeing its stack.
+ *
+ * The current thread becomes ZOMBIE and yields forever. A later scheduler pass
+ * observes that it is no longer current, turns it DEAD, and releases storage.
+ */
 void sched_thread_exit(void)
 {
 	if (current_thread == 0) {
 		panic("thread exit without current thread");
 	}
 
-	thread_set_dead(current_thread);
+	if (thread_is_zombie(current_thread) ||
+		thread_is_dead(current_thread)) {
+		panic("thread exit entered twice");
+	}
+
+	thread_set_zombie(current_thread);
 
 	for (;;) {
 		sched_yield();
@@ -169,6 +239,13 @@ void kernel_thread_exit(void)
 	sched_thread_exit();
 }
 
+/**
+ * thread_trampoline() - Enter a kernel thread and normalize return-to-exit.
+ *
+ * New contexts start here after the first architecture switch. If the entry
+ * function returns, the trampoline routes it through kernel_thread_exit() so
+ * both explicit and implicit exits use the same lifecycle.
+ */
 static void thread_trampoline(void)
 {
 	struct thread *thread = current_thread;
