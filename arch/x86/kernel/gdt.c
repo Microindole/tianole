@@ -10,6 +10,13 @@
 #define GDT_LONG_MODE 0x20
 #define GDT_GRANULARITY_4K 0x80
 
+/**
+ * struct gdt_entry - Packed legacy segment descriptor.
+ *
+ * Long mode ignores most base and limit fields for code/data segments, but the
+ * descriptors still need to be present so far returns and data selectors load
+ * cleanly after LGDT.
+ */
 struct gdt_entry {
 	uint16_t limit_low;
 	uint16_t base_low;
@@ -19,6 +26,12 @@ struct gdt_entry {
 	uint8_t base_high;
 } __attribute__((packed));
 
+/**
+ * struct tss_entry - x86_64 task-state segment used for ring transitions.
+ *
+ * Tianole currently uses only RSP0 and disables the I/O bitmap. IST entries are
+ * reserved for future exception stacks.
+ */
 struct tss_entry {
 	uint32_t reserved0;
 	uint64_t rsp0;
@@ -89,6 +102,13 @@ static struct tss_descriptor make_tss_descriptor(uint64_t base, uint32_t limit)
 	return descriptor;
 }
 
+/**
+ * load_gdt() - Load the GDT and reload visible segment registers.
+ * @gdtr: Descriptor table pointer for LGDT.
+ *
+ * A far return reloads CS after LGDT; data segments are then refreshed with the
+ * kernel data selector so later trap and interrupt code sees a coherent setup.
+ */
 static void load_gdt(const struct gdtr *gdtr)
 {
 	__asm__ volatile("lgdt (%0)" : : "r"(gdtr) : "memory");
@@ -112,6 +132,13 @@ static void load_tss(void)
 	__asm__ volatile("ltr %0" : : "r"((uint16_t)TSS_SELECTOR) : "memory");
 }
 
+/**
+ * gdt_init() - Build and install the early x86 GDT/TSS.
+ *
+ * The boot CPU starts with firmware-provided descriptor tables. This replaces
+ * them with Tianole-owned ring-0 code/data descriptors and a TSS whose RSP0
+ * points at the boot kernel stack until per-thread or per-CPU stacks exist.
+ */
 void gdt_init(void)
 {
 	struct gdtr gdtr = {

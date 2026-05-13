@@ -3,16 +3,44 @@
 
 #include <stdint.h>
 
+/**
+ * KERNEL_CODE_SELECTOR - Ring-0 64-bit code segment selector.
+ */
 #define KERNEL_CODE_SELECTOR 0x08
+
+/**
+ * KERNEL_DATA_SELECTOR - Ring-0 data segment selector.
+ */
 #define KERNEL_DATA_SELECTOR 0x10
+
+/**
+ * TSS_SELECTOR - Task-state segment selector used for kernel stack metadata.
+ */
 #define TSS_SELECTOR 0x18
 
 #include <arch/traps.h>
 
+/**
+ * gdt_init() - Install the x86 GDT and load the task-state segment.
+ */
 void gdt_init(void);
+
+/**
+ * idt_init() - Install exception and IRQ gates into the x86 IDT.
+ */
 void idt_init(void);
+
+/**
+ * idt_set_gate() - Install one interrupt gate in the x86 IDT.
+ * @vector: IDT vector number.
+ * @handler: Assembly entry point for the vector.
+ */
 void idt_set_gate(uint8_t vector, void (*handler)(void));
 
+/*
+ * CPU exception and IRQ entry stubs implemented in assembly. Each stub builds
+ * a trap_frame and then enters the common C trap dispatcher.
+ */
 void exception_0(void);
 void exception_1(void);
 void exception_2(void);

@@ -22,7 +22,8 @@
 - `kernel-design.md`：顶层内核设计约束。
 - `linux-layout.md`：Linux 顶层目录映射。
 - `tasks/README.md`：agent 任务索引。
-- `tasks/02-cpu-interrupts.md`：下一阶段，GDT/TSS/IDT、异常入口和 trap frame。
+- `tasks/04-time-scheduler.md`：当前阶段，继续收紧调度、wait queue、线程生命周期和 interrupt-exit reschedule。
+- `session-notes/current.md`：当前交接摘要，记录最近完成内容、验证命令和下一步。
 - `../roadmap.md`：总路线和阶段依赖。
 
 当 agent 修改代码且影响下列内容时，应该同步更新这里或 `docs/`：

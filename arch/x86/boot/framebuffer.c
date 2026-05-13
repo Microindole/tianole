@@ -3,6 +3,16 @@
 #include "efi.h"
 #include "framebuffer.h"
 
+/**
+ * boot_capture_framebuffer() - Snapshot the firmware GOP framebuffer mode.
+ * @system_table: UEFI system table used to locate GOP.
+ * @boot_info: Boot handoff structure receiving framebuffer fields.
+ *
+ * The kernel treats framebuffer logging as an optional early console backend.
+ * Failure here should not stop boot as long as serial/debug-port logging works.
+ *
+ * Return: EFI_SUCCESS on success or an EFI error status.
+ */
 efi_status boot_capture_framebuffer(
 	efi_system_table_t *system_table, boot_info_t *boot_info)
 {

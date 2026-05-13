@@ -1,5 +1,16 @@
 #include "memory_map.h"
 
+/**
+ * fetch_memory_map() - Fetch a boot-services memory map and map key.
+ * @system_table: UEFI system table providing memory services.
+ * @boot_info: Handoff structure updated with map address, size and key.
+ *
+ * UEFI requires the caller to discover the needed buffer size first. The extra
+ * descriptor slack absorbs small firmware allocations between the size probe
+ * and the second GetMemoryMap() call.
+ *
+ * Return: EFI_SUCCESS on success or an EFI error status.
+ */
 static efi_status fetch_memory_map(
 	efi_system_table_t *system_table, boot_info_t *boot_info)
 {
@@ -49,6 +60,17 @@ static efi_status fetch_memory_map(
 	return EFI_SUCCESS;
 }
 
+/**
+ * boot_exit_services_with_latest_memory_map() - Finalize firmware handoff.
+ * @image_handle: UEFI image handle passed to ExitBootServices().
+ * @system_table: UEFI system table.
+ * @boot_info: Boot handoff structure updated with the final memory map.
+ *
+ * ExitBootServices() can fail if the map key became stale. Retrying with a
+ * freshly fetched map keeps the boot path robust without hiding other errors.
+ *
+ * Return: EFI_SUCCESS on success or an EFI error status.
+ */
 efi_status boot_exit_services_with_latest_memory_map(efi_handle image_handle,
 	efi_system_table_t *system_table,
 	boot_info_t *boot_info)

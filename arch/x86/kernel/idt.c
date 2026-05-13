@@ -5,6 +5,12 @@
 #define IDT_PRESENT 0x80
 #define IDT_INTERRUPT_GATE 0x0e
 
+/**
+ * struct idt_entry - Packed x86_64 interrupt gate descriptor.
+ *
+ * The descriptor stores a 64-bit assembly entry address split across hardware
+ * fields. All current gates use IST 0 and the kernel code selector.
+ */
 struct idt_entry {
 	uint16_t offset_low;
 	uint16_t selector;
@@ -22,11 +28,20 @@ struct idtr {
 
 static struct idt_entry idt[256];
 
+/**
+ * load_idt() - Load the CPU interrupt descriptor table register.
+ * @idtr: Pointer consumed by the LIDT instruction.
+ */
 static void load_idt(const struct idtr *idtr)
 {
 	__asm__ volatile("lidt (%0)" : : "r"(idtr) : "memory");
 }
 
+/**
+ * idt_set_gate() - Install one present ring-0 interrupt gate.
+ * @vector: IDT vector number.
+ * @handler: Assembly entry point that builds a trap_frame.
+ */
 void idt_set_gate(uint8_t vector, void (*handler)(void))
 {
 	uint64_t offset = (uint64_t)(uintptr_t)handler;
@@ -41,6 +56,13 @@ void idt_set_gate(uint8_t vector, void (*handler)(void))
 	entry->reserved = 0;
 }
 
+/**
+ * idt_init() - Install early CPU exception and timer IRQ gates.
+ *
+ * Vectors 0-31 are CPU exceptions. Vector 32 is IRQ0 after PIC remapping and
+ * is enough for the current PIT timer backend. Additional device IRQs should
+ * extend this table through explicit setup rather than ad hoc registration.
+ */
 void idt_init(void)
 {
 	struct idtr idtr = {

@@ -1,6 +1,8 @@
 ARCH_MM_SRCS := \
 	$(ARCH_DIR)/mm/fault.c \
-	$(ARCH_DIR)/mm/page_table.c
+	$(ARCH_DIR)/mm/page_table.c \
+	$(ARCH_DIR)/mm/page_table_boot.c \
+	$(ARCH_DIR)/mm/tlb.c
 
 ARCH_MM_OBJS := \
 	$(patsubst $(ARCH_DIR)/mm/%.c,$(BUILD_DIR)/arch/mm/%.o,$(ARCH_MM_SRCS))

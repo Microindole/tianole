@@ -20,11 +20,22 @@
 #define X86_COM_LCR_8N1 0x03
 #define X86_COM_LSR_THRE 0x20
 
+/**
+ * debug_port_putc() - Emit one byte to QEMU debugcon port 0xe9.
+ * @ch: Byte to write.
+ */
 static void debug_port_putc(char ch)
 {
 	outb(X86_QEMU_DEBUG_PORT, (uint8_t)ch);
 }
 
+/**
+ * serial_putc() - Emit one byte through the legacy COM1 UART.
+ * @ch: Byte to write.
+ *
+ * The bounded polling loop keeps panic-time logging from hanging forever if the
+ * virtual UART stops reporting transmitter readiness.
+ */
 static void serial_putc(char ch)
 {
 	uint32_t timeout;
@@ -39,6 +50,12 @@ static void serial_putc(char ch)
 	outb(X86_COM1_BASE + X86_COM_DATA, (uint8_t)ch);
 }
 
+/**
+ * arch_early_log_init() - Initialize x86 early log backends.
+ * @boot_info: Boot handoff data used to attach the framebuffer backend.
+ *
+ * Serial and debugcon remain available even if no framebuffer was captured.
+ */
 void arch_early_log_init(const boot_info_t *boot_info)
 {
 	outb(X86_COM1_BASE + X86_COM_INTERRUPT_ENABLE, 0x00);
@@ -51,6 +68,10 @@ void arch_early_log_init(const boot_info_t *boot_info)
 	screen_console_init(boot_info);
 }
 
+/**
+ * arch_early_log_putc() - Fan one log byte out to all x86 early consoles.
+ * @ch: Byte emitted by the generic early_log frontend.
+ */
 void arch_early_log_putc(char ch)
 {
 	debug_port_putc(ch);
@@ -58,6 +79,12 @@ void arch_early_log_putc(char ch)
 	screen_console_putc(ch);
 }
 
+/**
+ * arch_halt_forever() - Stop the CPU after a fatal kernel path.
+ *
+ * Interrupts are disabled first so panic does not return to partially updated
+ * scheduler or device state.
+ */
 void arch_halt_forever(void)
 {
 	__asm__ volatile("cli");

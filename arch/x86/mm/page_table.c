@@ -1,40 +1,9 @@
 #include <stdint.h>
 
-#include <tianole/arch.h>
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/mm.h>
 
 #include "page_table.h"
-
-#define ENTRY_COUNT 512
-#define PAGE_MASK 0x000ffffffffff000ull
-#define PAGE_SIZE_FLAG (1ull << 7)
-#define MAX_RESERVED_TABLE_PAGES 4096
-
-static phys_addr_t reserved_table_pages[MAX_RESERVED_TABLE_PAGES];
-static uint64_t reserved_table_page_count;
-static int reserved_table_pages_ready;
-static uint64_t kernel_pml4[ENTRY_COUNT] __attribute__((aligned(PAGE_SIZE)));
-static int page_tables_ready;
-
-static uint64_t *active_pml4(void)
-{
-	uint64_t cr3;
-
-	__asm__ volatile("movq %%cr3, %0" : "=r"(cr3));
-	return (uint64_t *)(uintptr_t)(cr3 & PAGE_MASK);
-}
-
-static void flush_tlb_page(virt_addr_t virt)
-{
-	__asm__ volatile("invlpg (%0)" : : "r"((uintptr_t)virt) : "memory");
-}
-
-static void load_cr3(phys_addr_t root)
-{
-	__asm__ volatile("movq %0, %%cr3" : : "r"(root) : "memory");
-}
 
 static uint64_t table_index(virt_addr_t virt, unsigned int shift)
 {
@@ -53,89 +22,7 @@ static void clear_page(phys_addr_t page)
 
 static uint64_t *entry_table(uint64_t entry)
 {
-	return (uint64_t *)(uintptr_t)(entry & PAGE_MASK);
-}
-
-static void add_reserved_table_page(phys_addr_t page)
-{
-	uint64_t index;
-
-	for (index = 0; index < reserved_table_page_count; index++) {
-		if (reserved_table_pages[index] == page) {
-			return;
-		}
-	}
-
-	if (reserved_table_page_count >= MAX_RESERVED_TABLE_PAGES) {
-		panic("too many active page table pages");
-	}
-
-	reserved_table_pages[reserved_table_page_count++] = page;
-}
-
-static void collect_active_page_tables(void)
-{
-	uint64_t pml4_index;
-	uint64_t pdpt_index;
-	uint64_t pd_index;
-	uint64_t *pml4 = active_pml4();
-
-	add_reserved_table_page((phys_addr_t)(uintptr_t)pml4);
-
-	for (pml4_index = 0; pml4_index < ENTRY_COUNT; pml4_index++) {
-		uint64_t *pdpt;
-
-		if ((pml4[pml4_index] & PAGE_PRESENT) == 0) {
-			continue;
-		}
-
-		add_reserved_table_page(pml4[pml4_index] & PAGE_MASK);
-
-		pdpt = entry_table(pml4[pml4_index]);
-		for (pdpt_index = 0; pdpt_index < ENTRY_COUNT; pdpt_index++) {
-			uint64_t *pd;
-
-			if ((pdpt[pdpt_index] & PAGE_PRESENT) == 0 ||
-				(pdpt[pdpt_index] & PAGE_SIZE_FLAG) != 0) {
-				continue;
-			}
-
-			add_reserved_table_page(pdpt[pdpt_index] & PAGE_MASK);
-
-			pd = entry_table(pdpt[pdpt_index]);
-			for (pd_index = 0; pd_index < ENTRY_COUNT; pd_index++) {
-				if ((pd[pd_index] & PAGE_PRESENT) == 0 ||
-					(pd[pd_index] & PAGE_SIZE_FLAG) != 0) {
-					continue;
-				}
-
-				add_reserved_table_page(
-					pd[pd_index] & PAGE_MASK);
-			}
-		}
-	}
-}
-
-int arch_page_table_uses_page(uint64_t page)
-{
-	uint64_t index;
-
-	if ((page & (PAGE_SIZE - 1)) != 0) {
-		return 0;
-	}
-
-	if (reserved_table_pages_ready == 0) {
-		collect_active_page_tables();
-		reserved_table_pages_ready = 1;
-	}
-
-	for (index = 0; index < reserved_table_page_count; index++) {
-		if (reserved_table_pages[index] == page) {
-			return 1;
-		}
-	}
-
-	return 0;
+	return (uint64_t *)(uintptr_t)(entry & X86_PAGE_MASK);
 }
 
 static uint64_t make_table_entry(phys_addr_t table)
@@ -143,25 +30,14 @@ static uint64_t make_table_entry(phys_addr_t table)
 	return table | PAGE_PRESENT | PAGE_WRITABLE;
 }
 
-void page_tables_init(void)
-{
-	uint64_t index;
-	uint64_t *firmware_pml4;
-
-	if (page_tables_ready != 0) {
-		return;
-	}
-
-	firmware_pml4 = active_pml4();
-	for (index = 0; index < ENTRY_COUNT; index++) {
-		kernel_pml4[index] = firmware_pml4[index];
-	}
-
-	load_cr3((phys_addr_t)(uintptr_t)kernel_pml4);
-	page_tables_ready = 1;
-	early_log_puts("kernel page table root active\n");
-}
-
+/**
+ * ensure_next_table() - Find or allocate the next page-table level.
+ * @table: Current page-table level.
+ * @index: Entry index within @table.
+ * @next: Receives the next-level table address.
+ *
+ * Return: 0 on success or -ENOMEM if a new table page cannot be allocated.
+ */
 static int ensure_next_table(uint64_t *table, uint64_t index, uint64_t **next)
 {
 	phys_addr_t page;
@@ -182,6 +58,15 @@ static int ensure_next_table(uint64_t *table, uint64_t index, uint64_t **next)
 	return 0;
 }
 
+/**
+ * page_entry() - Resolve the leaf PTE for a virtual address.
+ * @virt: Virtual address whose PTE is requested.
+ * @create: Allocate missing intermediate tables when non-zero.
+ * @entry: Receives the leaf PTE address.
+ *
+ * Return: 0 on success, -ENOENT when lookup fails, or -ENOMEM on allocation
+ * failure while @create is non-zero.
+ */
 static int page_entry(virt_addr_t virt, int create, uint64_t **entry)
 {
 	uint64_t *pml4 = active_pml4();
@@ -230,6 +115,15 @@ static int page_entry(virt_addr_t virt, int create, uint64_t **entry)
 	return 0;
 }
 
+/**
+ * map_page() - Map one 4 KiB virtual page to a physical page.
+ * @virt: Page-aligned virtual address.
+ * @phys: Page-aligned physical address.
+ * @flags: Architecture PTE flags supplied by the caller.
+ *
+ * Return: 0 on success, -EINVAL for unaligned input, -EEXIST if already
+ * mapped, or another negative errno from page-table allocation.
+ */
 int map_page(virt_addr_t virt, phys_addr_t phys, uint64_t flags)
 {
 	uint64_t *entry;
@@ -248,11 +142,17 @@ int map_page(virt_addr_t virt, phys_addr_t phys, uint64_t flags)
 		return -EEXIST;
 	}
 
-	*entry = (phys & PAGE_MASK) | flags | PAGE_PRESENT;
+	*entry = (phys & X86_PAGE_MASK) | flags | PAGE_PRESENT;
 	flush_tlb_page(virt);
 	return 0;
 }
 
+/**
+ * unmap_page() - Remove one 4 KiB mapping from the active page tables.
+ * @virt: Page-aligned virtual address.
+ *
+ * Return: 0 on success, -EINVAL for unaligned input, or -ENOENT if unmapped.
+ */
 int unmap_page(virt_addr_t virt)
 {
 	uint64_t *entry;
@@ -272,6 +172,14 @@ int unmap_page(virt_addr_t virt)
 	return 0;
 }
 
+/**
+ * virt_to_phys() - Translate a mapped virtual address to physical address.
+ * @virt: Virtual address to translate.
+ * @phys: Receives the translated physical address including page offset.
+ *
+ * Return: 0 on success, -EINVAL for invalid output storage, or -ENOENT if the
+ * virtual address is not mapped.
+ */
 int virt_to_phys(virt_addr_t virt, phys_addr_t *phys)
 {
 	uint64_t *entry;
@@ -286,6 +194,6 @@ int virt_to_phys(virt_addr_t virt, phys_addr_t *phys)
 		return -ENOENT;
 	}
 
-	*phys = (*entry & PAGE_MASK) | (virt & (PAGE_SIZE - 1));
+	*phys = (*entry & X86_PAGE_MASK) | (virt & (PAGE_SIZE - 1));
 	return 0;
 }

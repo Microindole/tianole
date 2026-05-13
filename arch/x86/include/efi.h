@@ -39,6 +39,12 @@ typedef uint64_t efi_physical_address_t;
 #define EFIAPI
 #endif
 
+/**
+ * struct efi_guid_t - UEFI globally unique identifier layout.
+ *
+ * The field order matches the UEFI ABI exactly and is used when locating
+ * firmware protocols such as Simple File System, Loaded Image and GOP.
+ */
 typedef struct {
 	uint32_t data1;
 	uint16_t data2;
@@ -46,6 +52,9 @@ typedef struct {
 	uint8_t data4[8];
 } efi_guid_t;
 
+/**
+ * struct efi_table_header_t - Header prefix shared by UEFI tables.
+ */
 typedef struct {
 	uint64_t signature;
 	uint32_t revision;
@@ -81,6 +90,12 @@ typedef struct {
 	efi_char16_t file_name[1];
 } efi_file_info_t;
 
+/**
+ * struct efi_file_protocol - Minimal UEFI file protocol used by boot I/O.
+ *
+ * Only the methods needed to open, size and read the kernel image are typed.
+ * Unused callbacks stay as opaque pointers to preserve table layout.
+ */
 struct efi_file_protocol {
 	uint64_t revision;
 	efi_status(EFIAPI *open)(efi_file_protocol_t *self,
@@ -110,6 +125,12 @@ struct efi_simple_file_system_protocol {
 		efi_file_protocol_t **root);
 };
 
+/**
+ * struct efi_loaded_image_protocol - UEFI metadata for the running loader.
+ *
+ * Tianole uses the device handle from this protocol to find the filesystem that
+ * contains `kernel.elf`.
+ */
 struct efi_loaded_image_protocol {
 	uint32_t revision;
 	efi_handle parent_handle;
@@ -126,6 +147,12 @@ struct efi_loaded_image_protocol {
 	void *unload;
 };
 
+/**
+ * struct efi_graphics_output_mode_information_t - GOP visible mode data.
+ *
+ * The bootloader copies these fields into boot_info so the kernel can attach a
+ * framebuffer early console after ExitBootServices().
+ */
 typedef struct {
 	uint32_t version;
 	uint32_t horizontal_resolution;
@@ -151,6 +178,13 @@ struct efi_graphics_output_protocol {
 	efi_graphics_output_protocol_mode_t *mode;
 };
 
+/**
+ * struct efi_boot_services - UEFI boot-services table subset.
+ *
+ * Function pointer order must match the firmware ABI. Only services used by
+ * the bootloader are typed; other entries remain opaque placeholders so later
+ * fields keep their specified offsets.
+ */
 struct efi_boot_services {
 	efi_table_header_t hdr;
 	void *raise_tpl;
@@ -204,6 +238,9 @@ struct efi_boot_services {
 		efi_guid_t *protocol, void *registration, void **interface);
 };
 
+/**
+ * struct efi_system_table - UEFI system table subset used by Tianole boot.
+ */
 struct efi_system_table {
 	efi_table_header_t hdr;
 	efi_char16_t *firmware_vendor;
@@ -220,6 +257,9 @@ struct efi_system_table {
 	void *configuration_table;
 };
 
+/**
+ * efi_file_info_guid() - Return the EFI_FILE_INFO protocol GUID.
+ */
 static inline efi_guid_t efi_file_info_guid(void)
 {
 	return (efi_guid_t){
@@ -230,6 +270,9 @@ static inline efi_guid_t efi_file_info_guid(void)
 	};
 }
 
+/**
+ * efi_simple_file_system_protocol_guid() - Return Simple File System GUID.
+ */
 static inline efi_guid_t efi_simple_file_system_protocol_guid(void)
 {
 	return (efi_guid_t){
@@ -240,6 +283,9 @@ static inline efi_guid_t efi_simple_file_system_protocol_guid(void)
 	};
 }
 
+/**
+ * efi_loaded_image_protocol_guid() - Return Loaded Image Protocol GUID.
+ */
 static inline efi_guid_t efi_loaded_image_protocol_guid(void)
 {
 	return (efi_guid_t){
@@ -250,6 +296,9 @@ static inline efi_guid_t efi_loaded_image_protocol_guid(void)
 	};
 }
 
+/**
+ * efi_graphics_output_protocol_guid() - Return Graphics Output Protocol GUID.
+ */
 static inline efi_guid_t efi_graphics_output_protocol_guid(void)
 {
 	return (efi_guid_t){

@@ -25,6 +25,16 @@ static void mem_zero(void *dst, uint64_t size)
 	}
 }
 
+/**
+ * validate_kernel_elf() - Check that the image matches the boot ABI.
+ * @ehdr: ELF header at the start of the kernel image.
+ *
+ * The loader accepts only the single kernel format the linker script emits.
+ * Keeping this strict prevents partially loading an image whose segments or
+ * entry ABI do not match the early x86 kernel.
+ *
+ * Return: EFI_SUCCESS when the header is usable, EFI_LOAD_ERROR otherwise.
+ */
 static efi_status validate_kernel_elf(const elf64_ehdr_t *ehdr)
 {
 	if (*(const uint32_t *)ehdr->ident != ELF_MAGIC) {
@@ -46,6 +56,20 @@ static efi_status validate_kernel_elf(const elf64_ehdr_t *ehdr)
 	return EFI_SUCCESS;
 }
 
+/**
+ * boot_load_kernel_elf() - Allocate and copy all loadable kernel segments.
+ * @system_table: UEFI system table used for AllocatePages().
+ * @kernel_image: Complete ELF file image loaded from the boot volume.
+ * @kernel_size: Size of @kernel_image in bytes.
+ * @entry_out: Receives the kernel entry point on success.
+ *
+ * PT_LOAD segments are allocated at the physical addresses chosen by the
+ * kernel linker script, zero-filled to p_memsz, and then populated from the
+ * file bytes. The kernel runs before virtual memory ownership is rebuilt, so
+ * the physical addresses here are part of the boot contract.
+ *
+ * Return: EFI_SUCCESS on success or an EFI error status.
+ */
 efi_status boot_load_kernel_elf(efi_system_table_t *system_table,
 	const void *kernel_image,
 	uint64_t kernel_size,

@@ -29,6 +29,14 @@
 #define IRQ_TIMER 0u
 #define IRQ_COUNT 16u
 
+/**
+ * struct irq_action - Registered external IRQ callback.
+ * @handler: Short interrupt handler called from the trap path.
+ * @data: Opaque handler argument.
+ *
+ * Handlers run with normal kernel scheduling unavailable. They must do minimal
+ * work, avoid sleeping, and defer policy to thread context where possible.
+ */
 struct irq_action {
 	irq_handler_t handler;
 	void *data;
@@ -36,6 +44,13 @@ struct irq_action {
 
 static struct irq_action irq_actions[IRQ_COUNT];
 
+/**
+ * pic_remap() - Move legacy PIC IRQs away from CPU exception vectors.
+ *
+ * PC firmware commonly starts the 8259 PIC at vectors 0-15, which conflict
+ * with architectural exceptions. Tianole remaps IRQ0-15 to vectors 32-47 so
+ * trap dispatch can distinguish hardware interrupts from CPU faults.
+ */
 static void pic_remap(void)
 {
 	outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
@@ -59,12 +74,25 @@ static void pic_remap(void)
 	io_wait();
 }
 
+/**
+ * pic_mask_all_except_timer() - Keep only PIT IRQ0 unmasked for now.
+ *
+ * Until device drivers have a registration and masking policy, unexpected
+ * legacy IRQ lines stay masked so they cannot flood early boot.
+ */
 static void pic_mask_all_except_timer(void)
 {
 	outb(PIC1_DATA, 0xfe);
 	outb(PIC2_DATA, 0xff);
 }
 
+/**
+ * pic_send_eoi() - Acknowledge a handled legacy PIC interrupt.
+ * @irq: IRQ number in the remapped 0-15 PIC range.
+ *
+ * Slave PIC interrupts must be acknowledged on both controllers; master-only
+ * IRQs need only the master EOI.
+ */
 static void pic_send_eoi(uint8_t irq)
 {
 	if (irq >= 8) {
@@ -74,6 +102,12 @@ static void pic_send_eoi(uint8_t irq)
 	outb(PIC1_COMMAND, PIC_EOI);
 }
 
+/**
+ * pit_init() - Program PIT channel 0 as the initial periodic timer.
+ *
+ * PIT is only the first x86 timer backend. The generic scheduler sees ticks
+ * through `timer_tick()` and should not depend on PIT details.
+ */
 static void pit_init(void)
 {
 	uint16_t divisor = (uint16_t)(PIT_FREQUENCY / PIT_TARGET_HZ);
@@ -83,6 +117,11 @@ static void pit_init(void)
 	outb(PIT_CHANNEL0, (uint8_t)(divisor >> 8));
 }
 
+/**
+ * arch_irq_save() - Disable local interrupts and return previous RFLAGS.
+ *
+ * Return: Saved RFLAGS value for arch_irq_restore().
+ */
 uint64_t arch_irq_save(void)
 {
 	uint64_t flags;
@@ -91,6 +130,10 @@ uint64_t arch_irq_save(void)
 	return flags;
 }
 
+/**
+ * arch_irq_restore() - Restore local interrupt enable state from RFLAGS.
+ * @flags: RFLAGS value returned by arch_irq_save().
+ */
 void arch_irq_restore(uint64_t flags)
 {
 	if ((flags & (1ull << 9)) != 0) {
@@ -98,6 +141,14 @@ void arch_irq_restore(uint64_t flags)
 	}
 }
 
+/**
+ * irq_register() - Register one legacy PIC IRQ handler.
+ * @irq: IRQ number in the 0-15 PIC range.
+ * @handler: Callback run from interrupt context.
+ * @data: Opaque callback data.
+ *
+ * Return: 0 on success, -EINVAL for invalid input, or -EBUSY if occupied.
+ */
 int irq_register(uint8_t irq, irq_handler_t handler, void *data)
 {
 	uint64_t flags;
@@ -128,6 +179,13 @@ static void timer_irq_handler(uint8_t irq, void *data)
 	timer_tick();
 }
 
+/**
+ * handle_irq() - Dispatch a remapped external IRQ from trap context.
+ * @frame: Trap frame whose vector lies in the IRQ range.
+ *
+ * The handler sends EOI only after a registered callback returns. Unregistered
+ * interrupts are logged and acknowledged so the PIC line does not remain stuck.
+ */
 void handle_irq(struct trap_frame *frame)
 {
 	uint64_t irq = frame->vector - IRQ_BASE;
@@ -148,6 +206,13 @@ void handle_irq(struct trap_frame *frame)
 	pic_send_eoi((uint8_t)irq);
 }
 
+/**
+ * arch_timer_init() - Bring up the first x86 periodic timer source.
+ *
+ * This initializes the legacy PIC/PIT path, registers IRQ0, then enables local
+ * interrupts. Later APIC or HPET support should replace this backend without
+ * changing scheduler policy.
+ */
 void arch_timer_init(void)
 {
 	pic_remap();
