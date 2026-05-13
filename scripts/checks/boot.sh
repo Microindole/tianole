@@ -26,6 +26,10 @@ check_lines build/debug.log \
 	"scheduler initialized" \
 	"kernel thread selftest ok" \
 	"workqueue initialized" \
+	"input initialized" \
+	"ps2 keyboard initialized" \
+	"input console initialized" \
+	"monitor initialized" \
 	"workqueue selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \
@@ -71,6 +75,10 @@ check_lines build/serial.log \
 	"scheduler initialized" \
 	"kernel thread selftest ok" \
 	"workqueue initialized" \
+	"input initialized" \
+	"ps2 keyboard initialized" \
+	"input console initialized" \
+	"monitor initialized" \
 	"workqueue selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \

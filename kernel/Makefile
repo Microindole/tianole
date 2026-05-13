@@ -3,6 +3,8 @@ KERNEL_SRCS := \
 	kernel/boot_report.c \
 	kernel/early_log.c \
 	kernel/workqueue.c \
+	kernel/console/input_console.c \
+	kernel/monitor/monitor.c \
 	kernel/locking/spinlock.c \
 	kernel/sched/core.c \
 	kernel/sched/idle.c \
@@ -16,4 +18,5 @@ KERNEL_OBJS := \
 	$(ARCH_KERNEL_OBJS) \
 	$(ARCH_MM_OBJS) \
 	$(patsubst kernel/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS)) \
+	$(DRIVER_OBJS) \
 	$(MM_OBJS)

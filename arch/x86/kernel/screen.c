@@ -12,6 +12,7 @@
 #define PIXEL_FORMAT_RGB 0u
 #define PIXEL_FORMAT_BGR 1u
 
+#define ASCII_BS 8
 #define ASCII_CR 13
 #define ASCII_LF 10
 
@@ -147,6 +148,16 @@ static void newline(void)
 	cursor_y = rows - 1;
 }
 
+static void backspace(void)
+{
+	if (cursor_x == 0) {
+		return;
+	}
+
+	cursor_x--;
+	clear_cell(cursor_x, cursor_y);
+}
+
 /**
  * screen_console_init() - Attach early logging to the GOP framebuffer.
  * @boot_info: Boot handoff data captured before ExitBootServices().
@@ -194,6 +205,11 @@ void screen_console_putc(char ch)
 	}
 
 	if (ch == ASCII_CR) {
+		return;
+	}
+
+	if (ch == ASCII_BS) {
+		backspace();
 		return;
 	}
 

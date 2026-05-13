@@ -1,9 +1,13 @@
 #include <stdint.h>
 
 #include <tianole/arch.h>
+#include <tianole/console.h>
 #include <tianole/early_log.h>
+#include <tianole/input.h>
 #include <tianole/kernel_init.h>
+#include <tianole/keyboard.h>
 #include <tianole/mm.h>
+#include <tianole/monitor.h>
 #include <tianole/sched.h>
 #include <tianole/workqueue.h>
 
@@ -16,6 +20,8 @@ void kernel_main(const boot_info_t *boot_info)
 	mm_init(boot_info);
 	sched_init();
 	workqueue_init();
+	input_init();
+	ps2_keyboard_init();
 	arch_timer_init();
 
 #if KERNEL_TEST_TRAP
@@ -29,6 +35,8 @@ void kernel_main(const boot_info_t *boot_info)
 	if (workqueue_start() != 0) {
 		panic("workqueue start failed");
 	}
+	input_console_init();
+	monitor_init();
 
 	sched_start();
 }

@@ -27,6 +27,16 @@
 #define EEXIST 17
 
 /**
+ * EAGAIN - Resource is temporarily unavailable.
+ */
+#define EAGAIN 11
+
+/**
+ * ENOSPC - No space left in a fixed-size resource.
+ */
+#define ENOSPC 28
+
+/**
  * ETIMEDOUT - Operation timed out.
  */
 #define ETIMEDOUT 110

@@ -24,6 +24,7 @@ include $(ARCH_DIR)/boot/Makefile
 include $(ARCH_DIR)/kernel/Makefile
 include $(ARCH_DIR)/mm/Makefile
 include mm/Makefile
+include drivers/Makefile
 include kernel/Makefile
 
 .PHONY: all clean dirs run run-headless
@@ -31,7 +32,7 @@ include kernel/Makefile
 all: $(BOOT_EFI) $(KERNEL_ELF)
 
 dirs:
-	mkdir -p $(BUILD_DIR)/arch/boot $(BUILD_DIR)/arch/kernel $(BUILD_DIR)/arch/mm $(BUILD_DIR)/kernel $(BUILD_DIR)/kernel/locking $(BUILD_DIR)/kernel/sched $(BUILD_DIR)/kernel/selftest $(BUILD_DIR)/kernel/time $(BUILD_DIR)/mm $(EFI_DIR)
+	mkdir -p $(BUILD_DIR)/arch/boot $(BUILD_DIR)/arch/kernel $(BUILD_DIR)/arch/mm $(BUILD_DIR)/kernel $(BUILD_DIR)/kernel/console $(BUILD_DIR)/kernel/monitor $(BUILD_DIR)/kernel/locking $(BUILD_DIR)/kernel/sched $(BUILD_DIR)/kernel/selftest $(BUILD_DIR)/kernel/time $(BUILD_DIR)/drivers/input $(BUILD_DIR)/drivers/input/keyboard $(BUILD_DIR)/mm $(EFI_DIR)
 
 $(BUILD_DIR)/arch/boot/%.obj: $(ARCH_DIR)/boot/%.c $(ARCH_DIR)/include/efi.h $(ARCH_DIR)/boot/debug_log.h include/tianole/boot_info.h include/tianole/elf.h | dirs
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -53,6 +54,10 @@ $(BUILD_DIR)/arch/mm/%.o: $(ARCH_DIR)/mm/%.c include/tianole/early_log.h include
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h include/tianole/arch.h include/tianole/early_log.h include/tianole/mm.h | dirs
+	mkdir -p $(@D)
+	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/drivers/%.o: drivers/%.c include/tianole/input.h include/tianole/sched.h include/tianole/workqueue.h | dirs
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 

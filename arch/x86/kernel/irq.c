@@ -27,6 +27,7 @@
 
 #define IRQ_BASE 32u
 #define IRQ_TIMER 0u
+#define IRQ_KEYBOARD 1u
 #define IRQ_COUNT 16u
 
 /**
@@ -75,14 +76,14 @@ static void pic_remap(void)
 }
 
 /**
- * pic_mask_all_except_timer() - Keep only PIT IRQ0 unmasked for now.
+ * pic_mask_initial_irqs() - Unmask early IRQ lines used during boot.
  *
- * Until device drivers have a registration and masking policy, unexpected
- * legacy IRQ lines stay masked so they cannot flood early boot.
+ * Timer IRQ0 drives scheduling, and keyboard IRQ1 feeds the early input
+ * pipeline. Other legacy IRQ lines stay masked until their drivers exist.
  */
-static void pic_mask_all_except_timer(void)
+static void pic_mask_initial_irqs(void)
 {
-	outb(PIC1_DATA, 0xfe);
+	outb(PIC1_DATA, (uint8_t) ~((1u << IRQ_TIMER) | (1u << IRQ_KEYBOARD)));
 	outb(PIC2_DATA, 0xff);
 }
 
@@ -216,7 +217,7 @@ void handle_irq(struct trap_frame *frame)
 void arch_timer_init(void)
 {
 	pic_remap();
-	pic_mask_all_except_timer();
+	pic_mask_initial_irqs();
 	if (irq_register(IRQ_TIMER, timer_irq_handler, 0) != 0) {
 		panic("timer irq registration failed");
 	}
