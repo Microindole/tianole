@@ -136,10 +136,18 @@ void sched_start(void) __attribute__((noreturn));
 void sched_tick(uint64_t tick);
 
 /**
+ * sched_irq_enter() - Mark entry into external IRQ dispatch.
+ *
+ * IRQ handlers are non-sleeping context. The scheduler tracks this nesting so
+ * accidental blocking or direct context switches from handlers can be caught.
+ */
+void sched_irq_enter(void);
+
+/**
  * sched_irq_exit() - Consume pending reschedule work after IRQ handling.
  *
- * Keeps timer IRQ handling short by moving the actual scheduling decision to
- * a common interrupt-exit boundary.
+ * Keeps timer IRQ handling short by moving the actual scheduling decision to a
+ * common outermost interrupt-exit boundary.
  */
 void sched_irq_exit(void);
 

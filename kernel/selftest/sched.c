@@ -92,8 +92,33 @@ void sched_selftest(void)
 		panic("kernel thread selftest run queue failed");
 	}
 
+	if (spinlock_held_count() != 0) {
+		panic("spinlock depth selftest initial state failed");
+	}
+
 	spin_lock_irqsave(&test_lock, &flags);
+	if (spinlock_held_count() != 1) {
+		panic("spinlock depth selftest acquire failed");
+	}
 	spin_unlock_irqrestore(&test_lock, flags);
+
+	if (spinlock_held_count() != 0) {
+		panic("spinlock depth selftest release failed");
+	}
+
+	if (irq_depth != 0) {
+		panic("irq depth selftest initial state failed");
+	}
+
+	sched_irq_enter();
+	if (irq_depth != 1) {
+		panic("irq depth selftest enter failed");
+	}
+	sched_irq_exit();
+
+	if (irq_depth != 0) {
+		panic("irq depth selftest exit failed");
+	}
 
 	wait_queue_init(&test_wait_queue);
 	if (wait_queue_wait(0, selftest_condition_false, 0) != -EINVAL) {

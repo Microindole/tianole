@@ -2,6 +2,7 @@ KERNEL_SRCS := \
 	kernel/main.c \
 	kernel/boot_report.c \
 	kernel/early_log.c \
+	kernel/workqueue.c \
 	kernel/locking/spinlock.c \
 	kernel/sched/core.c \
 	kernel/sched/idle.c \

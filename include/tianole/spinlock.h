@@ -41,4 +41,15 @@ void spin_lock_irqsave(struct spinlock *lock, uint64_t *flags);
  */
 void spin_unlock_irqrestore(struct spinlock *lock, uint64_t flags);
 
+/**
+ * spinlock_held_count() - Return the current CPU spinlock nesting count.
+ *
+ * This is an early single-CPU scheduling guard, similar in spirit to the
+ * lock/preempt state Linux uses before allowing a blocking operation. Code
+ * that can sleep or context switch must only run when this count is zero.
+ *
+ * Return: Number of interrupt-safe spinlocks held by the current CPU.
+ */
+int spinlock_held_count(void);
+
 #endif

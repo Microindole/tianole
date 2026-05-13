@@ -154,6 +154,8 @@ void wait_queue_sleep(struct wait_queue *queue)
 		return;
 	}
 
+	sched_assert_can_switch();
+
 	spin_lock_irqsave(&queue->lock, &flags);
 	wait_queue_enqueue_locked(queue, current_thread);
 	thread_set_waiting(current_thread);
@@ -179,6 +181,8 @@ int wait_queue_wait(
 	if (queue == 0 || condition == 0 || current_thread == 0) {
 		return -EINVAL;
 	}
+
+	sched_assert_can_switch();
 
 	for (;;) {
 		spin_lock_irqsave(&queue->lock, &flags);
@@ -210,6 +214,8 @@ int wait_queue_wait_timeout(struct wait_queue *queue,
 	if (queue == 0 || condition == 0 || current_thread == 0) {
 		return -EINVAL;
 	}
+
+	sched_assert_can_switch();
 
 	if (condition(arg) != 0) {
 		return 0;

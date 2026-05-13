@@ -15,8 +15,24 @@ extern uint64_t next_thread_id;
 extern int scheduler_ready;
 extern int schedule_locked;
 extern int need_resched;
+extern int irq_depth;
 extern struct thread *idle_thread;
 extern struct spinlock scheduler_lock;
+
+static inline void sched_assert_can_switch(void)
+{
+	if (schedule_locked != 0) {
+		panic("scheduler reentry while switch locked");
+	}
+
+	if (spinlock_held_count() != 0) {
+		panic("scheduler called while spinlock held");
+	}
+
+	if (irq_depth != 0) {
+		panic("scheduler called from irq context");
+	}
+}
 
 static inline int thread_is_ready(const struct thread *thread)
 {

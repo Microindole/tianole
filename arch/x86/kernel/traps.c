@@ -78,6 +78,7 @@ void trap_dispatch(struct trap_frame *frame)
 	const char *name = "unknown exception";
 
 	if (vector >= 32 && vector < 48) {
+		sched_irq_enter();
 		handle_irq(frame);
 		sched_irq_exit();
 		return;

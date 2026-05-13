@@ -25,6 +25,8 @@ check_lines build/debug.log \
 	"kernel heap selftest ok" \
 	"scheduler initialized" \
 	"kernel thread selftest ok" \
+	"workqueue initialized" \
+	"workqueue selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \
 	"preempt thread 1 step=1" \
@@ -68,6 +70,8 @@ check_lines build/serial.log \
 	"kernel heap selftest ok" \
 	"scheduler initialized" \
 	"kernel thread selftest ok" \
+	"workqueue initialized" \
+	"workqueue selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \
 	"preempt thread 1 step=1" \

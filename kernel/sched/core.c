@@ -16,6 +16,7 @@ uint64_t next_thread_id = 1;
 int scheduler_ready;
 int schedule_locked;
 int need_resched;
+int irq_depth;
 struct thread *idle_thread;
 struct spinlock scheduler_lock = SPINLOCK_INITIALIZER;
 
@@ -80,9 +81,7 @@ void sched_yield(void)
 	struct thread *prev;
 	struct thread *next;
 
-	if (schedule_locked != 0) {
-		return;
-	}
+	sched_assert_can_switch();
 
 	sched_reap_dead_threads();
 
@@ -120,8 +119,37 @@ void sched_tick(uint64_t tick)
 	}
 }
 
+/**
+ * sched_irq_enter() - Enter external IRQ context.
+ *
+ * This is the scheduler side of the trap boundary. Handlers may request a
+ * reschedule, but normal blocking paths remain forbidden until the matching
+ * outermost sched_irq_exit() has left IRQ context.
+ */
+void sched_irq_enter(void)
+{
+	irq_depth++;
+}
+
+/**
+ * sched_irq_exit() - Leave external IRQ context and run pending reschedule.
+ *
+ * Only the outermost IRQ exit may consume need_resched. The IRQ nesting count
+ * is dropped before switching so the next thread runs in normal thread
+ * context, while direct scheduling from inside an IRQ handler still trips the
+ * scheduler context assertion.
+ */
 void sched_irq_exit(void)
 {
+	if (irq_depth <= 0) {
+		panic("scheduler irq exit without irq entry");
+	}
+
+	irq_depth--;
+	if (irq_depth != 0) {
+		return;
+	}
+
 	if (need_resched == 0 || current_thread == 0 || schedule_locked != 0) {
 		return;
 	}
@@ -137,6 +165,8 @@ void sched_sleep(uint64_t ticks)
 	if (current_thread == 0 || ticks == 0) {
 		return;
 	}
+
+	sched_assert_can_switch();
 
 	now = timer_ticks();
 	thread_set_sleeping(current_thread, now + ticks);
