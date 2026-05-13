@@ -1,74 +1,35 @@
 # Agent 任务索引
 
-这个目录保存适合 agent 分阶段执行的任务说明。每个任务文档都应该说明：
+这里记录当前阶段和下一步。细节放在各阶段文档里，不在索引里重复展开。
 
-- 目标
-- 前置条件
-- 建议目录边界
-- 非玩具化约束
-- 验收方式
+## 阶段顺序
 
-当前推荐顺序：
+1. `01-early-debug.md`：early log、panic、调试输出。
+2. `02-cpu-interrupts.md`：GDT、TSS、IDT、异常和 IRQ 入口。
+3. `03-memory.md`：物理页、页表、内核堆。
+4. `04-time-scheduler.md`：timer、kernel thread、调度、wait queue。
+5. `05-input-events.md`：input event、键盘、console 输入。
+6. `06-storage-vfs.md`：块层、缓存、VFS、文件系统。
+7. `07-user-mode.md`：syscall、用户态、进程、ELF 加载。
+8. `08-shell-tools.md`：init、用户态 shell、基础工具。
+9. `09-driver-expansion.md`：PCI、ACPI、更多设备驱动。
+10. `10-real-machine.md`：真机启动和硬件差异处理。
 
-1. `01-early-debug.md`：串口、panic、早期日志。
-2. `02-cpu-interrupts.md`：CPU 基础、GDT、IDT、异常、中断入口。
-3. `03-memory.md`：物理页分配、虚拟内存、内核堆。
-4. `04-time-scheduler.md`：时钟、内核线程、调度与等待。
-5. `05-input-events.md`：键盘输入、事件队列、终端输入模型。
-6. `06-storage-vfs.md`：块设备、页缓存、VFS、基础文件系统。
-7. `07-user-mode.md`：用户态、系统调用、进程、ELF 程序加载。
-8. `08-shell-tools.md`：init、shell、调试命令、最小工具集。
-9. `09-driver-expansion.md`：PCI/ACPI/更完整设备驱动，音频等后期设备。
-10. `10-real-machine.md`：真机启动、安全验证、硬件差异处理。
-
-## 当前进度
+## 当前状态
 
 | 阶段 | 状态 | 说明 |
 | --- | --- | --- |
-| `01-early-debug.md` | 基础完成 | 已有 early log 前端、QEMU debug port、COM1 串口和最小 `panic()`。 |
-| `02-cpu-interrupts.md` | 基础完成，需尽早重构 | 已有 GDT/TSS/IDT、exception vector 0-31、IRQ0/IRQ1 入口、`trap_frame` 和异常回归测试；IDT/trap 入口仍有硬编码，继续扩展前应表驱动化。 |
-| `03-memory.md` | 基础完成 | 已有最小物理页 allocator、页表 map/unmap/query、page fault 诊断和内核堆。 |
-| `04-time-scheduler.md` | 进行中 | 已有 PIT timer interrupt、通用 tick、kernel thread、内核栈、上下文切换、timer 驱动 round-robin、sleep、wait queue、条件等待、timeout 等待、基础 interrupt-safe lock、IRQ exit reschedule 和最小 DEAD 回收；下一步要收紧 wait queue 锁语义、线程生命周期和 trap-frame aware interrupt-exit reschedule。 |
-| `05-input-events.md` | 进行中 | 已有 input event queue、PS/2 keyboard、input console line queue 和临时 kernel kdb；kdb 只算 early debug/kdb 雏形，不是正式 shell/tty。 |
-| `06-storage-vfs.md` | 未开始 | 需要块层、缓存、VFS 和基础文件系统。 |
-| `07-user-mode.md` | 未开始 | 需要 syscall、进程、用户地址空间和 ELF 加载。 |
-| `08-shell-tools.md` | 未开始 | 需要 init、shell、最小用户态工具和 libc 基础；当前 kernel kdb 只是临时调试设施，不计入用户态 shell 完成度。 |
-| `09-driver-expansion.md` | 未开始 | 需要设备模型、PCI/ACPI、存储、网络等驱动扩展。 |
-| `10-real-machine.md` | 未开始 | 需要 U 盘真机启动验证和硬件差异记录。 |
+| `01-early-debug.md` | 基础完成 | early log、COM1、QEMU debug port、panic 已有。 |
+| `02-cpu-interrupts.md` | 进行中 | 已有 GDT/TSS/IDT、trap frame、IRQ0/IRQ1；入口已开始表驱动化，后续补 gate/DPL/IST。 |
+| `03-memory.md` | 基础完成 | 已有物理页分配、页表、page fault 诊断、内核堆。 |
+| `04-time-scheduler.md` | 进行中 | 已有 PIT、kernel thread、基础调度、sleep、wait queue、workqueue。 |
+| `05-input-events.md` | 进行中 | 已有 input event、PS/2 keyboard、input console、临时 early kdb。 |
+| `06-storage-vfs.md` | 未开始 | 后续做块层和 VFS。 |
+| `07-user-mode.md` | 未开始 | 后续做 syscall、用户态和进程。 |
+| `08-shell-tools.md` | 未开始 | 当前 kdb 不是正式 shell。 |
 
-当前最合适的下一步是先偿还 `02-cpu-interrupts.md` 的 IDT/trap 硬编码债：把 vector 元数据、入口类型和异常处理函数表驱动化。之后继续完善 `05-input-events.md` 的 tty/line discipline 边界，并把临时 `kdb` 收敛为 early debug/kdb，而不是把它扩展成正式 shell。
+## 下一步
 
-## Linux 级能力缺口路由
+优先继续 `02-cpu-interrupts.md`：把 x86 vector 表补上 gate type、DPL、IST，并为 double fault 独立栈预留结构。
 
-这些能力不一定马上实现，但必须在路线中占位，避免后续走偏。
-
-- 硬件发现、平台层、总线、资源分配：`09-driver-expansion.md`
-- ACPI、Device Tree、PCI、USB、IRQ routing：`09-driver-expansion.md`
-- NUMA、CPU topology、电源管理、热插拔：`09-driver-expansion.md`
-- 内核对象生命周期、引用计数、资源释放：`04-time-scheduler.md`、`06-storage-vfs.md`、`07-user-mode.md`
-- 锁、等待队列、workqueue、timer、延迟执行：`04-time-scheduler.md`
-- 完整虚拟内存、匿名页、缺页加载、COW、mmap、换页、内存回收：`03-memory.md`、`07-user-mode.md`
-- page cache、block cache、writeback、文件一致性：`06-storage-vfs.md`
-- slab/slub、小对象缓存：`03-memory.md`
-- POSIX syscall、`fork/exec/wait`、`fcntl/stat/chmod`、`errno`、路径语义：`07-user-mode.md`、`08-shell-tools.md`
-- uid/gid、文件权限、进程权限：`07-user-mode.md`、`08-shell-tools.md`
-- signal、pipe、socket、eventfd、futex、共享内存、poll/select、IPC：`07-user-mode.md`
-- tty、session、job control：`05-input-events.md`、`08-shell-tools.md`
-- libc、动态链接、用户空间工具链：`08-shell-tools.md`
-- printk、panic/oops、异常栈、内核符号：`01-early-debug.md`、`02-cpu-interrupts.md`
-- ftrace、perf、procfs、sysfs、debugfs、crash dump：`08-shell-tools.md`、`09-driver-expansion.md`
-- 用户/组、权限、capability、隔离模型：`07-user-mode.md`
-- 网络栈和 socket API：`09-driver-expansion.md`
-
-当前不进入实现队列，但不能遗忘：
-
-- NUMA
-- CPU topology
-- 电源管理
-- 热插拔
-- cgroup/namespace
-- LSM 类安全框架
-- swap
-- 完整 USB 栈
-- 完整图形栈
-- 音频
+然后回到 `05-input-events.md`：把临时 input console 往 tty/terminal 雏形推进。`kdb` 只保留为早期 debug 入口，不当作 shell 继续扩展。

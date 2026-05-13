@@ -1,35 +1,13 @@
 # Agent 文档
 
-这个目录专门放面向 AI / agent 的项目材料，不和内核设计文档混放。
+这里放给 agent 接手项目时看的材料。正式设计文档仍放在 `docs/` 其它位置。
 
-根入口文档在仓库根目录的 `AGENTS.md`。
-
-建议内容：
-
-- `code-style.md`：agent 修改代码时必须遵守的代码组织和风格规则。
-- `kernel-design.md`：顶层内核设计约束，说明子系统边界、调用方向、生命周期和设计变更流程。
-- `linux-layout.md`：Tianole 和 Linux 顶层目录的映射与取舍。
-- `session-notes/`：实现日志和阶段结论。
-- `tasks/`：适合 agent 执行的边界清晰任务，按路线阶段拆分。
-- `prompts/`：可复用提示词和约束。
-- `checklists/`：启动、验证、回归检查单。
-
-正式架构决策仍然放在 `docs/`，然后在 agent 任务文档里引用它们。
-
-当前任务入口：
+常用入口：
 
 - `code-style.md`：代码风格和文件组织规则。
-- `kernel-design.md`：顶层内核设计约束。
-- `linux-layout.md`：Linux 顶层目录映射。
-- `tasks/README.md`：agent 任务索引。
-- `tasks/04-time-scheduler.md`：当前阶段，继续收紧调度、wait queue、线程生命周期和 interrupt-exit reschedule。
-- `session-notes/current.md`：当前交接摘要，记录最近完成内容、验证命令和下一步。
-- `../roadmap.md`：总路线和阶段依赖。
+- `kernel-design.md`：内核分层和设计边界。
+- `linux-layout.md`：Tianole 与 Linux 目录的对应关系。
+- `tasks/README.md`：当前任务阶段和下一步。
+- `session-notes/current.md`：最近完成的内容和交接信息。
 
-当 agent 修改代码且影响下列内容时，应该同步更新这里或 `docs/`：
-
-- 架构边界
-- 目录结构
-- 构建方式
-- 阶段计划
-- 协作约定
+修改架构边界、目录结构、构建方式或阶段计划时，同步更新相关文档。
