@@ -2,6 +2,7 @@ BOOT_SRCS := \
 	$(ARCH_DIR)/boot/main.c \
 	$(ARCH_DIR)/boot/file.c \
 	$(ARCH_DIR)/boot/elf_loader.c \
+	$(ARCH_DIR)/boot/framebuffer.c \
 	$(ARCH_DIR)/boot/memory_map.c \
 	$(ARCH_DIR)/boot/support.c
 

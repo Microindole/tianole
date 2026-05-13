@@ -3,6 +3,8 @@ ARCH_KERNEL_SRCS := \
 	$(ARCH_DIR)/kernel/gdt.c \
 	$(ARCH_DIR)/kernel/idt.c \
 	$(ARCH_DIR)/kernel/irq.c \
+	$(ARCH_DIR)/kernel/screen.c \
+	$(ARCH_DIR)/kernel/screen_font.c \
 	$(ARCH_DIR)/kernel/traps.c
 
 ARCH_KERNEL_OBJS := \

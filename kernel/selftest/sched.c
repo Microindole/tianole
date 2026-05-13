@@ -162,13 +162,17 @@ static void condition_wait_demo_waiter(void *arg)
 
 static void condition_wait_demo_waker(void *arg)
 {
+	uint64_t flags;
+
 	(void)arg;
 
 	early_log_puts("condition waker sleeping\n");
 	sched_sleep(5);
+	wait_queue_lock_irqsave(&condition_wait_queue, &flags);
 	condition_ready = 1;
 	early_log_puts("condition waker wake_all\n");
-	wait_queue_wake_all(&condition_wait_queue);
+	wait_queue_wake_all_locked(&condition_wait_queue);
+	wait_queue_unlock_irqrestore(&condition_wait_queue, flags);
 }
 
 static void timeout_wait_demo_waiter(void *arg)
@@ -209,23 +213,36 @@ static void explicit_exit_demo_thread(void *arg)
 
 void sched_demo_start(void)
 {
-	struct thread *first = kernel_thread_create(
+	struct thread *first;
+	struct thread *second;
+	struct thread *waiter;
+	struct thread *waker;
+	struct thread *condition_waiter;
+	struct thread *condition_waker;
+	struct thread *timeout_waiter;
+	struct thread *return_exit;
+	struct thread *explicit_exit;
+
+	wait_queue_init(&demo_wait_queue);
+	wait_queue_init(&condition_wait_queue);
+	wait_queue_init(&timeout_wait_queue);
+	condition_ready = 0;
+
+	first = kernel_thread_create(
 		"round-robin-a", scheduler_demo_entry, (void *)(uintptr_t)1);
-	struct thread *second = kernel_thread_create(
+	second = kernel_thread_create(
 		"round-robin-b", scheduler_demo_entry, (void *)(uintptr_t)2);
-	struct thread *waiter =
-		kernel_thread_create("waiter", wait_queue_demo_waiter, 0);
-	struct thread *waker =
-		kernel_thread_create("waker", wait_queue_demo_waker, 0);
-	struct thread *condition_waiter = kernel_thread_create(
+	waiter = kernel_thread_create("waiter", wait_queue_demo_waiter, 0);
+	waker = kernel_thread_create("waker", wait_queue_demo_waker, 0);
+	condition_waiter = kernel_thread_create(
 		"condition-waiter", condition_wait_demo_waiter, 0);
-	struct thread *condition_waker = kernel_thread_create(
+	condition_waker = kernel_thread_create(
 		"condition-waker", condition_wait_demo_waker, 0);
-	struct thread *timeout_waiter = kernel_thread_create(
+	timeout_waiter = kernel_thread_create(
 		"timeout-waiter", timeout_wait_demo_waiter, 0);
-	struct thread *return_exit =
+	return_exit =
 		kernel_thread_create("return-exit", return_exit_demo_thread, 0);
-	struct thread *explicit_exit = kernel_thread_create(
+	explicit_exit = kernel_thread_create(
 		"explicit-exit", explicit_exit_demo_thread, 0);
 
 	if (first == 0 || second == 0 || waiter == 0 || waker == 0 ||
@@ -234,10 +251,6 @@ void sched_demo_start(void)
 		panic("scheduler demo thread creation failed");
 	}
 
-	wait_queue_init(&demo_wait_queue);
-	wait_queue_init(&condition_wait_queue);
-	wait_queue_init(&timeout_wait_queue);
-	condition_ready = 0;
 	early_log_puts("scheduler starting\n");
 	sched_yield();
 

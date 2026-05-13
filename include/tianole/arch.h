@@ -3,12 +3,15 @@
 
 #include <stdint.h>
 
+#include <tianole/boot_info.h>
+
 /**
  * arch_early_log_init() - Initialize architecture early log devices.
+ * @boot_info: Bootloader handoff data, or NULL for backend-only setup.
  *
  * Provides the backend setup used by the generic early log front end.
  */
-void arch_early_log_init(void);
+void arch_early_log_init(const boot_info_t *boot_info);
 
 /**
  * arch_early_log_putc() - Emit one character through arch early log devices.

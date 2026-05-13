@@ -91,8 +91,58 @@ static int wait_queue_remove_locked(
 
 static void wait_queue_mark_ready_locked(struct thread *thread)
 {
-	if (thread_is_waiting(thread) || thread_is_sleeping(thread)) {
-		thread_set_ready(thread);
+	if (thread == 0) {
+		return;
+	}
+
+	if (!thread_is_waiting(thread) && !thread_is_sleeping(thread)) {
+		panic("wait queue wakeup found non-waiting thread");
+	}
+
+	thread_set_ready(thread);
+}
+
+void wait_queue_lock_irqsave(struct wait_queue *queue, uint64_t *flags)
+{
+	if (queue == 0 || flags == 0) {
+		return;
+	}
+
+	spin_lock_irqsave(&queue->lock, flags);
+}
+
+void wait_queue_unlock_irqrestore(struct wait_queue *queue, uint64_t flags)
+{
+	if (queue == 0) {
+		return;
+	}
+
+	spin_unlock_irqrestore(&queue->lock, flags);
+}
+
+void wait_queue_wake_one_locked(struct wait_queue *queue)
+{
+	struct thread *thread;
+
+	if (queue == 0) {
+		return;
+	}
+
+	thread = wait_queue_remove_head_locked(queue);
+	wait_queue_mark_ready_locked(thread);
+}
+
+void wait_queue_wake_all_locked(struct wait_queue *queue)
+{
+	struct thread *thread;
+
+	if (queue == 0) {
+		return;
+	}
+
+	while (queue->head != 0) {
+		thread = wait_queue_remove_head_locked(queue);
+		wait_queue_mark_ready_locked(thread);
 	}
 }
 
@@ -200,7 +250,6 @@ int wait_queue_wait_timeout(struct wait_queue *queue,
 
 void wait_queue_wake_one(struct wait_queue *queue)
 {
-	struct thread *thread;
 	uint64_t flags;
 
 	if (queue == 0) {
@@ -208,14 +257,12 @@ void wait_queue_wake_one(struct wait_queue *queue)
 	}
 
 	spin_lock_irqsave(&queue->lock, &flags);
-	thread = wait_queue_remove_head_locked(queue);
-	wait_queue_mark_ready_locked(thread);
+	wait_queue_wake_one_locked(queue);
 	spin_unlock_irqrestore(&queue->lock, flags);
 }
 
 void wait_queue_wake_all(struct wait_queue *queue)
 {
-	struct thread *thread;
 	uint64_t flags;
 
 	if (queue == 0) {
@@ -223,9 +270,6 @@ void wait_queue_wake_all(struct wait_queue *queue)
 	}
 
 	spin_lock_irqsave(&queue->lock, &flags);
-	while (queue->head != 0) {
-		thread = wait_queue_remove_head_locked(queue);
-		wait_queue_mark_ready_locked(thread);
-	}
+	wait_queue_wake_all_locked(queue);
 	spin_unlock_irqrestore(&queue->lock, flags);
 }

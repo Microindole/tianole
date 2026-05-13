@@ -4,6 +4,7 @@
 #include "efi.h"
 #include "elf_loader.h"
 #include "file.h"
+#include "framebuffer.h"
 #include "memory_map.h"
 
 static efi_char16_t boot_banner_text[] = u"Tianole x86 bootloader.\r\n";
@@ -24,6 +25,7 @@ efi_status EFIAPI efi_main(
 	system_table->con_out->output_string(
 		system_table->con_out, boot_banner_text);
 	boot_debug_log_puts("Tianole x86 bootloader loaded.\n");
+	(void)boot_capture_framebuffer(system_table, &boot_info);
 
 	status = boot_read_file(image_handle,
 		system_table,

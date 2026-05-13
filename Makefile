@@ -66,14 +66,14 @@ $(KERNEL_ELF): $(KERNEL_OBJS) $(ARCH_DIR)/kernel/linker.ld | dirs
 $(OVMF_VARS): | dirs
 	cp $(OVMF_VARS_TEMPLATE) $@
 
-run: $(BOOT_EFI) $(OVMF_VARS)
+run: $(BOOT_EFI) $(KERNEL_ELF) $(OVMF_VARS)
 	qemu-system-x86_64 \
 		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
 		-drive if=pflash,format=raw,file=$(OVMF_VARS) \
 		-drive format=raw,file=fat:rw:$(BUILD_DIR)/image \
 		-serial stdio
 
-run-headless: $(BOOT_EFI) $(OVMF_VARS)
+run-headless: $(BOOT_EFI) $(KERNEL_ELF) $(OVMF_VARS)
 	rm -f $(DEBUG_LOG) $(SERIAL_LOG)
 	qemu-system-x86_64 \
 		-display none \

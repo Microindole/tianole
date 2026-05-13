@@ -4,6 +4,8 @@
 
 #include <tianole/arch.h>
 
+#include "screen.h"
+
 #define X86_QEMU_DEBUG_PORT 0xe9
 
 #define X86_COM1_BASE 0x3f8
@@ -37,7 +39,7 @@ static void serial_putc(char ch)
 	outb(X86_COM1_BASE + X86_COM_DATA, (uint8_t)ch);
 }
 
-void arch_early_log_init(void)
+void arch_early_log_init(const boot_info_t *boot_info)
 {
 	outb(X86_COM1_BASE + X86_COM_INTERRUPT_ENABLE, 0x00);
 	outb(X86_COM1_BASE + X86_COM_LINE_CONTROL, X86_COM_LCR_DLAB);
@@ -46,12 +48,14 @@ void arch_early_log_init(void)
 	outb(X86_COM1_BASE + X86_COM_LINE_CONTROL, X86_COM_LCR_8N1);
 	outb(X86_COM1_BASE + X86_COM_FIFO_CONTROL, 0xc7);
 	outb(X86_COM1_BASE + X86_COM_MODEM_CONTROL, 0x0b);
+	screen_console_init(boot_info);
 }
 
 void arch_early_log_putc(char ch)
 {
 	debug_port_putc(ch);
 	serial_putc(ch);
+	screen_console_putc(ch);
 }
 
 void arch_halt_forever(void)

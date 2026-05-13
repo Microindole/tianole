@@ -8,7 +8,7 @@
 
 void kernel_main(const boot_info_t *boot_info)
 {
-	early_log_init();
+	early_log_init(boot_info);
 	early_log_puts("kernel_main entered\n");
 	arch_traps_init();
 	kernel_report_boot_state(boot_info);

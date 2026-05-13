@@ -42,6 +42,12 @@ typedef struct {
  * @memory_descriptor_size: Size of each memory descriptor entry.
  * @memory_descriptor_version: Firmware descriptor version.
  * @reserved0: Reserved field for alignment and future expansion.
+ * @framebuffer_base: Physical base address of the boot framebuffer.
+ * @framebuffer_size: Framebuffer size in bytes.
+ * @framebuffer_width: Visible framebuffer width in pixels.
+ * @framebuffer_height: Visible framebuffer height in pixels.
+ * @framebuffer_pixels_per_scan_line: Physical pixels per scan line.
+ * @framebuffer_pixel_format: Bootloader-provided pixel format identifier.
  *
  * Boot-time handoff data owned by Tianole rather than by a specific firmware
  * or architecture API. Fields can grow while the kernel entry stays stable.
@@ -55,12 +61,18 @@ typedef struct {
 	uint64_t memory_descriptor_size;
 	uint32_t memory_descriptor_version;
 	uint32_t reserved0;
+	uint64_t framebuffer_base;
+	uint64_t framebuffer_size;
+	uint32_t framebuffer_width;
+	uint32_t framebuffer_height;
+	uint32_t framebuffer_pixels_per_scan_line;
+	uint32_t framebuffer_pixel_format;
 } boot_info_t;
 
 /**
  * BOOT_INFO_VERSION - Current boot_info_t layout version.
  */
-#define BOOT_INFO_VERSION 1u
+#define BOOT_INFO_VERSION 2u
 
 /**
  * BOOT_FLAG_SERVICES_ACTIVE - Firmware boot services were active at handoff.

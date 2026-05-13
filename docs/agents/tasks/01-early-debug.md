@@ -79,6 +79,7 @@
 
 - kernel early log 已拆成通用前端和 x86 backend。
 - x86 backend 已同时写 QEMU debug port 和 COM1。
+- x86 backend 已可在 UEFI GOP framebuffer 上显示 early log，QEMU 图形窗口可直接观察启动日志。
 - `panic()` 已接入 early log 和 `arch_halt_forever()`。
 - `scripts/check.sh` 已验证 `build/debug.log` 和 `build/serial.log` 中的关键启动行。
 

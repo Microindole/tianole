@@ -3,13 +3,16 @@
 
 #include <stdint.h>
 
+#include <tianole/boot_info.h>
+
 /**
  * early_log_init() - Initialize early logging backends.
+ * @boot_info: Bootloader handoff data used by optional display backends.
  *
  * Sets up the architecture-provided early output path. This must be usable
  * before heap, scheduler, VFS or normal drivers exist.
  */
-void early_log_init(void);
+void early_log_init(const boot_info_t *boot_info);
 
 /**
  * early_log_putc() - Write one character to every early log backend.

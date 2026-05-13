@@ -29,6 +29,9 @@ typedef uint64_t efi_physical_address_t;
 #define EFI_LOADED_IMAGE_PROTOCOL_GUID_A 0x5b1b31a1
 #define EFI_LOADED_IMAGE_PROTOCOL_GUID_B 0x9562
 #define EFI_LOADED_IMAGE_PROTOCOL_GUID_C 0x11d2
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID_A 0x9042a9de
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID_B 0x23dc
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID_C 0x4a38
 
 #if defined(__x86_64__)
 #define EFIAPI __attribute__((ms_abi))
@@ -58,6 +61,7 @@ typedef struct efi_simple_file_system_protocol
 	efi_simple_file_system_protocol_t;
 typedef struct efi_file_protocol efi_file_protocol_t;
 typedef struct efi_loaded_image_protocol efi_loaded_image_protocol_t;
+typedef struct efi_graphics_output_protocol efi_graphics_output_protocol_t;
 typedef struct efi_system_table efi_system_table_t;
 
 struct efi_simple_text_output_protocol {
@@ -122,6 +126,31 @@ struct efi_loaded_image_protocol {
 	void *unload;
 };
 
+typedef struct {
+	uint32_t version;
+	uint32_t horizontal_resolution;
+	uint32_t vertical_resolution;
+	uint32_t pixel_format;
+	uint32_t pixel_information[4];
+	uint32_t pixels_per_scan_line;
+} efi_graphics_output_mode_information_t;
+
+typedef struct {
+	uint32_t max_mode;
+	uint32_t mode;
+	efi_graphics_output_mode_information_t *info;
+	efi_uintn_t size_of_info;
+	efi_physical_address_t frame_buffer_base;
+	efi_uintn_t frame_buffer_size;
+} efi_graphics_output_protocol_mode_t;
+
+struct efi_graphics_output_protocol {
+	void *query_mode;
+	void *set_mode;
+	void *blt;
+	efi_graphics_output_protocol_mode_t *mode;
+};
+
 struct efi_boot_services {
 	efi_table_header_t hdr;
 	void *raise_tpl;
@@ -164,6 +193,15 @@ struct efi_boot_services {
 	void *get_next_monotonic_count;
 	void(EFIAPI *stall)(efi_uintn_t microseconds);
 	void *set_watchdog_timer;
+	void *connect_controller;
+	void *disconnect_controller;
+	void *open_protocol;
+	void *close_protocol;
+	void *open_protocol_information;
+	void *protocols_per_handle;
+	void *locate_handle_buffer;
+	efi_status(EFIAPI *locate_protocol)(
+		efi_guid_t *protocol, void *registration, void **interface);
 };
 
 struct efi_system_table {
@@ -209,6 +247,16 @@ static inline efi_guid_t efi_loaded_image_protocol_guid(void)
 		.data2 = EFI_LOADED_IMAGE_PROTOCOL_GUID_B,
 		.data3 = EFI_LOADED_IMAGE_PROTOCOL_GUID_C,
 		.data4 = {0x8e, 0x3f, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b},
+	};
+}
+
+static inline efi_guid_t efi_graphics_output_protocol_guid(void)
+{
+	return (efi_guid_t){
+		.data1 = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID_A,
+		.data2 = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID_B,
+		.data3 = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID_C,
+		.data4 = {0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a},
 	};
 }
 

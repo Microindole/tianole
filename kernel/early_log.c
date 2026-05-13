@@ -5,20 +5,20 @@
 
 static int early_log_ready;
 
-void early_log_init(void)
+void early_log_init(const boot_info_t *boot_info)
 {
 	if (early_log_ready != 0) {
 		return;
 	}
 
-	arch_early_log_init();
+	arch_early_log_init(boot_info);
 	early_log_ready = 1;
 }
 
 void early_log_putc(char ch)
 {
 	if (early_log_ready == 0) {
-		early_log_init();
+		early_log_init(0);
 	}
 
 	arch_early_log_putc(ch);

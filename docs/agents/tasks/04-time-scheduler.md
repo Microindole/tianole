@@ -154,6 +154,7 @@
 - 已建立最小 DEAD 线程回收路径，调度前会释放非当前 DEAD 线程的内核栈和线程对象。
 - 已建立统一 `kernel_thread_exit()`/`sched_thread_exit()`，线程入口返回和显式退出都会进入明确退出路径，再由调度安全边界回收非当前 DEAD 线程。
 - 已在调度私有头中加入 thread state helper，调度核心、线程退出和 wait queue 路径不再直接散写主要状态转换。
+- 已提供 `wait_queue_lock_irqsave()` / `wait_queue_unlock_irqrestore()` 和 locked wakeup 接口，条件修改与 wakeup 可以收敛在同一 wait queue 锁边界内。
 - 已把调度代码按职责拆分为 `core.c`、`thread.c`、`wait.c`、`idle.c` 和私有 `sched.h`，并把当前阶段自测/演示线程移到 `kernel/selftest/sched.c`。
 - `scripts/check.sh` 已验证 `timer initialized`、`timer tick=1/2/3`、`scheduler initialized`、`kernel thread selftest ok`、timer 驱动线程轮转、`sched_sleep()`、wait queue wakeup、条件等待、超时等待、线程返回退出、显式退出和 DEAD 线程回收。
 
@@ -167,8 +168,8 @@
 
 ### B. wait queue 锁语义
 
-- 为 wait queue 增加内部锁或要求调用方持有指定锁，并在接口命名中体现约束。
-- 继续把条件所属数据的修改规则文档化；当前 wait queue 内部锁已经覆盖条件检查、等待入队和 wakeup 队列修改。
+- 已为 wait queue 增加内部锁，并提供显式 locked wakeup 接口；后续继续扩大调用方按条件锁规则更新条件的覆盖面。
+- 继续把条件所属数据的修改规则文档化；当前 wait queue 内部锁已经覆盖条件检查、等待入队、wakeup 队列修改，以及 demo 中的条件修改 + wakeup。
 - 区分 `wake_one`、`wake_all`、timeout wakeup 和条件 wakeup 的状态处理。
 - 检查 wakeup 是否可能唤醒 DEAD、RUNNING 或未入队线程。
 

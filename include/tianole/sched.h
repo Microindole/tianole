@@ -45,8 +45,9 @@ enum thread_state {
  * @head: Oldest waiting thread.
  * @tail: Newest waiting thread.
  *
- * The queue owns only wait links. The condition being waited on may be owned
- * by another subsystem and must have a documented synchronization rule.
+ * The queue owns only wait links. A condition protected by this queue must be
+ * updated under wait_queue_lock_irqsave(), followed by a locked wakeup before
+ * releasing the lock; otherwise the caller must document its own lock rule.
  */
 struct wait_queue {
 	struct spinlock lock;
@@ -164,6 +165,40 @@ void sched_sleep(uint64_t ticks);
 void wait_queue_init(struct wait_queue *queue);
 
 /**
+ * wait_queue_lock_irqsave() - Lock a wait queue and save interrupt state.
+ * @queue: Wait queue whose condition or waiter links will be updated.
+ * @flags: Storage for the previous interrupt state.
+ *
+ * Callers may use this lock to protect the condition paired with
+ * wait_queue_wait(). In that model, update the condition and call a locked
+ * wakeup helper before unlocking to avoid lost wakeups.
+ */
+void wait_queue_lock_irqsave(struct wait_queue *queue, uint64_t *flags);
+
+/**
+ * wait_queue_unlock_irqrestore() - Unlock a wait queue and restore interrupts.
+ * @queue: Wait queue previously locked by wait_queue_lock_irqsave().
+ * @flags: Interrupt state returned by wait_queue_lock_irqsave().
+ */
+void wait_queue_unlock_irqrestore(struct wait_queue *queue, uint64_t flags);
+
+/**
+ * wait_queue_wake_one_locked() - Wake one waiter while holding queue lock.
+ * @queue: Locked wait queue containing waiting threads.
+ *
+ * Use when the wakeup condition is modified under the wait queue lock.
+ */
+void wait_queue_wake_one_locked(struct wait_queue *queue);
+
+/**
+ * wait_queue_wake_all_locked() - Wake all waiters while holding queue lock.
+ * @queue: Locked wait queue containing waiting threads.
+ *
+ * Use when the wakeup condition is modified under the wait queue lock.
+ */
+void wait_queue_wake_all_locked(struct wait_queue *queue);
+
+/**
  * wait_queue_sleep() - Sleep until another thread wakes the queue.
  * @queue: Queue to sleep on.
  *
@@ -177,6 +212,10 @@ void wait_queue_sleep(struct wait_queue *queue);
  * @condition: Predicate checked before and after sleeping.
  * @arg: Opaque predicate argument.
  *
+ * The predicate is evaluated while the queue lock is held. If the waited-on
+ * condition uses this queue for synchronization, writers must hold the same
+ * lock, update the condition, and then call wait_queue_wake_*_locked().
+ *
  * Return: 0 when the condition is true, -EINVAL on invalid input.
  */
 int wait_queue_wait(
@@ -188,6 +227,9 @@ int wait_queue_wait(
  * @condition: Predicate checked before and after sleeping.
  * @arg: Opaque predicate argument.
  * @ticks: Maximum number of timer ticks to wait.
+ *
+ * The predicate is evaluated while the queue lock is held. The same condition
+ * locking rule as wait_queue_wait() applies.
  *
  * Return: 0 when the condition is true, -EINVAL or -ETIMEDOUT otherwise.
  */
