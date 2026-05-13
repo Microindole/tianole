@@ -62,6 +62,15 @@
 - 早期可以没有完整 job control，但接口不能排斥 Ctrl-C、后台任务和管道。
 - terminal 行编辑、回显和控制字符不写进 keyboard driver。
 
+
+### 6. Early debug monitor is not a shell
+
+- 在用户态、VFS 和 tty 尚未完成前，可以保留一个早期 kernel debug monitor/kdb，用来验证输入路径和查看少量只读状态。
+- 这个 early kdb 必须标注为临时调试设施：它不 fork/exec、不访问 VFS、不代表 init，也不承担正式 shell 的职责。
+- 正式 shell 必须在用户态运行，通过 terminal/tty、syscall、VFS 和进程模型工作。
+- 参考 Linux 时应把 early kdb 类比到 `kernel/debug/kdb/` 或 KGDB/KDB，而不是类比 `/bin/sh`。
+- 后续实现 `user/shell/` 时，不应复用 kernel kdb 的内部函数作为捷径；缺什么能力就补 syscall、libc、VFS 或 tty。
+
 ## Linux 参考原则
 
 - 参考 Linux init 模型：kernel 启动第一个用户进程，系统策略留给用户态。
@@ -100,7 +109,7 @@
 
 未开始。
 
-进入本阶段前，需要 `05-input-events.md`、`06-storage-vfs.md` 和 `07-user-mode.md` 的最小闭环。
+已有一个临时 kernel kdb/debug command consumer，但它只用于早期调试和输入链路验证，不算本阶段完成项。进入本阶段前，仍然需要 `05-input-events.md`、`06-storage-vfs.md` 和 `07-user-mode.md` 的最小闭环。
 
 ## 后续扩展
 

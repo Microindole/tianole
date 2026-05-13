@@ -52,6 +52,15 @@
 - 后续 USB HID、图形终端或串口终端应复用同一 terminal/input 边界。
 - 输入路径要保留 blocking read、nonblocking read 和 poll/select 的接口位置。
 
+
+### 5. Temporary kernel debug command path
+
+- 当前为了验证真实交互，允许存在一个临时 kernel-side command consumer：从 console line queue 读取完整行并执行少量只读调试命令。
+- 这个 consumer 只能视为 early debug/kdb 雏形，不是正式 shell，也不是未来用户态命令解释器。
+- 命名和目录应向 Linux 的 `kernel/debug/kdb/` 思路收敛，避免长期保留泛化的 `kernel/debug/` 概念。
+- 临时命令只能验证输入链路和只读状态，例如 ticks、drops、echo；不要把 VFS、进程管理、内存修改等系统策略塞进这里。
+- 一旦 tty、VFS、syscall 和用户态 init/shell 可用，应让正式 shell 运行在用户态，kernel debug command path 只保留为调试设施。
+
 ## Linux 参考原则
 
 - 参考 Linux input subsystem：设备驱动上报通用 input event，上层消费者不绑定具体硬件。
@@ -84,9 +93,15 @@
 
 ## 当前状态
 
-未开始。
+进行中：
 
-进入本阶段前，`04-time-scheduler.md` 至少应具备可靠 wait queue 和明确的可睡眠/不可睡眠上下文规则。
+- 已有全局 input event queue，支持 blocking/nonblocking read 和 dropped event 统计。
+- 已接入 PS/2 keyboard IRQ1，当前能把 set-1 scancode 转成通用 key event。
+- 已有 deferred work 路径，键盘 IRQ 不直接执行复杂解码和上层命令逻辑。
+- 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
+- 已有临时 kernel kdb/debug command consumer，用于验证真实输入链路。
+
+限制必须明确：当前 kdb 不是 Linux 意义上的 shell/tty，也不是用户态入口；它只是 early debug/kdb 雏形，后续要改名并收敛到 `kernel/debug/` 类边界。
 
 ## 后续扩展
 

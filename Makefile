@@ -32,7 +32,7 @@ include kernel/Makefile
 all: $(BOOT_EFI) $(KERNEL_ELF)
 
 dirs:
-	mkdir -p $(BUILD_DIR)/arch/boot $(BUILD_DIR)/arch/kernel $(BUILD_DIR)/arch/mm $(BUILD_DIR)/kernel $(BUILD_DIR)/kernel/console $(BUILD_DIR)/kernel/monitor $(BUILD_DIR)/kernel/locking $(BUILD_DIR)/kernel/sched $(BUILD_DIR)/kernel/selftest $(BUILD_DIR)/kernel/time $(BUILD_DIR)/drivers/input $(BUILD_DIR)/drivers/input/keyboard $(BUILD_DIR)/mm $(EFI_DIR)
+	mkdir -p $(BUILD_DIR)/arch/boot $(BUILD_DIR)/arch/kernel $(BUILD_DIR)/arch/mm $(BUILD_DIR)/kernel $(BUILD_DIR)/kernel/console $(BUILD_DIR)/kernel/debug $(BUILD_DIR)/kernel/locking $(BUILD_DIR)/kernel/sched $(BUILD_DIR)/kernel/selftest $(BUILD_DIR)/kernel/time $(BUILD_DIR)/drivers/input $(BUILD_DIR)/drivers/input/keyboard $(BUILD_DIR)/mm $(EFI_DIR)
 
 $(BUILD_DIR)/arch/boot/%.obj: $(ARCH_DIR)/boot/%.c $(ARCH_DIR)/include/efi.h $(ARCH_DIR)/boot/debug_log.h include/tianole/boot_info.h include/tianole/elf.h | dirs
 	$(CC) $(CFLAGS) -c $< -o $@

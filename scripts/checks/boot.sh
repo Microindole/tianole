@@ -29,7 +29,7 @@ check_lines build/debug.log \
 	"input initialized" \
 	"ps2 keyboard initialized" \
 	"input console initialized" \
-	"monitor initialized" \
+	"kdb initialized" \
 	"workqueue selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \
@@ -78,7 +78,7 @@ check_lines build/serial.log \
 	"input initialized" \
 	"ps2 keyboard initialized" \
 	"input console initialized" \
-	"monitor initialized" \
+	"kdb initialized" \
 	"workqueue selftest ok" \
 	"timer initialized" \
 	"scheduler starting" \

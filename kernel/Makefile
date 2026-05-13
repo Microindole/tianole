@@ -4,7 +4,7 @@ KERNEL_SRCS := \
 	kernel/early_log.c \
 	kernel/workqueue.c \
 	kernel/console/input_console.c \
-	kernel/monitor/monitor.c \
+	kernel/debug/kdb.c \
 	kernel/locking/spinlock.c \
 	kernel/sched/core.c \
 	kernel/sched/idle.c \

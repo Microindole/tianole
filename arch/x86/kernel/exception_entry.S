@@ -1,65 +1,49 @@
-.macro EXCEPTION_NO_ERROR vector
-.global exception_\vector
-.type exception_\vector, @function
-exception_\vector:
+#include "trap_vectors.h"
+
+.macro EXCEPTION_NO_ERROR vector entry
+.global \entry
+.type \entry, @function
+\entry:
 	pushq $0
 	pushq $\vector
 	jmp exception_common
 .endm
 
-.macro EXCEPTION_ERROR vector
-.global exception_\vector
-.type exception_\vector, @function
-exception_\vector:
+.macro EXCEPTION_ERROR vector entry
+.global \entry
+.type \entry, @function
+\entry:
 	pushq $\vector
 	jmp exception_common
 .endm
 
-.macro IRQ vector
-.global irq_\vector
-.type irq_\vector, @function
-irq_\vector:
+.macro IRQ vector entry;
+.global \entry
+.type \entry, @function
+\entry:
 	pushq $0
 	pushq $\vector
 	jmp exception_common
 .endm
+
+#define EMIT_EXCEPTION_STUB(vector, entry, has_error, name, handler) \
+	EMIT_EXCEPTION_STUB_##has_error(vector, entry)
+#define EMIT_EXCEPTION_STUB_0(vector, entry) \
+	EXCEPTION_NO_ERROR vector entry;
+#define EMIT_EXCEPTION_STUB_1(vector, entry) \
+	EXCEPTION_ERROR vector entry;
+#define EMIT_IRQ_STUB(vector, entry, irq) \
+	IRQ vector entry;
 
 .section .text
 
-EXCEPTION_NO_ERROR 0
-EXCEPTION_NO_ERROR 1
-EXCEPTION_NO_ERROR 2
-EXCEPTION_NO_ERROR 3
-EXCEPTION_NO_ERROR 4
-EXCEPTION_NO_ERROR 5
-EXCEPTION_NO_ERROR 6
-EXCEPTION_NO_ERROR 7
-EXCEPTION_ERROR 8
-EXCEPTION_NO_ERROR 9
-EXCEPTION_ERROR 10
-EXCEPTION_ERROR 11
-EXCEPTION_ERROR 12
-EXCEPTION_ERROR 13
-EXCEPTION_ERROR 14
-EXCEPTION_NO_ERROR 15
-EXCEPTION_NO_ERROR 16
-EXCEPTION_ERROR 17
-EXCEPTION_NO_ERROR 18
-EXCEPTION_NO_ERROR 19
-EXCEPTION_NO_ERROR 20
-EXCEPTION_ERROR 21
-EXCEPTION_NO_ERROR 22
-EXCEPTION_NO_ERROR 23
-EXCEPTION_NO_ERROR 24
-EXCEPTION_NO_ERROR 25
-EXCEPTION_NO_ERROR 26
-EXCEPTION_NO_ERROR 27
-EXCEPTION_NO_ERROR 28
-EXCEPTION_ERROR 29
-EXCEPTION_ERROR 30
-EXCEPTION_NO_ERROR 31
+X86_EXCEPTION_VECTORS(EMIT_EXCEPTION_STUB)
+X86_IRQ_VECTORS(EMIT_IRQ_STUB)
 
-IRQ 32
+#undef EMIT_IRQ_STUB
+#undef EMIT_EXCEPTION_STUB_1
+#undef EMIT_EXCEPTION_STUB_0
+#undef EMIT_EXCEPTION_STUB
 
 .type exception_common, @function
 exception_common:

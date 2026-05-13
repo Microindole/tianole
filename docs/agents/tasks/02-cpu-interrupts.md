@@ -54,6 +54,15 @@
 - EOI 时机必须清楚：已处理 IRQ 要发送，未识别 IRQ 的策略要单独记录。
 - 后续 APIC、IOAPIC、MSI/MSI-X 要能替换 PIC 路径，而不改通用 IRQ consumer。
 
+
+### 5. IDT and trap dispatch cleanup
+
+- 当前 `arch/x86/kernel/idt.c` 的 `idt_set_gate(0..32, ...)` 手写列表只是早期过渡实现，不能继续作为后续 IRQ、system vector、syscall 和用户态异常的基础。
+- 应尽早改为表驱动：把 vector number、入口符号、是否有 error code、gate 类型、IST 需求和诊断名称集中描述。
+- `arch/x86/kernel/traps.c` 不应长期依赖 `if (vector == 14)` 这类零散判断；page fault、general protection、invalid opcode、double fault 等应逐步拆成独立处理函数。
+- 参考 Linux `arch/x86/include/asm/idtentry.h` 与 `arch/x86/kernel/traps.c` 的方向：入口类型用宏或统一描述表达，异常策略和通用分发分开。
+- 这个重构应放在继续扩展键盘、系统调用、用户态异常之前完成，否则每增加一个入口都会反复修改 `cpu.h`、`exception_entry.S`、`idt.c` 和 `traps.c`。
+
 ## Linux 参考原则
 
 - 参考 Linux arch entry 分层：入口汇编保存现场，通用 C 层做分发和策略。
@@ -89,15 +98,18 @@
 
 - x86_64 GDT 已加载。
 - 最小 TSS 已建立并通过 `ltr` 加载。
-- IDT 已建立，当前覆盖 CPU exception vector 0-31。
+- IDT 已建立，当前覆盖 CPU exception vector 0-31，并接入 legacy PIC IRQ0/IRQ1 所需入口。
 - 异常入口汇编已统一保存通用寄存器现场。
 - C 层 trap dispatch 已接收统一 `trap_frame`。
+- 当前 IDT 安装、入口声明和汇编入口已开始共享 vector 表；后续仍需补 IST、gate 类型和用户态返回策略。
 - 未处理异常进入 `panic("unhandled CPU exception")`。
 - `KERNEL_TEST_TRAP=1` 会通过 `ud2` 主动触发 invalid opcode。
 - `scripts/check.sh` 已自动验证 invalid opcode 日志和 panic 路径。
 
 后续扩展：
 
+- 继续扩展 IDT/trap 元数据，补 gate 类型、DPL、IST 和系统向量。
+- page fault、invalid opcode、general protection、double fault 等处理函数拆分。
 - PIC/APIC 初始化。
 - 外部 IRQ 分发。
 - timer interrupt。

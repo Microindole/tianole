@@ -6,39 +6,33 @@
 
 #include "cpu.h"
 
-static const char *const exception_names[32] = {
-	"divide error",
-	"debug",
-	"non-maskable interrupt",
-	"breakpoint",
-	"overflow",
-	"bound range exceeded",
-	"invalid opcode",
-	"device not available",
-	"double fault",
-	"coprocessor segment overrun",
-	"invalid tss",
-	"segment not present",
-	"stack segment fault",
-	"general protection fault",
-	"page fault",
-	"reserved",
-	"x87 floating-point exception",
-	"alignment check",
-	"machine check",
-	"simd floating-point exception",
-	"virtualization exception",
-	"control protection exception",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"hypervisor injection exception",
-	"vmm communication exception",
-	"security exception",
-	"reserved",
+typedef int (*exception_handler_t)(struct trap_frame *frame);
+
+/**
+ * struct exception_desc - C-level policy for one CPU exception vector.
+ * @name: Diagnostic name printed before exception-specific handling.
+ * @handler: Optional exception-specific handler. Return non-zero if the
+ *           exception was handled and execution may resume.
+ * @has_error: Whether hardware pushes an error code for this vector.
+ *
+ * Linux uses generated entry wrappers and DEFINE_IDTENTRY-style declarations to
+ * keep entry metadata in one place. Tianole keeps the same direction with a
+ * compact descriptor table shared with IDT setup.
+ */
+struct exception_desc {
+	const char *name;
+	exception_handler_t handler;
+	uint8_t has_error;
+};
+
+static int x86_handle_default_exception(struct trap_frame *frame);
+static int x86_handle_page_fault(struct trap_frame *frame);
+
+static const struct exception_desc exception_descs[32] = {
+#define DEFINE_EXCEPTION_DESC(vector, entry, has_error, name, handler)         \
+	[vector] = {name, handler, has_error},
+	X86_EXCEPTION_VECTORS(DEFINE_EXCEPTION_DESC)
+#undef DEFINE_EXCEPTION_DESC
 };
 
 /**
@@ -52,6 +46,54 @@ static const char *const exception_names[32] = {
 static uint64_t interrupted_rsp(const struct trap_frame *frame)
 {
 	return (uint64_t)(uintptr_t)&frame->rflags + sizeof(frame->rflags);
+}
+
+static const struct exception_desc *exception_desc(uint64_t vector)
+{
+	if (vector >= 32) {
+		return 0;
+	}
+
+	return &exception_descs[vector];
+}
+
+static int x86_handle_default_exception(struct trap_frame *frame)
+{
+	(void)frame;
+
+	return 0;
+}
+
+static int x86_handle_page_fault(struct trap_frame *frame)
+{
+	handle_page_fault(frame);
+	return 0;
+}
+
+static void print_exception_frame(
+	const struct trap_frame *frame, const struct exception_desc *desc)
+{
+	const char *name = "unknown exception";
+
+	if (desc != 0 && desc->name != 0) {
+		name = desc->name;
+	}
+
+	early_log_puts("exception: ");
+	early_log_puts(name);
+	early_log_puts("\n");
+	early_log_puts("vector=");
+	early_log_u64_decimal(frame->vector);
+	early_log_puts(" error=");
+	early_log_u64_hex(frame->error_code);
+	early_log_puts("\n");
+	early_log_puts("rip=");
+	early_log_u64_hex(frame->rip);
+	early_log_puts(" rsp=");
+	early_log_u64_hex(interrupted_rsp(frame));
+	early_log_puts(" rflags=");
+	early_log_u64_hex(frame->rflags);
+	early_log_puts("\n");
 }
 
 /**
@@ -69,43 +111,25 @@ void arch_traps_init(void)
  * @frame: Register snapshot from the assembly trap entry.
  *
  * External IRQs are dispatched first and may request a scheduler decision at
- * the common IRQ-exit boundary. CPU exceptions remain diagnostic-only for now
- * and end in panic unless a specific handler consumes them.
+ * the common IRQ-exit boundary. CPU exceptions are described by a vector table;
+ * each vector can grow its own policy without adding ad hoc checks here.
  */
 void trap_dispatch(struct trap_frame *frame)
 {
-	uint64_t vector = frame->vector;
-	const char *name = "unknown exception";
+	const struct exception_desc *desc;
 
-	if (vector >= 32 && vector < 48) {
+	if (frame->vector >= 32 && frame->vector < 48) {
 		sched_irq_enter();
 		handle_irq(frame);
 		sched_irq_exit();
 		return;
 	}
 
-	if (vector < 32) {
-		name = exception_names[vector];
-	}
+	desc = exception_desc(frame->vector);
+	print_exception_frame(frame, desc);
 
-	early_log_puts("exception: ");
-	early_log_puts(name);
-	early_log_puts("\n");
-	early_log_puts("vector=");
-	early_log_u64_decimal(vector);
-	early_log_puts(" error=");
-	early_log_u64_hex(frame->error_code);
-	early_log_puts("\n");
-	early_log_puts("rip=");
-	early_log_u64_hex(frame->rip);
-	early_log_puts(" rsp=");
-	early_log_u64_hex(interrupted_rsp(frame));
-	early_log_puts(" rflags=");
-	early_log_u64_hex(frame->rflags);
-	early_log_puts("\n");
-
-	if (vector == 14) {
-		handle_page_fault(frame);
+	if (desc != 0 && desc->handler != 0 && desc->handler(frame) != 0) {
+		return;
 	}
 
 	panic("unhandled CPU exception");

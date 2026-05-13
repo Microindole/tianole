@@ -3,14 +3,14 @@
 #include <tianole/console.h>
 #include <tianole/early_log.h>
 #include <tianole/input.h>
-#include <tianole/monitor.h>
+#include <tianole/kdb.h>
 #include <tianole/sched.h>
 #include <tianole/timer.h>
 
-#define MONITOR_LINE_LENGTH 128u
-#define MONITOR_PROMPT "tianole> "
+#define KDB_LINE_LENGTH 128u
+#define KDB_PROMPT "tianole> "
 
-static int monitor_streq(const char *left, const char *right)
+static int kdb_streq(const char *left, const char *right)
 {
 	while (*left != '\0' && *right != '\0') {
 		if (*left != *right) {
@@ -23,7 +23,7 @@ static int monitor_streq(const char *left, const char *right)
 	return *left == '\0' && *right == '\0';
 }
 
-static int monitor_starts_with(const char *text, const char *prefix)
+static int kdb_starts_with(const char *text, const char *prefix)
 {
 	while (*prefix != '\0') {
 		if (*text != *prefix) {
@@ -36,7 +36,7 @@ static int monitor_starts_with(const char *text, const char *prefix)
 	return 1;
 }
 
-static const char *monitor_skip_spaces(const char *line)
+static const char *kdb_skip_spaces(const char *line)
 {
 	while (*line == ' ' || *line == '\t') {
 		line++;
@@ -45,7 +45,7 @@ static const char *monitor_skip_spaces(const char *line)
 	return line;
 }
 
-static void monitor_print_help(void)
+static void kdb_print_help(void)
 {
 	early_log_puts("commands:\n");
 	early_log_puts("  help        show this help\n");
@@ -54,14 +54,14 @@ static void monitor_print_help(void)
 	early_log_puts("  echo TEXT   print TEXT\n");
 }
 
-static void monitor_print_ticks(void)
+static void kdb_print_ticks(void)
 {
 	early_log_puts("ticks=");
 	early_log_u64_decimal(timer_ticks());
 	early_log_puts("\n");
 }
 
-static void monitor_print_drops(void)
+static void kdb_print_drops(void)
 {
 	early_log_puts("input_drops=");
 	early_log_u64_decimal(input_dropped_events());
@@ -70,30 +70,30 @@ static void monitor_print_drops(void)
 	early_log_puts("\n");
 }
 
-static void monitor_run_command(const char *line)
+static void kdb_run_command(const char *line)
 {
-	const char *command = monitor_skip_spaces(line);
+	const char *command = kdb_skip_spaces(line);
 
 	if (*command == '\0') {
 		return;
 	}
 
-	if (monitor_streq(command, "help")) {
-		monitor_print_help();
+	if (kdb_streq(command, "help")) {
+		kdb_print_help();
 		return;
 	}
 
-	if (monitor_streq(command, "ticks")) {
-		monitor_print_ticks();
+	if (kdb_streq(command, "ticks")) {
+		kdb_print_ticks();
 		return;
 	}
 
-	if (monitor_streq(command, "drops")) {
-		monitor_print_drops();
+	if (kdb_streq(command, "drops")) {
+		kdb_print_drops();
 		return;
 	}
 
-	if (monitor_starts_with(command, "echo")) {
+	if (kdb_starts_with(command, "echo")) {
 		const char *text = command + 4;
 
 		if (*text != '\0' && *text != ' ' && *text != '\t') {
@@ -103,7 +103,7 @@ static void monitor_run_command(const char *line)
 			return;
 		}
 
-		early_log_puts(monitor_skip_spaces(text));
+		early_log_puts(kdb_skip_spaces(text));
 		early_log_puts("\n");
 		return;
 	}
@@ -113,31 +113,31 @@ static void monitor_run_command(const char *line)
 	early_log_puts("\n");
 }
 
-static void monitor_thread(void *arg)
+static void kdb_thread(void *arg)
 {
-	char line[MONITOR_LINE_LENGTH];
+	char line[KDB_LINE_LENGTH];
 
 	(void)arg;
 
-	early_log_puts("kernel monitor ready\n");
-	early_log_puts(MONITOR_PROMPT);
+	early_log_puts("early kdb ready\n");
+	early_log_puts(KDB_PROMPT);
 	for (;;) {
 		int ret = console_read_line(line, sizeof(line));
 
 		if (ret < 0) {
-			panic("monitor read failed");
+			panic("kdb read failed");
 		}
 
-		monitor_run_command(line);
-		early_log_puts(MONITOR_PROMPT);
+		kdb_run_command(line);
+		early_log_puts(KDB_PROMPT);
 	}
 }
 
-void monitor_init(void)
+void kdb_init(void)
 {
-	if (kernel_thread_create("monitor", monitor_thread, 0) == 0) {
-		panic("monitor thread creation failed");
+	if (kernel_thread_create("kdb", kdb_thread, 0) == 0) {
+		panic("kdb thread creation failed");
 	}
 
-	early_log_puts("monitor initialized\n");
+	early_log_puts("kdb initialized\n");
 }

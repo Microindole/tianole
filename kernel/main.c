@@ -4,10 +4,10 @@
 #include <tianole/console.h>
 #include <tianole/early_log.h>
 #include <tianole/input.h>
+#include <tianole/kdb.h>
 #include <tianole/kernel_init.h>
 #include <tianole/keyboard.h>
 #include <tianole/mm.h>
-#include <tianole/monitor.h>
 #include <tianole/sched.h>
 #include <tianole/workqueue.h>
 
@@ -36,7 +36,7 @@ void kernel_main(const boot_info_t *boot_info)
 		panic("workqueue start failed");
 	}
 	input_console_init();
-	monitor_init();
+	kdb_init();
 
 	sched_start();
 }
