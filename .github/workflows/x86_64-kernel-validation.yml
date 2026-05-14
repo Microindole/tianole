@@ -1,16 +1,17 @@
-name: check
+name: x86_64 kernel validation
 
 on:
   push:
   pull_request:
 
 jobs:
-  build-and-boot:
+  x86_64-build-and-qemu-scenarios:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source tree
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install x86_64 kernel build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -19,5 +20,5 @@ jobs:
             qemu-system-x86 \
             ovmf
 
-      - name: Run project checks
+      - name: Validate x86_64 kernel build and boot scenarios
         run: ./scripts/check.sh

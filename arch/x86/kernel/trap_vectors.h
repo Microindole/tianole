@@ -73,7 +73,7 @@
 		X86_IDT_DPL0,                                                  \
 		X86_IST_NONE,                                                  \
 		"invalid opcode",                                              \
-		x86_handle_default_exception)                                  \
+		x86_handle_invalid_opcode)                                     \
 	X(7,                                                                   \
 		exception_7,                                                   \
 		0,                                                             \
@@ -129,7 +129,7 @@
 		X86_IDT_DPL0,                                                  \
 		X86_IST_NONE,                                                  \
 		"general protection fault",                                    \
-		x86_handle_default_exception)                                  \
+		x86_handle_general_protection)                                 \
 	X(14,                                                                  \
 		exception_14,                                                  \
 		1,                                                             \

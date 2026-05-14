@@ -1,0 +1,21 @@
+CC := clang
+ELF_LD := ld.lld
+LD := lld-link
+QEMU_SYSTEM_X86_64 := qemu-system-x86_64
+
+REQUIRED_BUILD_TOOLS := $(CC) $(ELF_LD) $(LD)
+REQUIRED_RUNTIME_TOOLS := $(QEMU_SYSTEM_X86_64)
+
+.PHONY: check-toolchain check-runtime
+
+check-toolchain:
+	@for tool in $(REQUIRED_BUILD_TOOLS); do \
+		command -v "$$tool" >/dev/null || { echo "missing build tool: $$tool" >&2; exit 1; }; \
+	done
+
+check-runtime: check-toolchain
+	@for tool in $(REQUIRED_RUNTIME_TOOLS); do \
+		command -v "$$tool" >/dev/null || { echo "missing runtime tool: $$tool" >&2; exit 1; }; \
+	done
+	@test -r "$(OVMF_CODE)" || { echo "missing OVMF_CODE: $(OVMF_CODE)" >&2; exit 1; }
+	@test -r "$(OVMF_VARS_TEMPLATE)" || { echo "missing OVMF_VARS_TEMPLATE: $(OVMF_VARS_TEMPLATE)" >&2; exit 1; }

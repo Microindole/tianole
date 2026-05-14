@@ -1,0 +1,24 @@
+.PHONY: run run-headless
+
+$(OVMF_VARS): | dirs
+	cp $(OVMF_VARS_TEMPLATE) $@
+
+run: check-runtime $(BOOT_EFI) $(KERNEL_ELF) $(OVMF_VARS)
+	$(QEMU_SYSTEM_X86_64) \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive if=pflash,format=raw,file=$(OVMF_VARS) \
+		-drive format=raw,file=fat:rw:$(BUILD_DIR)/image \
+		-serial stdio
+
+run-headless: check-runtime $(BOOT_EFI) $(KERNEL_ELF) $(OVMF_VARS)
+	rm -f $(DEBUG_LOG) $(SERIAL_LOG)
+	$(QEMU_SYSTEM_X86_64) \
+		-display none \
+		-nodefaults \
+		-no-reboot \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive if=pflash,format=raw,file=$(OVMF_VARS) \
+		-drive format=raw,file=fat:rw:$(BUILD_DIR)/image \
+		-debugcon file:$(DEBUG_LOG) \
+		-global isa-debugcon.iobase=0xe9 \
+		-serial file:$(SERIAL_LOG)

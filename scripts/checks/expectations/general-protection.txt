@@ -1,0 +1,6 @@
+traps initialized
+exception: general protection fault
+vector=13 error=0x0000000000000000
+general protection: fatal exception
+general protection: error=0x0000000000000000
+panic: general protection fault

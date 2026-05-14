@@ -68,6 +68,15 @@ void arch_traps_init(void);
 void arch_test_double_fault(void);
 
 /**
+ * arch_test_general_protection() - Run the #GP policy test path.
+ *
+ * This controlled hook is used only by KERNEL_TEST_GENERAL_PROTECTION. It
+ * routes a vector-13 frame through trap dispatch so checks can verify the
+ * dedicated general-protection policy before user-mode faults exist.
+ */
+void arch_test_general_protection(void);
+
+/**
  * arch_timer_init() - Initialize the architecture timer backend.
  *
  * Connects the hardware timer to the generic timer and scheduler path.

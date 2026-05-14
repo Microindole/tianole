@@ -33,6 +33,8 @@ struct exception_desc {
 
 static int x86_handle_default_exception(struct trap_frame *frame);
 static int x86_handle_double_fault(struct trap_frame *frame);
+static int x86_handle_general_protection(struct trap_frame *frame);
+static int x86_handle_invalid_opcode(struct trap_frame *frame);
 static int x86_handle_page_fault(struct trap_frame *frame);
 
 static const struct exception_desc exception_descs[32] = {
@@ -81,6 +83,23 @@ static int x86_handle_double_fault(struct trap_frame *frame)
 	early_log_u64_decimal(X86_IST_DOUBLE_FAULT);
 	early_log_puts("\n");
 	panic("double fault");
+}
+
+static int x86_handle_general_protection(struct trap_frame *frame)
+{
+	early_log_puts("general protection: fatal exception\n");
+	early_log_puts("general protection: error=");
+	early_log_u64_hex(frame->error_code);
+	early_log_puts("\n");
+	panic("general protection fault");
+}
+
+static int x86_handle_invalid_opcode(struct trap_frame *frame)
+{
+	(void)frame;
+
+	early_log_puts("invalid opcode: fatal exception\n");
+	panic("invalid opcode");
 }
 
 static int x86_handle_page_fault(struct trap_frame *frame)
@@ -168,6 +187,26 @@ void arch_test_double_fault(void)
 	frame.vector = 8;
 	frame.error_code = 0;
 	frame.rip = (uint64_t)(uintptr_t)arch_test_double_fault;
+	frame.cs = KERNEL_CODE_SELECTOR;
+	frame.rflags = 1ull << 9;
+
+	trap_dispatch(&frame);
+}
+
+/**
+ * arch_test_general_protection() - Exercise the #GP dispatch policy.
+ *
+ * This test path mirrors the double fault check: it validates that vector 13
+ * reaches its dedicated policy without relying on undefined setup tricks to
+ * force a hardware general-protection exception this early in boot.
+ */
+void arch_test_general_protection(void)
+{
+	static struct trap_frame frame;
+
+	frame.vector = 13;
+	frame.error_code = 0;
+	frame.rip = (uint64_t)(uintptr_t)arch_test_general_protection;
 	frame.cs = KERNEL_CODE_SELECTOR;
 	frame.rflags = 1ull << 9;
 

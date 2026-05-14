@@ -8,12 +8,6 @@ cd "$(dirname "$0")/../.."
 build_kernel KERNEL_TEST_DOUBLE_FAULT=1
 run_qemu KERNEL_TEST_DOUBLE_FAULT=1
 
-check_lines build/debug.log \
-	"traps initialized" \
-	"exception: double fault" \
-	"vector=8 error=0x0000000000000000" \
-	"double fault: fatal exception" \
-	"double fault: ist=1" \
-	"panic: double fault"
+check_expectations build/debug.log scripts/checks/expectations/double-fault.txt
 
 cat build/debug.log

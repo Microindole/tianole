@@ -2,8 +2,8 @@ import subprocess
 from pathlib import Path
 
 
-SOURCE_ROOTS = ("arch", "include", "kernel", "mm")
-C_SOURCE_ROOTS = ("arch", "kernel", "mm")
+SOURCE_ROOTS = ("arch", "drivers", "include", "kernel", "mm")
+C_SOURCE_ROOTS = ("arch", "drivers", "kernel", "mm")
 
 
 def repo_root() -> Path:

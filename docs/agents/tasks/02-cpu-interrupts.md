@@ -109,8 +109,8 @@
 后续扩展：
 
 - 继续扩展 IDT/trap 元数据，补系统向量、用户态返回策略和更完整的异常恢复策略。
-- page fault、double fault 已拆出专门处理函数。
-- 下一步必须补 `#UD` invalid opcode 和 `#GP` general protection 的独立 handler；default handler 只作为未知或暂未覆盖 vector 的兜底，不能继续承载常见异常策略。
+- page fault、double fault、`#UD` invalid opcode 和 `#GP` general protection 已拆出专门处理函数。
+- default handler 只作为未知或暂未覆盖 vector 的兜底，不能继续承载常见异常策略。
 - PIC/APIC 初始化。
 - 外部 IRQ 分发。
 - timer interrupt。
@@ -131,4 +131,4 @@
 
 下一阶段：
 
-- 继续 `02-cpu-interrupts.md`：先补 `#UD` invalid opcode 和 `#GP` general protection 的独立 handler，再推进系统向量、用户态异常返回边界和更完整的异常恢复策略。
+- 继续 `02-cpu-interrupts.md`：推进系统向量、用户态异常返回边界和更完整的异常恢复策略。
