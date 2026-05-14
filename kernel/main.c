@@ -28,6 +28,10 @@ void kernel_main(const boot_info_t *boot_info)
 	__asm__ volatile("ud2");
 #endif
 
+#if KERNEL_TEST_DOUBLE_FAULT
+	arch_test_double_fault();
+#endif
+
 #if KERNEL_TEST_PAGE_FAULT
 	*(volatile uint64_t *)(uintptr_t)0xffffff1000000000ull = 1;
 #endif

@@ -101,20 +101,21 @@
 - IDT 已建立，当前覆盖 CPU exception vector 0-31，并接入 legacy PIC IRQ0/IRQ1 所需入口。
 - 异常入口汇编已统一保存通用寄存器现场。
 - C 层 trap dispatch 已接收统一 `trap_frame`。
-- 当前 IDT 安装、入口声明和汇编入口已开始共享 vector 表；后续仍需补 IST、gate 类型和用户态返回策略。
+- 当前 IDT 安装、入口声明和汇编入口已共享 vector 表；vector 表已包含 gate 类型、DPL 和 IST 元数据。
 - 未处理异常进入 `panic("unhandled CPU exception")`。
 - `KERNEL_TEST_TRAP=1` 会通过 `ud2` 主动触发 invalid opcode。
 - `scripts/check.sh` 已自动验证 invalid opcode 日志和 panic 路径。
 
 后续扩展：
 
-- 继续扩展 IDT/trap 元数据，补 gate 类型、DPL、IST 和系统向量。
-- page fault、invalid opcode、general protection、double fault 等处理函数拆分。
+- 继续扩展 IDT/trap 元数据，补系统向量、用户态返回策略和更完整的异常恢复策略。
+- page fault、double fault 已拆出专门处理函数。
+- 下一步必须补 `#UD` invalid opcode 和 `#GP` general protection 的独立 handler；default handler 只作为未知或暂未覆盖 vector 的兜底，不能继续承载常见异常策略。
 - PIC/APIC 初始化。
 - 外部 IRQ 分发。
 - timer interrupt。
 - page fault 的专门处理策略。
-- double fault 独立 IST 栈。
+- double fault 独立 IST 栈已预留，并已有专门 fatal handler 与受控验证路径。
 - 用户态异常返回。
 - 可恢复异常处理。
 - oops 格式和符号化输出。
@@ -130,4 +131,4 @@
 
 下一阶段：
 
-- `03-memory.md`，先建立物理页、页表和内核堆。
+- 继续 `02-cpu-interrupts.md`：先补 `#UD` invalid opcode 和 `#GP` general protection 的独立 handler，再推进系统向量、用户态异常返回边界和更完整的异常恢复策略。

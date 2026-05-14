@@ -17,7 +17,7 @@
 	jmp exception_common
 .endm
 
-.macro IRQ vector entry;
+.macro IRQ vector entry
 .global \entry
 .type \entry, @function
 \entry:
@@ -26,13 +26,14 @@
 	jmp exception_common
 .endm
 
-#define EMIT_EXCEPTION_STUB(vector, entry, has_error, name, handler) \
+#define EMIT_EXCEPTION_STUB(                                             \
+	vector, entry, has_error, gate_type, dpl, ist, name, handler)       \
 	EMIT_EXCEPTION_STUB_##has_error(vector, entry)
 #define EMIT_EXCEPTION_STUB_0(vector, entry) \
 	EXCEPTION_NO_ERROR vector entry;
 #define EMIT_EXCEPTION_STUB_1(vector, entry) \
 	EXCEPTION_ERROR vector entry;
-#define EMIT_IRQ_STUB(vector, entry, irq) \
+#define EMIT_IRQ_STUB(vector, entry, irq, gate_type, dpl, ist) \
 	IRQ vector entry;
 
 .section .text

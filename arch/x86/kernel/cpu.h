@@ -35,7 +35,11 @@ void idt_init(void);
  * @vector: IDT vector number.
  * @handler: Assembly entry point for the vector.
  */
-void idt_set_gate(uint8_t vector, void (*handler)(void));
+void idt_set_gate(uint8_t vector,
+	void (*handler)(void),
+	uint8_t gate_type,
+	uint8_t dpl,
+	uint8_t ist);
 
 /*
  * CPU exception and IRQ entry stubs implemented in assembly. Each stub builds
@@ -43,9 +47,11 @@ void idt_set_gate(uint8_t vector, void (*handler)(void));
  */
 #include "trap_vectors.h"
 
-#define DECLARE_EXCEPTION_STUB(vector, entry, has_error, name, handler)        \
+#define DECLARE_EXCEPTION_STUB(                                                \
+	vector, entry, has_error, gate_type, dpl, ist, name, handler)          \
 	void entry(void);
-#define DECLARE_IRQ_STUB(vector, entry, irq) void entry(void);
+#define DECLARE_IRQ_STUB(vector, entry, irq, gate_type, dpl, ist)              \
+	void entry(void);
 
 X86_EXCEPTION_VECTORS(DECLARE_EXCEPTION_STUB)
 X86_IRQ_VECTORS(DECLARE_IRQ_STUB)

@@ -14,6 +14,9 @@ typedef int (*exception_handler_t)(struct trap_frame *frame);
  * @handler: Optional exception-specific handler. Return non-zero if the
  *           exception was handled and execution may resume.
  * @has_error: Whether hardware pushes an error code for this vector.
+ * @gate_type: IDT gate type used for this vector.
+ * @dpl: Descriptor privilege level installed in the IDT.
+ * @ist: Interrupt stack table index used by hardware on entry.
  *
  * Linux uses generated entry wrappers and DEFINE_IDTENTRY-style declarations to
  * keep entry metadata in one place. Tianole keeps the same direction with a
@@ -23,14 +26,19 @@ struct exception_desc {
 	const char *name;
 	exception_handler_t handler;
 	uint8_t has_error;
+	uint8_t gate_type;
+	uint8_t dpl;
+	uint8_t ist;
 };
 
 static int x86_handle_default_exception(struct trap_frame *frame);
+static int x86_handle_double_fault(struct trap_frame *frame);
 static int x86_handle_page_fault(struct trap_frame *frame);
 
 static const struct exception_desc exception_descs[32] = {
-#define DEFINE_EXCEPTION_DESC(vector, entry, has_error, name, handler)         \
-	[vector] = {name, handler, has_error},
+#define DEFINE_EXCEPTION_DESC(                                                 \
+	vector, entry, has_error, gate_type, dpl, ist, name, handler)          \
+	[vector] = {name, handler, has_error, gate_type, dpl, ist},
 	X86_EXCEPTION_VECTORS(DEFINE_EXCEPTION_DESC)
 #undef DEFINE_EXCEPTION_DESC
 };
@@ -62,6 +70,17 @@ static int x86_handle_default_exception(struct trap_frame *frame)
 	(void)frame;
 
 	return 0;
+}
+
+static int x86_handle_double_fault(struct trap_frame *frame)
+{
+	(void)frame;
+
+	early_log_puts("double fault: fatal exception\n");
+	early_log_puts("double fault: ist=");
+	early_log_u64_decimal(X86_IST_DOUBLE_FAULT);
+	early_log_puts("\n");
+	panic("double fault");
 }
 
 static int x86_handle_page_fault(struct trap_frame *frame)
@@ -133,4 +152,24 @@ void trap_dispatch(struct trap_frame *frame)
 	}
 
 	panic("unhandled CPU exception");
+}
+
+/**
+ * arch_test_double_fault() - Exercise the double fault dispatch policy.
+ *
+ * This does not manufacture a real hardware double fault. It builds a minimal
+ * vector-8 trap frame and routes it through the same C dispatch path so checks
+ * can verify the dedicated fatal handler without corrupting the current stack.
+ */
+void arch_test_double_fault(void)
+{
+	static struct trap_frame frame;
+
+	frame.vector = 8;
+	frame.error_code = 0;
+	frame.rip = (uint64_t)(uintptr_t)arch_test_double_fault;
+	frame.cs = KERNEL_CODE_SELECTOR;
+	frame.rflags = 1ull << 9;
+
+	trap_dispatch(&frame);
 }

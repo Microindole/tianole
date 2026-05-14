@@ -20,7 +20,7 @@
 | 阶段 | 状态 | 说明 |
 | --- | --- | --- |
 | `01-early-debug.md` | 基础完成 | early log、COM1、QEMU debug port、panic 已有。 |
-| `02-cpu-interrupts.md` | 进行中 | 已有 GDT/TSS/IDT、trap frame、IRQ0/IRQ1；入口已开始表驱动化，后续补 gate/DPL/IST。 |
+| `02-cpu-interrupts.md` | 进行中 | 已有 GDT/TSS/IDT、trap frame、IRQ0/IRQ1；入口表已包含 gate/DPL/IST，double fault 有 IST 栈和 fatal handler。 |
 | `03-memory.md` | 基础完成 | 已有物理页分配、页表、page fault 诊断、内核堆。 |
 | `04-time-scheduler.md` | 进行中 | 已有 PIT、kernel thread、基础调度、sleep、wait queue、workqueue。 |
 | `05-input-events.md` | 进行中 | 已有 input event、PS/2 keyboard、input console、临时 early kdb。 |
@@ -30,6 +30,6 @@
 
 ## 下一步
 
-优先继续 `02-cpu-interrupts.md`：把 x86 vector 表补上 gate type、DPL、IST，并为 double fault 独立栈预留结构。
+优先继续 `02-cpu-interrupts.md`：先补 `#UD` invalid opcode 和 `#GP` general protection 的独立 handler。default handler 只保留为未知或暂未覆盖 vector 的兜底，不能继续承载常见异常策略。随后再推进系统向量、用户态异常返回边界和更完整的异常恢复策略。
 
 然后回到 `05-input-events.md`：把临时 input console 往 tty/terminal 雏形推进。`kdb` 只保留为早期 debug 入口，不当作 shell 继续扩展。

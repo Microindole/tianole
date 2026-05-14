@@ -59,6 +59,15 @@ int arch_page_table_uses_page(uint64_t page);
 void arch_traps_init(void);
 
 /**
+ * arch_test_double_fault() - Run the architecture double fault test path.
+ *
+ * This is a controlled test hook used only by KERNEL_TEST_DOUBLE_FAULT. It
+ * exercises the vector-8 C dispatch policy without trying to corrupt the
+ * active stack to force a real hardware double fault.
+ */
+void arch_test_double_fault(void);
+
+/**
  * arch_timer_init() - Initialize the architecture timer backend.
  *
  * Connects the hardware timer to the generic timer and scheduler path.

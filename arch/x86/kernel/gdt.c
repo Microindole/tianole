@@ -9,6 +9,7 @@
 #define GDT_TSS_AVAILABLE 0x09
 #define GDT_LONG_MODE 0x20
 #define GDT_GRANULARITY_4K 0x80
+#define DOUBLE_FAULT_STACK_SIZE 16384u
 
 /**
  * struct gdt_entry - Packed legacy segment descriptor.
@@ -71,6 +72,8 @@ extern char kernel_stack_top[];
 
 static struct tss_entry tss;
 static struct gdt_table gdt;
+static uint8_t double_fault_stack[DOUBLE_FAULT_STACK_SIZE]
+	__attribute__((aligned(16)));
 
 static struct gdt_entry make_gdt_entry(uint8_t access, uint8_t flags)
 {
@@ -147,6 +150,9 @@ void gdt_init(void)
 	};
 
 	tss.rsp0 = (uint64_t)(uintptr_t)kernel_stack_top;
+	tss.ist[X86_IST_DOUBLE_FAULT - 1] =
+		(uint64_t)(uintptr_t)(double_fault_stack +
+			DOUBLE_FAULT_STACK_SIZE);
 	tss.io_map_base = sizeof(tss);
 
 	gdt.null = (struct gdt_entry){0};
