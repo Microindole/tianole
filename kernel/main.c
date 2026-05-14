@@ -36,6 +36,10 @@ void kernel_main(const boot_info_t *boot_info)
 	arch_test_general_protection();
 #endif
 
+#if KERNEL_TEST_USER_EXCEPTION
+	arch_test_user_invalid_opcode();
+#endif
+
 #if KERNEL_TEST_PAGE_FAULT
 	*(volatile uint64_t *)(uintptr_t)0xffffff1000000000ull = 1;
 #endif

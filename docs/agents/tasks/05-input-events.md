@@ -101,6 +101,11 @@
 - 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
 - 已有临时 kernel kdb/debug command consumer，用于验证真实输入链路。
 
+当前暂停继续扩展 tty/terminal，先回补 `02-cpu-interrupts.md` 的 trap/IRQ
+边界债务。原因是未来 tty、用户态 shell 和 syscall 都需要明确的
+exception/IRQ/syscall/system vector 分层；如果这里不先收敛，输入主线会在进入
+用户态时返工。
+
 限制必须明确：当前 kdb 不是 Linux 意义上的 shell/tty，也不是用户态入口；它只是 early debug/kdb 雏形，后续要改名并收敛到 `kernel/debug/` 类边界。
 
 ## 后续扩展

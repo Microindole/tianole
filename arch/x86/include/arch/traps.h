@@ -25,10 +25,15 @@
  * @rip: Interrupted instruction pointer.
  * @cs: Interrupted code segment selector.
  * @rflags: Interrupted RFLAGS value.
+ * @rsp: Interrupted user stack pointer for ring transitions.
+ * @ss: Interrupted user stack selector for ring transitions.
  *
- * The assembly entry code owns the exact push order. C trap handlers may read
- * this frame for diagnostics and dispatch, but must not assume it is a stable
- * user-visible ABI.
+ * The assembly entry code owns the exact push order. The first fields mirror
+ * the common software-saved register area; the final five fields follow the
+ * x86 IRET frame shape used by Linux pt_regs: RIP, CS, RFLAGS, RSP, SS. For
+ * current same-ring kernel traps, hardware does not push RSP/SS, so handlers
+ * must only consume those two fields after checking the trap came from user
+ * mode.
  */
 struct trap_frame {
 	uint64_t rax;
@@ -51,6 +56,8 @@ struct trap_frame {
 	uint64_t rip;
 	uint64_t cs;
 	uint64_t rflags;
+	uint64_t rsp;
+	uint64_t ss;
 };
 
 /**

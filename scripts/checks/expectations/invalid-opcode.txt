@@ -3,5 +3,6 @@ exception: invalid opcode
 vector=6 error=0x0000000000000000
 rip=0x
 rsp=0x
+mode=kernel
 invalid opcode: fatal exception
 panic: invalid opcode

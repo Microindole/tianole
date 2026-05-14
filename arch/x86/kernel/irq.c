@@ -9,6 +9,8 @@
 #include <tianole/irq.h>
 #include <tianole/timer.h>
 
+#include "trap_vectors.h"
+
 #define PIC1_COMMAND 0x20
 #define PIC1_DATA 0x21
 #define PIC2_COMMAND 0xa0
@@ -25,10 +27,8 @@
 #define PIT_CHANNEL0 0x40
 #define PIT_MODE_RATE_GENERATOR 0x36
 
-#define IRQ_BASE 32u
 #define IRQ_TIMER 0u
 #define IRQ_KEYBOARD 1u
-#define IRQ_COUNT 16u
 
 /**
  * struct irq_action - Registered external IRQ callback.
@@ -43,7 +43,7 @@ struct irq_action {
 	void *data;
 };
 
-static struct irq_action irq_actions[IRQ_COUNT];
+static struct irq_action irq_actions[X86_LEGACY_IRQ_VECTOR_COUNT];
 
 /**
  * pic_remap() - Move legacy PIC IRQs away from CPU exception vectors.
@@ -59,9 +59,9 @@ static void pic_remap(void)
 	outb(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
 	io_wait();
 
-	outb(PIC1_DATA, IRQ_BASE);
+	outb(PIC1_DATA, X86_LEGACY_IRQ_VECTOR_BASE);
 	io_wait();
-	outb(PIC2_DATA, IRQ_BASE + 8);
+	outb(PIC2_DATA, X86_LEGACY_IRQ_VECTOR_BASE + 8);
 	io_wait();
 
 	outb(PIC1_DATA, 4);
@@ -154,7 +154,7 @@ int irq_register(uint8_t irq, irq_handler_t handler, void *data)
 {
 	uint64_t flags;
 
-	if (irq >= IRQ_COUNT || handler == 0) {
+	if (irq >= X86_LEGACY_IRQ_VECTOR_COUNT || handler == 0) {
 		return -EINVAL;
 	}
 
@@ -189,10 +189,10 @@ static void timer_irq_handler(uint8_t irq, void *data)
  */
 void handle_irq(struct trap_frame *frame)
 {
-	uint64_t irq = frame->vector - IRQ_BASE;
+	uint64_t irq = frame->vector - X86_LEGACY_IRQ_VECTOR_BASE;
 	struct irq_action *action;
 
-	if (irq < IRQ_COUNT) {
+	if (irq < X86_LEGACY_IRQ_VECTOR_COUNT) {
 		action = &irq_actions[irq];
 		if (action->handler != 0) {
 			action->handler((uint8_t)irq, action->data);

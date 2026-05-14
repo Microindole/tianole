@@ -9,6 +9,70 @@
 #define X86_IST_DOUBLE_FAULT 1u
 
 /*
+ * Keep IDT vector ranges explicit. Linux keeps the same kind of separation in
+ * arch/x86/include/asm/irq_vectors.h: architectural exceptions live at 0-31,
+ * external interrupts start at 0x20, int 0x80 is reserved for the legacy
+ * syscall ABI, and system vectors are reserved from the high end. Tianole
+ * currently installs only legacy PIC IRQ0/IRQ1, but the ranges below make
+ * later APIC and syscall work avoid the exception path.
+ */
+#define X86_VECTOR_COUNT 256u
+#define X86_EXCEPTION_VECTOR_BASE 0x00u
+#define X86_EXCEPTION_VECTOR_COUNT 32u
+#define X86_FIRST_EXTERNAL_VECTOR 0x20u
+#define X86_LEGACY_IRQ_VECTOR_BASE X86_FIRST_EXTERNAL_VECTOR
+#define X86_LEGACY_IRQ_VECTOR_COUNT 16u
+#define X86_LEGACY_SYSCALL_VECTOR 0x80u
+#define X86_FIRST_SYSTEM_VECTOR 0xecu
+
+#ifndef __ASSEMBLER__
+enum x86_vector_class {
+	X86_VECTOR_EXCEPTION,
+	X86_VECTOR_LEGACY_IRQ,
+	X86_VECTOR_SYSCALL,
+	X86_VECTOR_EXTERNAL_IRQ,
+	X86_VECTOR_SYSTEM,
+	X86_VECTOR_RESERVED,
+};
+
+static inline int x86_vector_in_range(
+	uint64_t vector, uint64_t first, uint64_t count)
+{
+	return vector >= first && vector < first + count;
+}
+
+static inline enum x86_vector_class x86_vector_class(uint64_t vector)
+{
+	if (x86_vector_in_range(vector,
+		    X86_EXCEPTION_VECTOR_BASE,
+		    X86_EXCEPTION_VECTOR_COUNT)) {
+		return X86_VECTOR_EXCEPTION;
+	}
+
+	if (x86_vector_in_range(vector,
+		    X86_LEGACY_IRQ_VECTOR_BASE,
+		    X86_LEGACY_IRQ_VECTOR_COUNT)) {
+		return X86_VECTOR_LEGACY_IRQ;
+	}
+
+	if (vector == X86_LEGACY_SYSCALL_VECTOR) {
+		return X86_VECTOR_SYSCALL;
+	}
+
+	if (vector >= X86_FIRST_SYSTEM_VECTOR && vector < X86_VECTOR_COUNT) {
+		return X86_VECTOR_SYSTEM;
+	}
+
+	if (vector >= X86_FIRST_EXTERNAL_VECTOR &&
+		vector < X86_FIRST_SYSTEM_VECTOR) {
+		return X86_VECTOR_EXTERNAL_IRQ;
+	}
+
+	return X86_VECTOR_RESERVED;
+}
+#endif
+
+/*
  * X86_EXCEPTION_VECTOR(vector, entry, has_error, gate_type, dpl, ist, name,
  *                      handler)
  *
@@ -278,11 +342,22 @@
 /*
  * X86_IRQ_VECTOR(vector, entry, irq, gate_type, dpl, ist)
  *
- * Legacy PIC vectors start at 32. External IRQs use interrupt gates so IF is
- * cleared while the common trap path dispatches the device handler.
+ * Legacy PIC vectors start at X86_LEGACY_IRQ_VECTOR_BASE. External IRQs use
+ * interrupt gates so IF is cleared while the common trap path dispatches the
+ * device handler.
  */
 #define X86_IRQ_VECTORS(X)                                                     \
-	X(32, irq_32, 0, X86_IDT_INTERRUPT_GATE, X86_IDT_DPL0, X86_IST_NONE)   \
-	X(33, irq_33, 1, X86_IDT_INTERRUPT_GATE, X86_IDT_DPL0, X86_IST_NONE)
+	X(X86_LEGACY_IRQ_VECTOR_BASE + 0,                                      \
+		irq_32,                                                        \
+		0,                                                             \
+		X86_IDT_INTERRUPT_GATE,                                        \
+		X86_IDT_DPL0,                                                  \
+		X86_IST_NONE)                                                  \
+	X(X86_LEGACY_IRQ_VECTOR_BASE + 1,                                      \
+		irq_33,                                                        \
+		1,                                                             \
+		X86_IDT_INTERRUPT_GATE,                                        \
+		X86_IDT_DPL0,                                                  \
+		X86_IST_NONE)
 
 #endif

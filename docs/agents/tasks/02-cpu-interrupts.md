@@ -94,6 +94,10 @@
 
 ## 当前状态
 
+当前属于债务回补阶段：整体主线已经推进到 `05-input-events.md`，
+但 syscall、用户态异常、更多 IRQ 和 tty/terminal 都会依赖这里的
+trap/IRQ 边界。因此接下来继续补本阶段，不代表主线进度倒退。
+
 基础完成：
 
 - x86_64 GDT 已加载。
@@ -102,13 +106,17 @@
 - 异常入口汇编已统一保存通用寄存器现场。
 - C 层 trap dispatch 已接收统一 `trap_frame`。
 - 当前 IDT 安装、入口声明和汇编入口已共享 vector 表；vector 表已包含 gate 类型、DPL 和 IST 元数据。
+- vector 分区已显式进入代码：CPU exception、legacy PIC IRQ、legacy int 0x80 syscall、future external IRQ 和高端 system vector 不再依赖散落的数字判断。
+- trap 诊断已能基于 `CS.RPL` 区分当前来自 kernel mode 还是 future user mode。
+- kernel-mode 未处理异常和 future user-mode 未处理异常已经分到不同 policy 函数；当前 user path 仍是 fatal placeholder，等待进程/signal 或任务终止语义。
+- `trap_frame` 已显式预留 IRET frame 的 `rsp/ss` 字段；当前 kernel-mode same-ring trap 不读取这两个字段，future user-mode trap 会使用硬件保存的 interrupted stack。
 - 未处理异常进入 `panic("unhandled CPU exception")`。
 - `KERNEL_TEST_TRAP=1` 会通过 `ud2` 主动触发 invalid opcode。
 - `scripts/check.sh` 已自动验证 invalid opcode 日志和 panic 路径。
 
 后续扩展：
 
-- 继续扩展 IDT/trap 元数据，补系统向量、用户态返回策略和更完整的异常恢复策略。
+- 继续扩展 IDT/trap 元数据，补用户态返回策略和更完整的异常恢复策略。
 - page fault、double fault、`#UD` invalid opcode 和 `#GP` general protection 已拆出专门处理函数。
 - default handler 只作为未知或暂未覆盖 vector 的兜底，不能继续承载常见异常策略。
 - PIC/APIC 初始化。
@@ -116,10 +124,10 @@
 - timer interrupt。
 - page fault 的专门处理策略。
 - double fault 独立 IST 栈已预留，并已有专门 fatal handler 与受控验证路径。
-- 用户态异常返回。
+- 用户态异常返回与用户异常交付；需要在真正进入 ring 3 前安装用户段并验证硬件压栈的 `rsp/ss` 路径。
 - 可恢复异常处理。
 - oops 格式和符号化输出。
-- syscall/sysret 或 int syscall 入口。
+- legacy int 0x80 syscall vector 已作为独立分类预留；syscall/sysret 或正式 syscall entry 尚未实现。
 - nested interrupt 和 preempt/reschedule 边界。
 - NMI、spurious IRQ 和未知 vector 策略。
 
@@ -128,7 +136,11 @@
 - 正常启动日志包含 `traps initialized`。
 - invalid opcode 测试能输出 vector、error code、rip、rsp、rflags。
 - 未处理异常能进入 `panic("unhandled CPU exception")`。
+- user-origin invalid opcode 测试能进入 `panic("unhandled user CPU exception")`。
+- user-origin invalid opcode 测试能输出 frame 中保存的 `rsp/ss`。
 
 下一阶段：
 
-- 继续 `02-cpu-interrupts.md`：推进系统向量、用户态异常返回边界和更完整的异常恢复策略。
+- 继续 `02-cpu-interrupts.md`：在真正实现用户态前，不再扩展临时 monitor/kdb；
+  下一步可回到 `05-input-events.md` 推 tty/terminal，或进入 `07-user-mode.md`
+  时再补 syscall/sysret 和真实 ring 3 entry。

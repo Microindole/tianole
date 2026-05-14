@@ -5,8 +5,13 @@
 #include <tianole/sched.h>
 
 #include "cpu.h"
+#include "trap_policy.h"
 
-typedef int (*exception_handler_t)(struct trap_frame *frame);
+struct exception_desc;
+
+typedef int (*exception_handler_t)(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc);
 
 /**
  * struct exception_desc - C-level policy for one CPU exception vector.
@@ -31,11 +36,21 @@ struct exception_desc {
 	uint8_t ist;
 };
 
-static int x86_handle_default_exception(struct trap_frame *frame);
-static int x86_handle_double_fault(struct trap_frame *frame);
-static int x86_handle_general_protection(struct trap_frame *frame);
-static int x86_handle_invalid_opcode(struct trap_frame *frame);
-static int x86_handle_page_fault(struct trap_frame *frame);
+static int x86_handle_default_exception(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc);
+static int x86_handle_double_fault(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc);
+static int x86_handle_general_protection(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc);
+static int x86_handle_invalid_opcode(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc);
+static int x86_handle_page_fault(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc);
 
 static const struct exception_desc exception_descs[32] = {
 #define DEFINE_EXCEPTION_DESC(                                                 \
@@ -48,35 +63,83 @@ static const struct exception_desc exception_descs[32] = {
 /**
  * interrupted_rsp() - Derive the interrupted stack pointer for diagnostics.
  * @frame: Trap frame built by the assembly entry path.
+ * @origin: Trap origin derived from the interrupted CS selector.
  *
- * The current same-ring entry path does not store RSP as a named field. Until
- * trap frames grow a stable saved-RSP slot, this reports the stack location
- * just beyond the saved RFLAGS value.
+ * On a ring transition x86 pushes the interrupted RSP/SS pair into the IRET
+ * frame. Current kernel-mode same-ring traps do not have that hardware pair,
+ * so diagnostics keep the old derived value for kernel traps.
  */
-static uint64_t interrupted_rsp(const struct trap_frame *frame)
+static uint64_t interrupted_rsp(
+	const struct trap_frame *frame, enum x86_trap_origin origin)
 {
+	if (origin == X86_TRAP_FROM_USER) {
+		return frame->rsp;
+	}
+
 	return (uint64_t)(uintptr_t)&frame->rflags + sizeof(frame->rflags);
 }
 
 static const struct exception_desc *exception_desc(uint64_t vector)
 {
-	if (vector >= 32) {
+	if (x86_vector_class(vector) != X86_VECTOR_EXCEPTION) {
 		return 0;
 	}
 
 	return &exception_descs[vector];
 }
 
-static int x86_handle_default_exception(struct trap_frame *frame)
+/**
+ * trap_origin() - Classify whether a trap interrupted kernel or user mode.
+ * @frame: Trap frame built by the entry path.
+ *
+ * x86 stores the interrupted code selector in the frame. Its RPL bits are the
+ * first boundary future user-mode exception policy needs: ring 0 faults remain
+ * kernel faults, while ring 3 faults should eventually be delivered to or kill
+ * the current task instead of panicking the whole kernel.
+ */
+static enum x86_trap_origin trap_origin(const struct trap_frame *frame)
+{
+	return x86_trap_origin_from_cs(frame->cs);
+}
+
+/**
+ * x86_handle_default_exception() - Leave an exception to common policy.
+ * @frame: Register snapshot from the assembly entry path.
+ * @origin: Whether the interrupted context was kernel or future user mode.
+ * @desc: Metadata for this exception vector.
+ *
+ * Vectors that do not yet need special handling return unhandled here. The
+ * common dispatch code then applies either kernel panic policy or the future
+ * user-mode delivery policy.
+ */
+static int x86_handle_default_exception(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc)
 {
 	(void)frame;
+	(void)origin;
+	(void)desc;
 
 	return 0;
 }
 
-static int x86_handle_double_fault(struct trap_frame *frame)
+/**
+ * x86_handle_double_fault() - Handle a fatal double fault.
+ * @frame: Register snapshot from the trap entry.
+ * @origin: Interrupted privilege level.
+ * @desc: Metadata for vector 8.
+ *
+ * Double fault stays fatal regardless of origin. The IDT metadata already
+ * selects the dedicated IST stack, and this handler records that fact before
+ * stopping the kernel.
+ */
+static int x86_handle_double_fault(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc)
 {
 	(void)frame;
+	(void)origin;
+	(void)desc;
 
 	early_log_puts("double fault: fatal exception\n");
 	early_log_puts("double fault: ist=");
@@ -85,8 +148,23 @@ static int x86_handle_double_fault(struct trap_frame *frame)
 	panic("double fault");
 }
 
-static int x86_handle_general_protection(struct trap_frame *frame)
+/**
+ * x86_handle_general_protection() - Handle #GP policy.
+ * @frame: Register snapshot from the trap entry.
+ * @origin: Interrupted privilege level.
+ * @desc: Metadata for vector 13.
+ *
+ * User-origin #GP is routed to the future user exception policy. Kernel-origin
+ * #GP remains fatal until fixup/oops support exists.
+ */
+static int x86_handle_general_protection(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc)
 {
+	if (origin == X86_TRAP_FROM_USER) {
+		x86_unhandled_user_exception(desc->name);
+	}
+
 	early_log_puts("general protection: fatal exception\n");
 	early_log_puts("general protection: error=");
 	early_log_u64_hex(frame->error_code);
@@ -94,16 +172,45 @@ static int x86_handle_general_protection(struct trap_frame *frame)
 	panic("general protection fault");
 }
 
-static int x86_handle_invalid_opcode(struct trap_frame *frame)
+/**
+ * x86_handle_invalid_opcode() - Handle #UD policy.
+ * @frame: Register snapshot from the trap entry.
+ * @origin: Interrupted privilege level.
+ * @desc: Metadata for vector 6.
+ *
+ * The split mirrors Linux's user-vs-kernel trap policy. User-origin #UD will
+ * later become process delivery; kernel-origin #UD is fatal today.
+ */
+static int x86_handle_invalid_opcode(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc)
 {
 	(void)frame;
+
+	if (origin == X86_TRAP_FROM_USER) {
+		x86_unhandled_user_exception(desc->name);
+	}
 
 	early_log_puts("invalid opcode: fatal exception\n");
 	panic("invalid opcode");
 }
 
-static int x86_handle_page_fault(struct trap_frame *frame)
+/**
+ * x86_handle_page_fault() - Route #PF to the architecture MM fault reporter.
+ * @frame: Register snapshot from the trap entry.
+ * @origin: Interrupted privilege level.
+ * @desc: Metadata for vector 14.
+ *
+ * The MM fault path decodes CR2 and access bits. If it cannot recover, common
+ * dispatch applies kernel or future user-mode unhandled policy.
+ */
+static int x86_handle_page_fault(struct trap_frame *frame,
+	enum x86_trap_origin origin,
+	const struct exception_desc *desc)
 {
+	(void)origin;
+	(void)desc;
+
 	handle_page_fault(frame);
 	return 0;
 }
@@ -112,6 +219,7 @@ static void print_exception_frame(
 	const struct trap_frame *frame, const struct exception_desc *desc)
 {
 	const char *name = "unknown exception";
+	enum x86_trap_origin origin = trap_origin(frame);
 
 	if (desc != 0 && desc->name != 0) {
 		name = desc->name;
@@ -128,9 +236,16 @@ static void print_exception_frame(
 	early_log_puts("rip=");
 	early_log_u64_hex(frame->rip);
 	early_log_puts(" rsp=");
-	early_log_u64_hex(interrupted_rsp(frame));
+	early_log_u64_hex(interrupted_rsp(frame, origin));
 	early_log_puts(" rflags=");
 	early_log_u64_hex(frame->rflags);
+	early_log_puts("\n");
+	early_log_puts("mode=");
+	early_log_puts(x86_trap_origin_name(origin));
+	if (origin == X86_TRAP_FROM_USER) {
+		early_log_puts(" ss=");
+		early_log_u64_hex(frame->ss);
+	}
 	early_log_puts("\n");
 }
 
@@ -155,22 +270,45 @@ void arch_traps_init(void)
 void trap_dispatch(struct trap_frame *frame)
 {
 	const struct exception_desc *desc;
+	enum x86_trap_origin origin;
 
-	if (frame->vector >= 32 && frame->vector < 48) {
+	switch (x86_vector_class(frame->vector)) {
+	case X86_VECTOR_LEGACY_IRQ:
 		sched_irq_enter();
 		handle_irq(frame);
 		sched_irq_exit();
 		return;
+	case X86_VECTOR_EXCEPTION:
+		break;
+	case X86_VECTOR_SYSCALL:
+		early_log_puts("unexpected syscall vector=");
+		early_log_u64_decimal(frame->vector);
+		early_log_puts("\n");
+		panic("unhandled syscall vector");
+	case X86_VECTOR_EXTERNAL_IRQ:
+	case X86_VECTOR_SYSTEM:
+	case X86_VECTOR_RESERVED:
+		early_log_puts("unexpected vector=");
+		early_log_u64_decimal(frame->vector);
+		early_log_puts("\n");
+		panic("unhandled CPU vector");
 	}
 
 	desc = exception_desc(frame->vector);
+	origin = trap_origin(frame);
 	print_exception_frame(frame, desc);
 
-	if (desc != 0 && desc->handler != 0 && desc->handler(frame) != 0) {
+	if (desc != 0 && desc->handler != 0 &&
+		desc->handler(frame, origin, desc) != 0) {
 		return;
 	}
 
-	panic("unhandled CPU exception");
+	if (origin == X86_TRAP_FROM_USER) {
+		x86_unhandled_user_exception(
+			desc != 0 && desc->name != 0 ? desc->name : 0);
+	}
+
+	x86_unhandled_kernel_exception();
 }
 
 /**
@@ -189,6 +327,8 @@ void arch_test_double_fault(void)
 	frame.rip = (uint64_t)(uintptr_t)arch_test_double_fault;
 	frame.cs = KERNEL_CODE_SELECTOR;
 	frame.rflags = 1ull << 9;
+	frame.rsp = 0;
+	frame.ss = 0;
 
 	trap_dispatch(&frame);
 }
@@ -209,6 +349,30 @@ void arch_test_general_protection(void)
 	frame.rip = (uint64_t)(uintptr_t)arch_test_general_protection;
 	frame.cs = KERNEL_CODE_SELECTOR;
 	frame.rflags = 1ull << 9;
+	frame.rsp = 0;
+	frame.ss = 0;
+
+	trap_dispatch(&frame);
+}
+
+/**
+ * arch_test_user_invalid_opcode() - Exercise the future user fault boundary.
+ *
+ * The kernel does not enter ring 3 yet. This builds a controlled vector-6 frame
+ * with RPL=3 in CS so the C policy path can verify that user-origin exceptions
+ * are separated from kernel-mode exception panic handling.
+ */
+void arch_test_user_invalid_opcode(void)
+{
+	static struct trap_frame frame;
+
+	frame.vector = 6;
+	frame.error_code = 0;
+	frame.rip = (uint64_t)(uintptr_t)arch_test_user_invalid_opcode;
+	frame.cs = KERNEL_CODE_SELECTOR | X86_RING3_RPL;
+	frame.rflags = 1ull << 9;
+	frame.rsp = 0x0000000000400000ull;
+	frame.ss = USER_DATA_SELECTOR;
 
 	trap_dispatch(&frame);
 }

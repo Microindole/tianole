@@ -9,9 +9,28 @@
 #define KERNEL_CODE_SELECTOR 0x08
 
 /**
+ * X86_SELECTOR_RPL_MASK - Mask for a segment selector requestor privilege.
+ */
+#define X86_SELECTOR_RPL_MASK 0x03
+
+/**
+ * X86_RING3_RPL - Requestor privilege level used by future user mode frames.
+ */
+#define X86_RING3_RPL 0x03
+
+/**
  * KERNEL_DATA_SELECTOR - Ring-0 data segment selector.
  */
 #define KERNEL_DATA_SELECTOR 0x10
+
+/**
+ * USER_DATA_SELECTOR - Placeholder ring-3 data selector for test frames.
+ *
+ * The GDT does not install user descriptors yet. This value is only used to
+ * make controlled trap-frame tests carry the eventual RPL=3 stack selector
+ * shape expected by the entry path.
+ */
+#define USER_DATA_SELECTOR 0x23
 
 /**
  * TSS_SELECTOR - Task-state segment selector used for kernel stack metadata.

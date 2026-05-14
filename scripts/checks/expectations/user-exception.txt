@@ -1,0 +1,9 @@
+traps initialized
+exception: invalid opcode
+vector=6 error=0x0000000000000000
+rsp=0x0000000000400000
+mode=user
+ss=0x0000000000000023
+user exception: invalid opcode
+user exception policy is not implemented
+panic: unhandled user CPU exception

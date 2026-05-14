@@ -77,6 +77,16 @@ void arch_test_double_fault(void);
 void arch_test_general_protection(void);
 
 /**
+ * arch_test_user_invalid_opcode() - Run the future user exception policy test.
+ *
+ * This controlled hook is used only by KERNEL_TEST_USER_EXCEPTION. It builds a
+ * vector-6 frame whose code selector has ring-3 RPL bits, then routes it
+ * through trap dispatch to verify that user-origin faults do not use the
+ * kernel-mode panic policy.
+ */
+void arch_test_user_invalid_opcode(void);
+
+/**
  * arch_timer_init() - Initialize the architecture timer backend.
  *
  * Connects the hardware timer to the generic timer and scheduler path.

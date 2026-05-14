@@ -4,5 +4,6 @@ boot scripts/checks/boot.sh
 invalid-opcode scripts/checks/trap.sh
 double-fault scripts/checks/double-fault.sh
 general-protection scripts/checks/general-protection.sh
+user-exception scripts/checks/user-exception.sh
 page-fault scripts/checks/page-fault.sh
 default-build scripts/checks/default-build.sh

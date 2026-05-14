@@ -10,6 +10,7 @@ arch-kernel-y := \
 	irq.o \
 	screen.o \
 	screen_font.o \
+	trap_policy.o \
 	traps.o
 
 ARCH_KERNEL_OBJS := \
