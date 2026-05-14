@@ -21,4 +21,4 @@ jobs:
             ovmf
 
       - name: Validate x86_64 kernel build and boot scenarios
-        run: ./scripts/check.sh
+        run: make validate-x86_64

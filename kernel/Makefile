@@ -1,22 +1,22 @@
-KERNEL_SRCS := \
-	kernel/main.c \
-	kernel/boot_report.c \
-	kernel/early_log.c \
-	kernel/workqueue.c \
-	kernel/console/input_console.c \
-	kernel/debug/kdb.c \
-	kernel/locking/spinlock.c \
-	kernel/sched/core.c \
-	kernel/sched/idle.c \
-	kernel/sched/thread.c \
-	kernel/sched/wait.c \
-	kernel/selftest/page_table.c \
-	kernel/selftest/sched.c \
-	kernel/time/timer.c
+kernel-y := \
+	main.o \
+	boot_report.o \
+	early_log.o \
+	workqueue.o \
+	console/input_console.o \
+	debug/kdb.o \
+	locking/spinlock.o \
+	sched/core.o \
+	sched/idle.o \
+	sched/thread.o \
+	sched/wait.o \
+	selftest/page_table.o \
+	selftest/sched.o \
+	time/timer.o
 
 KERNEL_OBJS := \
 	$(ARCH_KERNEL_OBJS) \
 	$(ARCH_MM_OBJS) \
-	$(patsubst kernel/%.c,$(BUILD_DIR)/kernel/%.o,$(KERNEL_SRCS)) \
+	$(addprefix $(BUILD_DIR)/kernel/,$(kernel-y)) \
 	$(DRIVER_OBJS) \
 	$(MM_OBJS)

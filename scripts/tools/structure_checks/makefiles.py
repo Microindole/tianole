@@ -1,23 +1,23 @@
-import re
 from pathlib import Path
 
 from .common import all_files, c_files, read_text
 
 
-MAKEFILE_SOURCE_VARS = (
-	"ARCH_KERNEL_SRCS",
-	"ARCH_MM_SRCS",
-	"BOOT_SRCS",
-	"DRIVER_SRCS",
-	"KERNEL_SRCS",
-	"MM_SRCS",
-)
+def is_object_list_variable(name: str) -> bool:
+	return name.endswith("-y")
 
 
-def expand_make_var_token(token: str, makefile: Path) -> str:
-	return token.replace("$(ARCH_DIR)", "arch/x86").replace(
-		"$(BUILD_DIR)", "build"
-	)
+def source_for_object(root: Path, makefile: Path, token: str) -> Path | None:
+	if not token.endswith(".o") or "$(" in token:
+		return None
+
+	source = makefile.parent / token[:-2]
+	c_source = source.with_suffix(".c")
+
+	if (root / c_source).exists():
+		return c_source
+
+	return None
 
 
 def parse_makefile_sources(root: Path, makefile: Path) -> set[Path]:
@@ -28,19 +28,24 @@ def parse_makefile_sources(root: Path, makefile: Path) -> set[Path]:
 
 	while index < len(lines):
 		line = lines[index]
-		match = re.match(r"^([A-Z0-9_]+)\s*:=", line)
-		if match == None or match.group(1) not in MAKEFILE_SOURCE_VARS:
+		if ":=" not in line:
 			index += 1
 			continue
 
-		remainder = line.split(":=", 1)[1].strip()
+		name, remainder = line.split(":=", 1)
+		if not is_object_list_variable(name.strip()):
+			index += 1
+			continue
+
+		remainder = remainder.strip()
 		while True:
 			continued = remainder.endswith("\\")
 			remainder = remainder[:-1].strip() if continued else remainder
 			if remainder:
 				for token in remainder.split():
-					if token.endswith(".c"):
-						sources.add(Path(expand_make_var_token(token, makefile)))
+					source = source_for_object(root, makefile, token)
+					if source != None:
+						sources.add(source)
 
 			if not continued:
 				break

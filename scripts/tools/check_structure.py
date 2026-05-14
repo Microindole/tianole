@@ -10,6 +10,7 @@ from structure_checks.common import (
 	repo_root,
 	source_files,
 )
+from structure_checks.check_suites import check_validation_suites
 from structure_checks.makefiles import check_makefile_source_lists
 from structure_checks.public_headers import check_public_header_docs
 from structure_checks.source_rules import (
@@ -44,6 +45,7 @@ def main() -> int:
 	errors.extend(check_public_header_docs(root, public_headers(files)))
 	errors.extend(check_selftests_are_centralized(c_files(files)))
 	errors.extend(check_makefile_source_lists(root, files, all_mode))
+	errors.extend(check_validation_suites(root))
 
 	if errors:
 		for error in errors:

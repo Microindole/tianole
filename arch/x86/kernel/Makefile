@@ -1,14 +1,17 @@
-ARCH_KERNEL_SRCS := \
-	$(ARCH_DIR)/kernel/early_log.c \
-	$(ARCH_DIR)/kernel/gdt.c \
-	$(ARCH_DIR)/kernel/idt.c \
-	$(ARCH_DIR)/kernel/irq.c \
-	$(ARCH_DIR)/kernel/screen.c \
-	$(ARCH_DIR)/kernel/screen_font.c \
-	$(ARCH_DIR)/kernel/traps.c
+arch-kernel-asm-y := \
+	entry.o \
+	exception_entry.o \
+	switch.o
+
+arch-kernel-y := \
+	early_log.o \
+	gdt.o \
+	idt.o \
+	irq.o \
+	screen.o \
+	screen_font.o \
+	traps.o
 
 ARCH_KERNEL_OBJS := \
-	$(BUILD_DIR)/arch/kernel/entry.o \
-	$(BUILD_DIR)/arch/kernel/exception_entry.o \
-	$(BUILD_DIR)/arch/kernel/switch.o \
-	$(patsubst $(ARCH_DIR)/kernel/%.c,$(BUILD_DIR)/arch/kernel/%.o,$(ARCH_KERNEL_SRCS))
+	$(addprefix $(BUILD_DIR)/arch/kernel/,$(arch-kernel-asm-y)) \
+	$(addprefix $(BUILD_DIR)/arch/kernel/,$(arch-kernel-y))

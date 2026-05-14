@@ -1,0 +1,8 @@
+format scripts/checks/format.sh
+structure scripts/checks/structure.sh
+boot scripts/checks/boot.sh
+invalid-opcode scripts/checks/trap.sh
+double-fault scripts/checks/double-fault.sh
+general-protection scripts/checks/general-protection.sh
+page-fault scripts/checks/page-fault.sh
+default-build scripts/checks/default-build.sh

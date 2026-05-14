@@ -1,6 +1,5 @@
-MM_SRCS := \
-	mm/heap.c \
-	mm/page_alloc.c
+mm-y := \
+	heap.o \
+	page_alloc.o
 
-MM_OBJS := \
-	$(patsubst mm/%.c,$(BUILD_DIR)/mm/%.o,$(MM_SRCS))
+MM_OBJS := $(addprefix $(BUILD_DIR)/mm/,$(mm-y))

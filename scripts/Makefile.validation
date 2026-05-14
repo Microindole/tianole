@@ -1,0 +1,7 @@
+.PHONY: list-validation-suites validate-x86_64
+
+list-validation-suites:
+	./scripts/check.sh --list
+
+validate-x86_64:
+	./scripts/check.sh

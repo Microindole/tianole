@@ -27,4 +27,5 @@ include kernel/Makefile
 
 include scripts/Makefile.toolchain
 include scripts/Makefile.build
+include scripts/Makefile.validation
 include scripts/Makefile.qemu
