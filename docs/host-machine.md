@@ -73,3 +73,25 @@ Windows 侧主要承担：
 - U 盘管理
 - BIOS / 启动菜单辅助操作
 - 真机测试前准备
+
+## QEMU 交互测试
+
+自动化回归使用 headless QEMU：
+
+```bash
+make run-headless
+```
+
+键盘/tty/kdb 交互测试使用图形 QEMU：
+
+```bash
+make run-interactive
+```
+
+`run-interactive` 默认使用 `QEMU_DISPLAY=gtk`，适合 WSLg 或普通 Linux 桌面。若宿主环境没有 GTK 显示能力，可以显式覆盖 QEMU display 后端：
+
+```bash
+make run-interactive QEMU_DISPLAY=sdl
+```
+
+启动后在 QEMU 窗口内输入，看到 `tianole>` 后可测试 `help`、`ticks`、`drops`、`echo hello`，以及常见 US 可打印键和 Shift 变体。

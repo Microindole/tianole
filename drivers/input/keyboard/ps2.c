@@ -17,6 +17,10 @@
 #define PS2_KEYBOARD_DEVICE 1u
 #define PS2_RAW_QUEUE_CAPACITY 32u
 #define PS2_SCANCODE_RELEASE 0x80u
+#define PS2_SCANCODE_EXTENDED 0xe0u
+#define PS2_SCANCODE_PAUSE 0xe1u
+#define PS2_SCANCODE_MASK 0x7fu
+#define PS2_SET1_KEYMAP_SIZE 128u
 
 /**
  * struct ps2_keyboard - Minimal PS/2 set-1 keyboard state.
@@ -28,6 +32,8 @@
  * @count: Number of queued raw scancodes.
  * @dropped: Raw scancodes dropped because the ring was full.
  * @modifiers: Current modifier state snapshot.
+ * @extended_pending: Non-zero after an 0xe0 scancode prefix.
+ * @pause_bytes: Number of remaining Pause/Break sequence bytes to ignore.
  * @initialized: Non-zero after driver registration.
  *
  * IRQ context only reads hardware and queues raw bytes. Decoding and input
@@ -42,107 +48,125 @@ struct ps2_keyboard {
 	uint32_t count;
 	uint64_t dropped;
 	uint32_t modifiers;
+	int extended_pending;
+	uint8_t pause_bytes;
 	int initialized;
 };
 
 static struct ps2_keyboard ps2_keyboard;
 
-static enum input_key_code ps2_keycode_from_set1(uint8_t code)
+static const enum input_key_code ps2_set1_keycode[PS2_SET1_KEYMAP_SIZE] = {
+	[0x01] = INPUT_KEY_ESCAPE,
+	[0x02] = INPUT_KEY_1,
+	[0x03] = INPUT_KEY_2,
+	[0x04] = INPUT_KEY_3,
+	[0x05] = INPUT_KEY_4,
+	[0x06] = INPUT_KEY_5,
+	[0x07] = INPUT_KEY_6,
+	[0x08] = INPUT_KEY_7,
+	[0x09] = INPUT_KEY_8,
+	[0x0a] = INPUT_KEY_9,
+	[0x0b] = INPUT_KEY_0,
+	[0x0c] = INPUT_KEY_MINUS,
+	[0x0d] = INPUT_KEY_EQUAL,
+	[0x0e] = INPUT_KEY_BACKSPACE,
+	[0x0f] = INPUT_KEY_TAB,
+	[0x10] = INPUT_KEY_Q,
+	[0x11] = INPUT_KEY_W,
+	[0x12] = INPUT_KEY_E,
+	[0x13] = INPUT_KEY_R,
+	[0x14] = INPUT_KEY_T,
+	[0x15] = INPUT_KEY_Y,
+	[0x16] = INPUT_KEY_U,
+	[0x17] = INPUT_KEY_I,
+	[0x18] = INPUT_KEY_O,
+	[0x19] = INPUT_KEY_P,
+	[0x1a] = INPUT_KEY_LEFT_BRACKET,
+	[0x1b] = INPUT_KEY_RIGHT_BRACKET,
+	[0x1c] = INPUT_KEY_ENTER,
+	[0x1d] = INPUT_KEY_LEFT_CTRL,
+	[0x1e] = INPUT_KEY_A,
+	[0x1f] = INPUT_KEY_S,
+	[0x20] = INPUT_KEY_D,
+	[0x21] = INPUT_KEY_F,
+	[0x22] = INPUT_KEY_G,
+	[0x23] = INPUT_KEY_H,
+	[0x24] = INPUT_KEY_J,
+	[0x25] = INPUT_KEY_K,
+	[0x26] = INPUT_KEY_L,
+	[0x27] = INPUT_KEY_SEMICOLON,
+	[0x28] = INPUT_KEY_APOSTROPHE,
+	[0x29] = INPUT_KEY_GRAVE,
+	[0x2a] = INPUT_KEY_LEFT_SHIFT,
+	[0x2b] = INPUT_KEY_BACKSLASH,
+	[0x2c] = INPUT_KEY_Z,
+	[0x2d] = INPUT_KEY_X,
+	[0x2e] = INPUT_KEY_C,
+	[0x2f] = INPUT_KEY_V,
+	[0x30] = INPUT_KEY_B,
+	[0x31] = INPUT_KEY_N,
+	[0x32] = INPUT_KEY_M,
+	[0x33] = INPUT_KEY_COMMA,
+	[0x34] = INPUT_KEY_DOT,
+	[0x35] = INPUT_KEY_SLASH,
+	[0x36] = INPUT_KEY_RIGHT_SHIFT,
+	[0x37] = INPUT_KEY_KP_ASTERISK,
+	[0x38] = INPUT_KEY_LEFT_ALT,
+	[0x39] = INPUT_KEY_SPACE,
+	[0x3a] = INPUT_KEY_CAPSLOCK,
+	[0x3b] = INPUT_KEY_F1,
+	[0x3c] = INPUT_KEY_F2,
+	[0x3d] = INPUT_KEY_F3,
+	[0x3e] = INPUT_KEY_F4,
+	[0x3f] = INPUT_KEY_F5,
+	[0x40] = INPUT_KEY_F6,
+	[0x41] = INPUT_KEY_F7,
+	[0x42] = INPUT_KEY_F8,
+	[0x43] = INPUT_KEY_F9,
+	[0x44] = INPUT_KEY_F10,
+	[0x45] = INPUT_KEY_NUMLOCK,
+	[0x46] = INPUT_KEY_SCROLLLOCK,
+	[0x47] = INPUT_KEY_KP7,
+	[0x48] = INPUT_KEY_KP8,
+	[0x49] = INPUT_KEY_KP9,
+	[0x4a] = INPUT_KEY_KP_MINUS,
+	[0x4b] = INPUT_KEY_KP4,
+	[0x4c] = INPUT_KEY_KP5,
+	[0x4d] = INPUT_KEY_KP6,
+	[0x4e] = INPUT_KEY_KP_PLUS,
+	[0x4f] = INPUT_KEY_KP1,
+	[0x50] = INPUT_KEY_KP2,
+	[0x51] = INPUT_KEY_KP3,
+	[0x52] = INPUT_KEY_KP0,
+	[0x53] = INPUT_KEY_KP_DOT,
+	[0x57] = INPUT_KEY_F11,
+	[0x58] = INPUT_KEY_F12,
+};
+
+static const enum input_key_code ps2_set1_e0_keycode[PS2_SET1_KEYMAP_SIZE] = {
+	[0x1c] = INPUT_KEY_KP_ENTER,
+	[0x1d] = INPUT_KEY_RIGHT_CTRL,
+	[0x35] = INPUT_KEY_KP_SLASH,
+	[0x38] = INPUT_KEY_RIGHT_ALT,
+	[0x47] = INPUT_KEY_HOME,
+	[0x48] = INPUT_KEY_UP,
+	[0x49] = INPUT_KEY_PAGEUP,
+	[0x4b] = INPUT_KEY_LEFT,
+	[0x4d] = INPUT_KEY_RIGHT,
+	[0x4f] = INPUT_KEY_END,
+	[0x50] = INPUT_KEY_DOWN,
+	[0x51] = INPUT_KEY_PAGEDOWN,
+	[0x52] = INPUT_KEY_INSERT,
+	[0x53] = INPUT_KEY_DELETE,
+};
+
+static enum input_key_code ps2_keycode_from_set1(uint8_t code, int extended)
 {
-	switch (code) {
-	case 0x01:
-		return INPUT_KEY_ESCAPE;
-	case 0x02:
-		return INPUT_KEY_1;
-	case 0x03:
-		return INPUT_KEY_2;
-	case 0x04:
-		return INPUT_KEY_3;
-	case 0x05:
-		return INPUT_KEY_4;
-	case 0x06:
-		return INPUT_KEY_5;
-	case 0x07:
-		return INPUT_KEY_6;
-	case 0x08:
-		return INPUT_KEY_7;
-	case 0x09:
-		return INPUT_KEY_8;
-	case 0x0a:
-		return INPUT_KEY_9;
-	case 0x0b:
-		return INPUT_KEY_0;
-	case 0x0e:
-		return INPUT_KEY_BACKSPACE;
-	case 0x0f:
-		return INPUT_KEY_TAB;
-	case 0x10:
-		return INPUT_KEY_Q;
-	case 0x11:
-		return INPUT_KEY_W;
-	case 0x12:
-		return INPUT_KEY_E;
-	case 0x13:
-		return INPUT_KEY_R;
-	case 0x14:
-		return INPUT_KEY_T;
-	case 0x15:
-		return INPUT_KEY_Y;
-	case 0x16:
-		return INPUT_KEY_U;
-	case 0x17:
-		return INPUT_KEY_I;
-	case 0x18:
-		return INPUT_KEY_O;
-	case 0x19:
-		return INPUT_KEY_P;
-	case 0x1c:
-		return INPUT_KEY_ENTER;
-	case 0x1d:
-		return INPUT_KEY_LEFT_CTRL;
-	case 0x1e:
-		return INPUT_KEY_A;
-	case 0x1f:
-		return INPUT_KEY_S;
-	case 0x20:
-		return INPUT_KEY_D;
-	case 0x21:
-		return INPUT_KEY_F;
-	case 0x22:
-		return INPUT_KEY_G;
-	case 0x23:
-		return INPUT_KEY_H;
-	case 0x24:
-		return INPUT_KEY_J;
-	case 0x25:
-		return INPUT_KEY_K;
-	case 0x26:
-		return INPUT_KEY_L;
-	case 0x2a:
-		return INPUT_KEY_LEFT_SHIFT;
-	case 0x2c:
-		return INPUT_KEY_Z;
-	case 0x2d:
-		return INPUT_KEY_X;
-	case 0x2e:
-		return INPUT_KEY_C;
-	case 0x2f:
-		return INPUT_KEY_V;
-	case 0x30:
-		return INPUT_KEY_B;
-	case 0x31:
-		return INPUT_KEY_N;
-	case 0x32:
-		return INPUT_KEY_M;
-	case 0x36:
-		return INPUT_KEY_RIGHT_SHIFT;
-	case 0x38:
-		return INPUT_KEY_LEFT_ALT;
-	case 0x39:
-		return INPUT_KEY_SPACE;
-	default:
-		return INPUT_KEY_UNKNOWN;
+	code &= PS2_SCANCODE_MASK;
+	if (extended != 0) {
+		return ps2_set1_e0_keycode[code];
 	}
+	return ps2_set1_keycode[code];
 }
 
 static void ps2_update_modifier(enum input_key_code key, int pressed)
@@ -151,10 +175,19 @@ static void ps2_update_modifier(enum input_key_code key, int pressed)
 
 	if (key == INPUT_KEY_LEFT_SHIFT || key == INPUT_KEY_RIGHT_SHIFT) {
 		mask = INPUT_MODIFIER_SHIFT;
-	} else if (key == INPUT_KEY_LEFT_CTRL) {
+	} else if (key == INPUT_KEY_LEFT_CTRL || key == INPUT_KEY_RIGHT_CTRL) {
 		mask = INPUT_MODIFIER_CTRL;
-	} else if (key == INPUT_KEY_LEFT_ALT) {
+	} else if (key == INPUT_KEY_LEFT_ALT || key == INPUT_KEY_RIGHT_ALT) {
 		mask = INPUT_MODIFIER_ALT;
+	} else if (pressed != 0 && key == INPUT_KEY_CAPSLOCK) {
+		ps2_keyboard.modifiers ^= INPUT_MODIFIER_CAPSLOCK;
+		return;
+	} else if (pressed != 0 && key == INPUT_KEY_NUMLOCK) {
+		ps2_keyboard.modifiers ^= INPUT_MODIFIER_NUMLOCK;
+		return;
+	} else if (pressed != 0 && key == INPUT_KEY_SCROLLLOCK) {
+		ps2_keyboard.modifiers ^= INPUT_MODIFIER_SCROLLLOCK;
+		return;
 	}
 
 	if (mask == 0) {
@@ -194,13 +227,31 @@ static void ps2_keyboard_work(struct work_struct *work)
 	while (ps2_raw_pop(&scancode) != 0) {
 		struct input_event event;
 		enum input_key_code key;
-		uint8_t code = scancode & ~PS2_SCANCODE_RELEASE;
+		uint8_t code = scancode & PS2_SCANCODE_MASK;
+		int extended = ps2_keyboard.extended_pending;
 		int pressed = (scancode & PS2_SCANCODE_RELEASE) == 0;
 
-		key = ps2_keycode_from_set1(code);
+		if (ps2_keyboard.pause_bytes != 0) {
+			ps2_keyboard.pause_bytes--;
+			continue;
+		}
+
+		if (scancode == PS2_SCANCODE_PAUSE) {
+			ps2_keyboard.pause_bytes = 5;
+			continue;
+		}
+
+		if (scancode == PS2_SCANCODE_EXTENDED) {
+			ps2_keyboard.extended_pending = 1;
+			continue;
+		}
+
+		ps2_keyboard.extended_pending = 0;
+		key = ps2_keycode_from_set1(code, extended);
 		if (key == INPUT_KEY_UNKNOWN) {
-			pr_warn("keyboard unknown scancode=0x%x\n",
-				(unsigned int)scancode);
+			pr_warn("keyboard unknown scancode=0x%x extended=%u\n",
+				(unsigned int)code,
+				(unsigned int)extended);
 			continue;
 		}
 
@@ -258,6 +309,8 @@ void ps2_keyboard_init(void)
 	ps2_keyboard.tail = 0;
 	ps2_keyboard.count = 0;
 	ps2_keyboard.dropped = 0;
+	ps2_keyboard.extended_pending = 0;
+	ps2_keyboard.pause_bytes = 0;
 	ps2_keyboard.modifiers = 0;
 	work_init(&ps2_keyboard.work, ps2_keyboard_work, 0);
 	if (irq_register(PS2_KEYBOARD_IRQ, ps2_keyboard_irq, 0) != 0) {

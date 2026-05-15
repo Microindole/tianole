@@ -2,6 +2,7 @@
 #define TIANOLE_TTY_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 /**
  * tty_init() - Initialize the early terminal line discipline.
@@ -18,6 +19,16 @@ void tty_init(void);
  * Handles printable input, newline submission and backspace editing.
  */
 void tty_receive_char(char ch);
+
+/**
+ * tty_key_event_to_char() - Convert a key event into the active tty keymap.
+ * @code: Hardware-independent input key code.
+ * @modifiers: Modifier snapshot from struct input_event.
+ * @ch: Destination character.
+ *
+ * Return: 1 when @ch was filled, 0 when the key has no character mapping.
+ */
+int tty_key_event_to_char(uint16_t code, uint32_t modifiers, char *ch);
 
 /**
  * tty_write() - Write bytes to the early tty output path.

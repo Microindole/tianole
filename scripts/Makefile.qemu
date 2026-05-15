@@ -1,14 +1,21 @@
-.PHONY: run run-headless
+QEMU_DISPLAY ?= gtk
+
+.PHONY: run run-interactive run-headless
 
 $(OVMF_VARS): | dirs
 	cp $(OVMF_VARS_TEMPLATE) $@
 
-run: check-runtime $(BOOT_EFI) $(KERNEL_ELF) $(OVMF_VARS)
+run: run-interactive
+
+run-interactive: check-runtime $(BOOT_EFI) $(KERNEL_ELF) $(OVMF_VARS)
 	$(QEMU_SYSTEM_X86_64) \
+		-display $(QEMU_DISPLAY) \
 		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
 		-drive if=pflash,format=raw,file=$(OVMF_VARS) \
 		-drive format=raw,file=fat:rw:$(BUILD_DIR)/image \
-		-serial stdio
+		-debugcon file:$(DEBUG_LOG) \
+		-global isa-debugcon.iobase=0xe9 \
+		-serial file:$(SERIAL_LOG)
 
 run-headless: check-runtime $(BOOT_EFI) $(KERNEL_ELF) $(OVMF_VARS)
 	rm -f $(DEBUG_LOG) $(SERIAL_LOG)

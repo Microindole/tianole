@@ -66,6 +66,9 @@
 
 - 参考 Linux input subsystem：设备驱动上报通用 input event，上层消费者不绑定具体硬件。
 - 参考 Linux serio/i8042/atkbd 分层：控制器、键盘协议和 input 事件上报分开。
+- 参考 Linux `include/uapi/linux/input-event-codes.h`：key code 是稳定的输入身份命名空间，不应是随当前原型增删而改变的临时 enum。
+- 参考 Linux `drivers/input/keyboard/atkbd.c`：AT/PS2 scancode 到 keycode 使用表驱动映射，驱动主路径不靠不断扩大的 switch 表达标准键盘。
+- 参考 Linux `drivers/tty/vt/keyboard.c` 与 `drivers/tty/vt/defkeymap.c_shipped`：keycode 到字符/功能键语义属于 tty/vt/keymap 层，不属于硬件键盘驱动。
 - 参考 Linux tty/line discipline 思路：键盘事件到 shell 输入之间应有 terminal 层，不让 shell 直接处理硬件事件。
 - 参考 Linux IRQ bottom half/workqueue 思路：中断路径短，复杂处理推迟。
 
@@ -98,6 +101,8 @@
 
 - 已有全局 input event queue，支持 blocking/nonblocking read 和 dropped event 统计。
 - 已接入 PS/2 keyboard IRQ1，当前能把 set-1 scancode 转成通用 key event。
+- 已开始拆分 keyboard layout/keymap：`include/tianole/input.h` 使用接近 Linux KEY_* 的稳定 PC keycode 子集；PS/2 set-1 与 0xe0 extended scancode 使用表驱动映射到通用 key code；US 可打印字符映射放在 `drivers/tty/keymap.c`。
+- 已有标准键盘骨架：F1-F12、左右 Ctrl/Alt、CapsLock/NumLock/ScrollLock、方向键、Home/End/PageUp/PageDown、Insert/Delete、keypad 键已有 key identity；除可打印键和基础控制键外，暂不赋予 tty 字符语义。
 - 已有 deferred work 路径，键盘 IRQ 不直接执行复杂解码和上层命令逻辑。
 - 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
 - 已新增 `drivers/tty/` 早期 tty line discipline，line queue、回显和读行接口开始从 `input_console` 迁出。
@@ -117,8 +122,9 @@ IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 下一位接手者应从这些文件开始读：
 
 - `drivers/input/input.c`、`include/tianole/input.h`：通用 input event queue。
-- `drivers/input/keyboard/ps2.c`、`include/tianole/keyboard.h`：PS/2 keyboard 到 key event 的转换。
+- `drivers/input/keyboard/ps2.c`、`include/tianole/keyboard.h`：PS/2 set-1 scancode 到 key event 的表驱动转换。
 - `drivers/tty/tty.c`、`include/tianole/tty.h`：早期 tty line discipline、回显、blocking line read。
+- `drivers/tty/keymap.c`：当前 US keymap，把通用 key code 转成 tty 字符流。
 - `kernel/console/input_console.c`、`include/tianole/console.h`：当前 input event 到 tty 字符流的临时桥接。
 - `kernel/debug/kdb.c`、`include/tianole/kdb.h`：临时 early debug command consumer，只用于验证输入链路。
 - `kernel/workqueue.c`、`include/tianole/workqueue.h`：键盘 deferred processing 依赖的线程上下文。
@@ -136,6 +142,7 @@ IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 - `scripts/check.sh boot`
 - `scripts/check.sh user-exception invalid-opcode general-protection page-fault`
 - 真实 QEMU 交互中确认键盘输入、回显、退格和回车提交仍可用。
+- `make run-interactive` 启动图形 QEMU 后可测试常见 US 可打印键：字母、数字、空格、Tab、退格、回车、`-=[]\;',./` 及其 Shift/CapsLock 变体。
 
 ## 后续扩展
 
