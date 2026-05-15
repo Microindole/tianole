@@ -62,6 +62,12 @@
 - 后续可写文件系统需要定义崩溃一致性策略，例如 journal、copy-on-write 或简单同步写。
 - VFS、MM 和 block layer 的缓存边界要清楚，避免同一数据被多套缓存重复管理。
 
+## 当前边界
+
+当前 06 只做 Linux VFS 方向的早期骨架，不实现完整 Linux dcache/mount namespace。路径解析先支持内核内 absolute path、`.` 和 `..`；相对路径、当前工作目录、用户指针复制、权限检查、引用计数和 dentry cache 留到进程/用户态/缓存层具备后补齐。
+
+ext4 是后续持久化目标，目录边界采用 `fs/ext4/`。ramfs 不是为了替代 ext4，而是为了先让 VFS 调用面、file offset、目录迭代和 selftest 成为稳定接口。
+
 ## Linux 参考原则
 
 - 参考 Linux VFS：上层通过通用 inode/file/dentry/superblock 语义访问不同文件系统。
@@ -97,7 +103,18 @@
 
 ## 当前状态
 
-未开始。
+已开始。
+
+已完成基础闭环：
+
+- `include/tianole/fs.h` 定义 VFS inode/file/dirent 与 inode/file operations。
+- `fs/vfs.c` 提供根挂载、绝对路径解析、`.`/`..`、`open/read/readdir/close` 和独立 file offset。
+- `fs/ramfs/ramfs.c` 提供只读 ramfs 根文件系统，作为后续 initramfs/ext4 接入前的最小数据源。
+- `fs/ext4/` 已预留为未来 ext4 具体文件系统目录，按 Linux 的 `fs/<filesystem>/` 布局继续扩展。
+- `kernel/selftest/fs.c` 覆盖文件读取、目录遍历、缺失路径、目录/文件操作错误和多次 open 的独立 offset。
+- 构建、格式检查、结构检查已纳入 `fs/` 源码树。
+
+仍未开始：block layer、page cache/block cache、writeback、mount table、权限/时间戳/inode 编号和 ext4。
 
 进入本阶段前，`03-memory.md` 应至少有稳定 heap，`04-time-scheduler.md` 应具备锁和等待基础。
 
@@ -107,7 +124,7 @@
 - block cache。
 - writeback。
 - 可写 ramfs。
-- FAT/ext2 等简单持久化文件系统。
+- FAT/ext4 等持久化文件系统；后续主线按 ext4 规划，不再把 ext2 作为目标。
 - mount table。
 - 权限、时间戳和 inode 编号。
 - 设备文件、pipe 和 socket 文件接口。

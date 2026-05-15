@@ -24,6 +24,7 @@ include $(ARCH_DIR)/kernel/Makefile
 include $(ARCH_DIR)/mm/Makefile
 include mm/Makefile
 include drivers/Makefile
+include fs/Makefile
 include kernel/Makefile
 
 include scripts/Makefile.toolchain

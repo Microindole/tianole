@@ -37,6 +37,21 @@
 #define ENOSPC 28
 
 /**
+ * ENOTDIR - Path component is not a directory.
+ */
+#define ENOTDIR 20
+
+/**
+ * EISDIR - Operation expected a regular file but found a directory.
+ */
+#define EISDIR 21
+
+/**
+ * ENAMETOOLONG - Path or component name exceeds the supported limit.
+ */
+#define ENAMETOOLONG 36
+
+/**
  * ETIMEDOUT - Operation timed out.
  */
 #define ETIMEDOUT 110

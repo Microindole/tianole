@@ -39,6 +39,10 @@ $(BUILD_DIR)/mm/%.o: mm/%.c include/tianole/boot_info.h include/tianole/panic.h 
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/fs/%.o: fs/%.c include/tianole/errno.h include/tianole/fs.h include/tianole/panic.h | dirs
+	mkdir -p $(@D)
+	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
+
 $(KERNEL_ELF): $(KERNEL_OBJS) $(ARCH_DIR)/kernel/linker.ld | dirs
 	$(ELF_LD) $(KERNEL_LDFLAGS) $(KERNEL_OBJS)
 

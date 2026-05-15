@@ -3,6 +3,7 @@
 #include <tianole/arch.h>
 #include <tianole/console.h>
 #include <tianole/early_log.h>
+#include <tianole/fs.h>
 #include <tianole/input.h>
 #include <tianole/kdb.h>
 #include <tianole/kernel_init.h>
@@ -25,6 +26,9 @@ void kernel_main(const boot_info_t *boot_info)
 	workqueue_init();
 	input_init();
 	input_selftest();
+	vfs_init();
+	ramfs_init();
+	vfs_selftest();
 	ps2_keyboard_init();
 	arch_timer_init();
 

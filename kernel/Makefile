@@ -12,6 +12,7 @@ kernel-y := \
 	sched/idle.o \
 	sched/thread.o \
 	sched/wait.o \
+	selftest/fs.o \
 	selftest/input.o \
 	selftest/page_table.o \
 	selftest/sched.o \
@@ -22,4 +23,5 @@ KERNEL_OBJS := \
 	$(ARCH_MM_OBJS) \
 	$(addprefix $(BUILD_DIR)/kernel/,$(kernel-y)) \
 	$(DRIVER_OBJS) \
+	$(FS_OBJS) \
 	$(MM_OBJS)
