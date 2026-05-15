@@ -37,6 +37,31 @@ static char edit_line[TTY_LINE_LENGTH];
 static size_t edit_length;
 static int tty_ready;
 
+static const char *const tty_function_strings[] = {
+	[TTY_FUNC_F1] = "\033[[A",
+	[TTY_FUNC_F2] = "\033[[B",
+	[TTY_FUNC_F3] = "\033[[C",
+	[TTY_FUNC_F4] = "\033[[D",
+	[TTY_FUNC_F5] = "\033[[E",
+	[TTY_FUNC_F6] = "\033[17~",
+	[TTY_FUNC_F7] = "\033[18~",
+	[TTY_FUNC_F8] = "\033[19~",
+	[TTY_FUNC_F9] = "\033[20~",
+	[TTY_FUNC_F10] = "\033[21~",
+	[TTY_FUNC_F11] = "\033[23~",
+	[TTY_FUNC_F12] = "\033[24~",
+	[TTY_FUNC_HOME] = "\033[1~",
+	[TTY_FUNC_INSERT] = "\033[2~",
+	[TTY_FUNC_DELETE] = "\033[3~",
+	[TTY_FUNC_END] = "\033[4~",
+	[TTY_FUNC_PAGEUP] = "\033[5~",
+	[TTY_FUNC_PAGEDOWN] = "\033[6~",
+	[TTY_FUNC_UP] = "\033[A",
+	[TTY_FUNC_DOWN] = "\033[B",
+	[TTY_FUNC_RIGHT] = "\033[C",
+	[TTY_FUNC_LEFT] = "\033[D",
+};
+
 static int tty_has_line(void *arg)
 {
 	struct tty_line_queue *queue = arg;
@@ -233,11 +258,50 @@ size_t tty_keysym_to_utf8(
 	return 0;
 }
 
+const char *tty_keysym_function_string(
+	const struct tty_keysym *sym, size_t *length)
+{
+	const char *text;
+	size_t index;
+
+	if (length != 0) {
+		*length = 0;
+	}
+	if (sym == 0 || sym->type != TTY_KEYSYM_FUNCTION ||
+		sym->value >= sizeof(tty_function_strings) /
+				sizeof(tty_function_strings[0])) {
+		return 0;
+	}
+
+	text = tty_function_strings[sym->value];
+	if (text == 0) {
+		return 0;
+	}
+
+	if (length == 0) {
+		return text;
+	}
+
+	for (index = 0; text[index] != '\0'; index++) {
+	}
+	*length = index;
+	return text;
+}
+
 void tty_receive_keysym(const struct tty_keysym *sym)
 {
 	char bytes[4];
+	const char *function;
 	size_t length;
 	size_t index;
+
+	function = tty_keysym_function_string(sym, &length);
+	if (function != 0) {
+		for (index = 0; index < length; index++) {
+			tty_receive_char(function[index]);
+		}
+		return;
+	}
 
 	length = tty_keysym_to_utf8(sym, bytes, sizeof(bytes));
 	for (index = 0; index < length; index++) {

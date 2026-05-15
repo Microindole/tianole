@@ -27,7 +27,7 @@ void tty_receive_char(char ch);
  * @sym: Symbol produced by the active tty keymap.
  *
  * Unicode symbols are encoded as UTF-8 bytes before entering the line
- * discipline. Other symbol types are reserved for later VT work.
+ * discipline. Function symbols write the active terminal function string.
  */
 void tty_receive_keysym(const struct tty_keysym *sym);
 
@@ -53,6 +53,16 @@ int tty_key_event_to_keysym(
  */
 size_t tty_keysym_to_utf8(
 	const struct tty_keysym *sym, char *buffer, size_t size);
+
+/**
+ * tty_keysym_function_string() - Return a default function string.
+ * @sym: Function keysym to resolve.
+ * @length: Destination for the returned string length.
+ *
+ * Return: Function string bytes, or NULL when @sym is not a known function.
+ */
+const char *tty_keysym_function_string(
+	const struct tty_keysym *sym, size_t *length);
 
 /**
  * tty_write() - Write bytes to the early tty output path.

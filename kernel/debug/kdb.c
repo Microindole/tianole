@@ -78,6 +78,27 @@ static void kdb_print_u64_decimal(unsigned long long value)
 	}
 }
 
+static void kdb_print_escaped_bytes(const char *bytes, size_t length)
+{
+	size_t index;
+
+	for (index = 0; index < length; index++) {
+		char ch = bytes[index];
+
+		if (ch == '\033') {
+			tty_write_string("\\e");
+		} else if (ch == '\n') {
+			tty_write_string("\\n");
+		} else if (ch == '\t') {
+			tty_write_string("\\t");
+		} else if (ch == '\b') {
+			tty_write_string("\\b");
+		} else {
+			tty_write(&ch, 1);
+		}
+	}
+}
+
 static void kdb_print_ticks(void)
 {
 	tty_write_string("ticks=");
@@ -119,6 +140,14 @@ static void kdb_print_keys(void)
 		if (length != 0) {
 			tty_write_string(" utf8=");
 			tty_write(bytes, length);
+		} else {
+			const char *function =
+				tty_keysym_function_string(&sym, &length);
+
+			if (function != 0) {
+				tty_write_string(" func=");
+				kdb_print_escaped_bytes(function, length);
+			}
 		}
 	}
 	tty_write_string("\n");

@@ -27,6 +27,35 @@ static void input_assert_no_char(uint16_t code)
 	}
 }
 
+static void input_assert_function(
+	uint16_t code, uint32_t expected, const char *expected_string)
+{
+	struct tty_keysym sym;
+	const char *function;
+	size_t length;
+	size_t index;
+
+	if (tty_key_event_to_keysym(code, 0, &sym) == 0 ||
+		sym.type != TTY_KEYSYM_FUNCTION || sym.value != expected) {
+		panic("input function keymap selftest failed");
+	}
+
+	function = tty_keysym_function_string(&sym, &length);
+	if (function == 0) {
+		panic("input function string selftest failed");
+	}
+
+	for (index = 0; index < length && expected_string[index] != '\0';
+		index++) {
+		if (function[index] != expected_string[index]) {
+			panic("input function string content selftest failed");
+		}
+	}
+	if (expected_string[index] != '\0' || index != length) {
+		panic("input function string length selftest failed");
+	}
+}
+
 static void input_assert_utf8(uint32_t codepoint, const char *expected)
 {
 	struct tty_keysym sym = {
@@ -97,8 +126,10 @@ void input_selftest(void)
 	input_assert_unicode(INPUT_KEY_TAB, 0, '\t');
 	input_assert_unicode(INPUT_KEY_ENTER, 0, '\n');
 	input_assert_utf8(0x00e9, "\xc3\xa9");
-	input_assert_no_char(INPUT_KEY_F1);
-	input_assert_no_char(INPUT_KEY_UP);
+	input_assert_function(INPUT_KEY_F1, TTY_FUNC_F1, "\033[[A");
+	input_assert_function(INPUT_KEY_UP, TTY_FUNC_UP, "\033[A");
+	input_assert_function(INPUT_KEY_DELETE, TTY_FUNC_DELETE, "\033[3~");
+	input_assert_no_char(INPUT_KEY_LEFTCTRL);
 
 	input_assert_set1(0x1e, 0, INPUT_KEY_A);
 	input_assert_set1(0x3b, 0, INPUT_KEY_F1);

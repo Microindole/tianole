@@ -104,10 +104,10 @@
 
 - 已有全局 input event queue，支持 blocking/nonblocking read 和 dropped event 统计。
 - 已接入 PS/2 keyboard IRQ1，当前能把 set-1 scancode 转成通用 key event。
-- 已拆分 keyboard layout/keymap：`include/tianole/input-event-codes.h` 提供对齐 Linux 6.8 `KEY_*` 数值的完整 keycode 命名空间；PS/2 set-1 与 0xe0 extended scancode 使用表驱动映射到通用 key code；默认 US keymap 放在 `drivers/tty/keymap.c`，输出 `struct tty_keysym`，当前先支持 Unicode keysym。
-- 已新增 `include/tianole/keysym.h`：keycode 到字符之间存在 keysym 中间层，tty line discipline 再把 Unicode keysym 编码为 UTF-8 字节；后续 function string、dead key、AltGr 和外部 keymap 加载应在这一层扩展。
-- 已有标准键盘骨架：F1-F12、左右 Ctrl/Alt、CapsLock/NumLock/ScrollLock、方向键、Home/End/PageUp/PageDown、Insert/Delete、keypad 键已有 key identity；除可打印键和基础控制键外，暂不赋予 tty 字符语义。
-- 已有 boot-time input selftest，覆盖小写、Shift 大写、CapsLock 大写、Shift+CapsLock 小写、标点 Shift 变体，以及 F1/方向键不转字符。
+- 已拆分 keyboard layout/keymap：`include/tianole/input-event-codes.h` 提供对齐 Linux 6.8 `KEY_*` 数值的完整 keycode 命名空间；PS/2 set-1 与 0xe0 extended scancode 使用表驱动映射到通用 key code；默认 US keymap 放在 `drivers/tty/keymap.c`，输出 `struct tty_keysym`，当前支持 Unicode keysym 与 F1-F12/方向键/导航键 function-string keysym。
+- 已新增 `include/tianole/keysym.h`：keycode 到字符之间存在 keysym 中间层，tty line discipline 再把 Unicode keysym 编码为 UTF-8 字节，并把 function keysym 解析为默认终端功能键字节序列；后续 dead key、AltGr 和外部 keymap 加载应在这一层扩展。
+- 已有标准键盘骨架：F1-F12、左右 Ctrl/Alt、CapsLock/NumLock/ScrollLock、方向键、Home/End/PageUp/PageDown、Insert/Delete、keypad 键已有 key identity；F1-F12、方向键和常见导航键已通过 tty function-string 层输出 Linux 默认 keymap 风格的 ESC 序列，modifier-only/keypad 等仍只保留 key identity。
+- 已有 boot-time input selftest，覆盖小写、Shift 大写、CapsLock 大写、Shift+CapsLock 小写、标点 Shift 变体，以及 F1/方向键/Delete 的 function-string 映射。
 - 早期 framebuffer console 已开始按 Linux fbcon 方向从 `arch/x86/kernel/screen.c` 拆出：x86 只负责 boot framebuffer handoff，字符绘制、滚屏和小写字体在 `drivers/video/fbdev/core/`。
 - 已有 deferred work 路径，键盘 IRQ 不直接执行复杂解码和上层命令逻辑。
 - 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
@@ -131,7 +131,7 @@ IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 - `include/tianole/input-event-codes.h`：对齐 Linux `KEY_*` 的稳定 keycode 命名空间。
 - `include/tianole/keysym.h`：tty keymap 输出的 keysym/Unicode 中间表示。
 - `drivers/input/keyboard/ps2.c`、`include/tianole/keyboard.h`：PS/2 set-1 scancode 到 key event 的表驱动转换。
-- `drivers/tty/tty.c`、`include/tianole/tty.h`：早期 tty line discipline、UTF-8 编码、回显、blocking line read。
+- `drivers/tty/tty.c`、`include/tianole/tty.h`：早期 tty line discipline、UTF-8 编码、function-string 解析、回显、blocking line read。
 - `drivers/tty/keymap.c`：当前 US keymap，把通用 key code 转成 tty keysym。
 - `drivers/video/fbdev/core/fbcon.c`、`drivers/video/fbdev/core/font.c`、`include/tianole/fbcon.h`：早期 framebuffer console 后端。
 - `kernel/console/input_console.c`、`include/tianole/console.h`：当前 input event 到 tty 字符流的临时桥接。
