@@ -5,6 +5,7 @@
 #include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/input.h>
+#include <tianole/panic.h>
 #include <tianole/sched.h>
 
 #define CONSOLE_LINE_LENGTH 128u

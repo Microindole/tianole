@@ -1,8 +1,9 @@
 #include <stdint.h>
 
 #include <tianole/arch.h>
-#include <tianole/early_log.h>
 #include <tianole/mm.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 
 struct page_node {
 	struct page_node *next;
@@ -157,7 +158,7 @@ static void page_allocator_selftest(void)
 	free_page(second);
 	free_page(first);
 
-	early_log_puts("physical page allocator selftest ok\n");
+	pr_info("physical page allocator selftest ok\n");
 }
 
 void mm_init(const boot_info_t *boot_info)
@@ -172,9 +173,8 @@ void mm_init(const boot_info_t *boot_info)
 
 	init_free_pages(boot_info);
 
-	early_log_puts("physical pages free=");
-	early_log_u64_decimal(free_page_count);
-	early_log_puts("\n");
+	pr_info("physical pages free=%llu\n",
+		(unsigned long long)free_page_count);
 
 	page_allocator_selftest();
 	page_table_selftest();

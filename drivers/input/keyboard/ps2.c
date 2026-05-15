@@ -1,10 +1,11 @@
 #include <arch/io.h>
 
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/input.h>
 #include <tianole/irq.h>
 #include <tianole/keyboard.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/spinlock.h>
 #include <tianole/timer.h>
 #include <tianole/workqueue.h>
@@ -198,9 +199,8 @@ static void ps2_keyboard_work(struct work_struct *work)
 
 		key = ps2_keycode_from_set1(code);
 		if (key == INPUT_KEY_UNKNOWN) {
-			early_log_puts("keyboard unknown scancode=0x");
-			early_log_u64_hex(scancode);
-			early_log_puts("\n");
+			pr_warn("keyboard unknown scancode=0x%x\n",
+				(unsigned int)scancode);
 			continue;
 		}
 
@@ -212,7 +212,7 @@ static void ps2_keyboard_work(struct work_struct *work)
 		event.device = PS2_KEYBOARD_DEVICE;
 		event.timestamp = timer_ticks();
 		if (input_report_event(&event) != 0) {
-			early_log_puts("keyboard input event dropped\n");
+			pr_warn("keyboard input event dropped\n");
 		}
 	}
 }
@@ -264,5 +264,5 @@ void ps2_keyboard_init(void)
 		panic("keyboard irq registration failed");
 	}
 	ps2_keyboard.initialized = 1;
-	early_log_puts("ps2 keyboard initialized\n");
+	pr_info("ps2 keyboard initialized\n");
 }

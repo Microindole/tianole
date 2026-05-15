@@ -1,8 +1,8 @@
 #include <stdint.h>
 
 #include <tianole/boot_info.h>
-#include <tianole/early_log.h>
 #include <tianole/kernel_init.h>
+#include <tianole/printk.h>
 
 static void log_memory_map_summary(const boot_info_t *boot_info)
 {
@@ -12,7 +12,7 @@ static void log_memory_map_summary(const boot_info_t *boot_info)
 
 	if (boot_info == 0 || boot_info->memory_map == 0 ||
 		boot_info->memory_descriptor_size == 0) {
-		early_log_puts("memory map metadata missing\n");
+		pr_warn("memory map metadata missing\n");
 		return;
 	}
 
@@ -30,27 +30,25 @@ static void log_memory_map_summary(const boot_info_t *boot_info)
 		}
 	}
 
-	early_log_puts("memory map descriptors=");
-	early_log_u64_decimal(descriptors);
-	early_log_puts("\n");
-	early_log_puts("conventional memory pages=");
-	early_log_u64_decimal(conventional_pages);
-	early_log_puts("\n");
+	pr_info("memory map descriptors=%llu\n",
+		(unsigned long long)descriptors);
+	pr_info("conventional memory pages=%llu\n",
+		(unsigned long long)conventional_pages);
 }
 
 void kernel_report_boot_state(const boot_info_t *boot_info)
 {
 	if (boot_info != 0 && boot_info->version == BOOT_INFO_VERSION) {
-		early_log_puts("boot_info.version ok\n");
+		pr_info("boot_info.version ok\n");
 	} else {
-		early_log_puts("boot_info.version invalid\n");
+		pr_warn("boot_info.version invalid\n");
 	}
 
 	if (boot_info != 0 &&
 		(boot_info->boot_flags & BOOT_FLAG_SERVICES_ACTIVE) == 0) {
-		early_log_puts("boot services exited\n");
+		pr_info("boot services exited\n");
 	} else {
-		early_log_puts("boot services still active\n");
+		pr_warn("boot services still active\n");
 	}
 
 	log_memory_map_summary(boot_info);

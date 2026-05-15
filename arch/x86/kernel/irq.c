@@ -4,9 +4,10 @@
 #include <arch/traps.h>
 
 #include <tianole/arch.h>
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/irq.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/timer.h>
 
 #include "trap_vectors.h"
@@ -201,9 +202,7 @@ void handle_irq(struct trap_frame *frame)
 		}
 	}
 
-	early_log_puts("unexpected irq=");
-	early_log_u64_decimal(irq);
-	early_log_puts("\n");
+	pr_err("unexpected irq=%llu\n", (unsigned long long)irq);
 	pic_send_eoi((uint8_t)irq);
 }
 
@@ -222,6 +221,6 @@ void arch_timer_init(void)
 		panic("timer irq registration failed");
 	}
 	pit_init();
-	early_log_puts("timer initialized\n");
+	pr_info("timer initialized\n");
 	arch_irq_restore(1ull << 9);
 }

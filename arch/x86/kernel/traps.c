@@ -1,7 +1,8 @@
 #include <stdint.h>
 
 #include <tianole/arch.h>
-#include <tianole/early_log.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 
 #include "cpu.h"
@@ -141,10 +142,8 @@ static int x86_handle_double_fault(struct trap_frame *frame,
 	(void)origin;
 	(void)desc;
 
-	early_log_puts("double fault: fatal exception\n");
-	early_log_puts("double fault: ist=");
-	early_log_u64_decimal(X86_IST_DOUBLE_FAULT);
-	early_log_puts("\n");
+	pr_emerg("double fault: fatal exception\n");
+	pr_emerg("double fault: ist=%u\n", X86_IST_DOUBLE_FAULT);
 	panic("double fault");
 }
 
@@ -165,10 +164,9 @@ static int x86_handle_general_protection(struct trap_frame *frame,
 		x86_unhandled_user_exception(desc->name);
 	}
 
-	early_log_puts("general protection: fatal exception\n");
-	early_log_puts("general protection: error=");
-	early_log_u64_hex(frame->error_code);
-	early_log_puts("\n");
+	pr_emerg("general protection: fatal exception\n");
+	pr_emerg("general protection: error=0x%016llx\n",
+		(unsigned long long)frame->error_code);
 	panic("general protection fault");
 }
 
@@ -191,7 +189,7 @@ static int x86_handle_invalid_opcode(struct trap_frame *frame,
 		x86_unhandled_user_exception(desc->name);
 	}
 
-	early_log_puts("invalid opcode: fatal exception\n");
+	pr_emerg("invalid opcode: fatal exception\n");
 	panic("invalid opcode");
 }
 
@@ -225,28 +223,19 @@ static void print_exception_frame(
 		name = desc->name;
 	}
 
-	early_log_puts("exception: ");
-	early_log_puts(name);
-	early_log_puts("\n");
-	early_log_puts("vector=");
-	early_log_u64_decimal(frame->vector);
-	early_log_puts(" error=");
-	early_log_u64_hex(frame->error_code);
-	early_log_puts("\n");
-	early_log_puts("rip=");
-	early_log_u64_hex(frame->rip);
-	early_log_puts(" rsp=");
-	early_log_u64_hex(interrupted_rsp(frame, origin));
-	early_log_puts(" rflags=");
-	early_log_u64_hex(frame->rflags);
-	early_log_puts("\n");
-	early_log_puts("mode=");
-	early_log_puts(x86_trap_origin_name(origin));
+	pr_err("exception: %s\n", name);
+	pr_err("vector=%llu error=0x%016llx\n",
+		(unsigned long long)frame->vector,
+		(unsigned long long)frame->error_code);
+	pr_err("rip=0x%016llx rsp=0x%016llx rflags=0x%016llx\n",
+		(unsigned long long)frame->rip,
+		(unsigned long long)interrupted_rsp(frame, origin),
+		(unsigned long long)frame->rflags);
+	pr_err("mode=%s", x86_trap_origin_name(origin));
 	if (origin == X86_TRAP_FROM_USER) {
-		early_log_puts(" ss=");
-		early_log_u64_hex(frame->ss);
+		pr_err(" ss=0x%016llx", (unsigned long long)frame->ss);
 	}
-	early_log_puts("\n");
+	pr_err("\n");
 }
 
 /**
@@ -256,7 +245,7 @@ void arch_traps_init(void)
 {
 	gdt_init();
 	idt_init();
-	early_log_puts("traps initialized\n");
+	pr_info("traps initialized\n");
 }
 
 /**
@@ -281,16 +270,14 @@ void trap_dispatch(struct trap_frame *frame)
 	case X86_VECTOR_EXCEPTION:
 		break;
 	case X86_VECTOR_SYSCALL:
-		early_log_puts("unexpected syscall vector=");
-		early_log_u64_decimal(frame->vector);
-		early_log_puts("\n");
+		pr_err("unexpected syscall vector=%llu\n",
+			(unsigned long long)frame->vector);
 		panic("unhandled syscall vector");
 	case X86_VECTOR_EXTERNAL_IRQ:
 	case X86_VECTOR_SYSTEM:
 	case X86_VECTOR_RESERVED:
-		early_log_puts("unexpected vector=");
-		early_log_u64_decimal(frame->vector);
-		early_log_puts("\n");
+		pr_err("unexpected vector=%llu\n",
+			(unsigned long long)frame->vector);
 		panic("unhandled CPU vector");
 	}
 

@@ -14,6 +14,7 @@
 - `memory map` 通过 `boot_info` 传入 kernel。
 - kernel 能统计 memory map 描述符数量和 conventional memory 页数。
 - early log 基础：通用前端、x86 backend、QEMU debug port、COM1 串口。
+- printk 基础：普通内核日志已有 `kernel/printk/`、`printk` / `pr_*` 前端、静态日志缓冲和最小 console 注册层，`early_log` 开始收敛为早期输出兜底。
 - panic 基础：最小 `panic()` 已接入 early log 和架构 halt 路径。
 - CPU exception 基础：x86_64 GDT/TSS/IDT、exception vector 0-31、统一 trap frame。
 - trap 验证：invalid opcode 已能进入 trap dispatch 并最终进入 panic。
@@ -33,7 +34,7 @@
 
 后续未完成：
 
-- 完整日志体系：printk、log level、ring buffer、oops、符号化、crash dump。
+- 完整日志体系：console 接管/注销、log level 过滤、日志读取接口、oops、符号化、crash dump。
 - 完整中断体系：IRQ handler 注册、APIC、外部设备 IRQ、优先级和屏蔽策略。
 - 内存管理扩展：长期内存区域模型、page metadata、buddy/slab、后续完整缺页策略。
 - 后续主线：调度、进程、文件系统、用户态和 shell。

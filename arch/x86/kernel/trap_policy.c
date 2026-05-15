@@ -1,6 +1,7 @@
 #include <stdint.h>
 
-#include <tianole/early_log.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 
 #include "cpu.h"
 #include "trap_policy.h"
@@ -21,10 +22,8 @@ const char *x86_trap_origin_name(enum x86_trap_origin origin)
 
 void x86_unhandled_user_exception(const char *name)
 {
-	early_log_puts("user exception: ");
-	early_log_puts(name != 0 ? name : "unknown");
-	early_log_puts("\n");
-	early_log_puts("user exception policy is not implemented\n");
+	pr_err("user exception: %s\n", name != 0 ? name : "unknown");
+	pr_err("user exception policy is not implemented\n");
 	panic("unhandled user CPU exception");
 }
 

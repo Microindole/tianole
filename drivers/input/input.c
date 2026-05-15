@@ -1,6 +1,6 @@
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/input.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 
 #define INPUT_QUEUE_CAPACITY 64u
@@ -62,7 +62,7 @@ void input_init(void)
 	input_queue.count = 0;
 	input_queue.dropped = 0;
 	input_queue.initialized = 1;
-	early_log_puts("input initialized\n");
+	pr_info("input initialized\n");
 }
 
 int input_report_event(const struct input_event *event)

@@ -53,6 +53,16 @@
 - 私有 `static` 小函数不要求每个都写函数头注释；只有逻辑、数据流、锁语义或硬件约束不明显时才写。
 - 多行注释要控制行宽，优先写职责、数据流和调用约束，而不是描述每一行代码。
 
+## 日志
+
+- 普通内核日志使用 `printk()` 和 `pr_info()`、`pr_warn()`、`pr_err()`、`pr_debug()`。
+- `early_log_*` 只用于最早期启动、panic/emergency fallback、尚未迁出的 early debug console 或交互回显路径。
+- printk 和 console 核心放在 `kernel/printk/`，不要在 `kernel/` 根目录继续增加日志实现文件。
+- panic 声明使用 `<tianole/panic.h>`；不要因为需要 `panic()` 而 include `<tianole/early_log.h>`。
+- 新增驱动、调度、内存、输入等子系统日志时不要直接调用 `early_log_puts()`、`early_log_u64_*()`。
+- 日志文本应保持可被 `scripts/check.sh` 观察，迁移日志 API 时不要无意义改动既有检查依赖的消息内容。
+- 交互输出和日志输出要分开：kdb/terminal/shell 输出后续应走 console/tty 边界，不把 `printk` 当作 shell 输出 API。
+
 ## C 格式
 
 - 使用 `.clang-format` 作为当前格式化规则。

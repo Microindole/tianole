@@ -1,9 +1,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/mm.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 
 #define HEAP_BASE 0xffffff2000000000ull
 #define HEAP_ALIGNMENT 16u
@@ -222,7 +223,7 @@ static void heap_selftest(void)
 	kfree(third);
 	kfree(second);
 
-	early_log_puts("kernel heap selftest ok\n");
+	pr_info("kernel heap selftest ok\n");
 }
 
 void heap_init(void)
@@ -237,6 +238,6 @@ void heap_init(void)
 	}
 
 	heap_ready = 1;
-	early_log_puts("kernel heap initialized\n");
+	pr_info("kernel heap initialized\n");
 	heap_selftest();
 }

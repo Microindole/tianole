@@ -23,19 +23,19 @@ $(BUILD_DIR)/arch/kernel/%.o: $(ARCH_DIR)/kernel/%.c include/tianole/arch.h | di
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/arch/mm/%.o: $(ARCH_DIR)/mm/%.c include/tianole/early_log.h include/tianole/mm.h | dirs
+$(BUILD_DIR)/arch/mm/%.o: $(ARCH_DIR)/mm/%.c include/tianole/early_log.h include/tianole/panic.h include/tianole/printk.h include/tianole/mm.h | dirs
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h include/tianole/arch.h include/tianole/early_log.h include/tianole/mm.h | dirs
+$(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h include/tianole/arch.h include/tianole/console.h include/tianole/early_log.h include/tianole/panic.h include/tianole/printk.h include/tianole/mm.h | dirs
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/drivers/%.o: drivers/%.c include/tianole/input.h include/tianole/sched.h include/tianole/workqueue.h | dirs
+$(BUILD_DIR)/drivers/%.o: drivers/%.c include/tianole/input.h include/tianole/panic.h include/tianole/printk.h include/tianole/sched.h include/tianole/workqueue.h | dirs
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/mm/%.o: mm/%.c include/tianole/boot_info.h include/tianole/early_log.h include/tianole/mm.h | dirs
+$(BUILD_DIR)/mm/%.o: mm/%.c include/tianole/boot_info.h include/tianole/panic.h include/tianole/printk.h include/tianole/mm.h | dirs
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 

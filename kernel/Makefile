@@ -2,6 +2,8 @@ kernel-y := \
 	main.o \
 	boot_report.o \
 	early_log.o \
+	printk/console.o \
+	printk/printk.o \
 	workqueue.o \
 	console/input_console.o \
 	debug/kdb.o \

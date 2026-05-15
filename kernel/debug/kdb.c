@@ -4,6 +4,7 @@
 #include <tianole/early_log.h>
 #include <tianole/input.h>
 #include <tianole/kdb.h>
+#include <tianole/panic.h>
 #include <tianole/sched.h>
 #include <tianole/timer.h>
 

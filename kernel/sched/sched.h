@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include <tianole/early_log.h>
+#include <tianole/panic.h>
 #include <tianole/sched.h>
 #include <tianole/spinlock.h>
 

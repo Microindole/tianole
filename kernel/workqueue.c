@@ -1,5 +1,6 @@
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 #include <tianole/workqueue.h>
 
@@ -94,7 +95,7 @@ static void workqueue_selftest_entry(struct work_struct *work)
 	(void)work;
 
 	workqueue_selftest_done = 1;
-	early_log_puts("workqueue selftest ok\n");
+	pr_info("workqueue selftest ok\n");
 }
 
 void work_init(struct work_struct *work, work_func_t func, void *data)
@@ -122,7 +123,7 @@ void workqueue_init(void)
 	system_workqueue.initialized = 1;
 	workqueue_selftest_done = 0;
 	work_init(&workqueue_selftest_work, workqueue_selftest_entry, 0);
-	early_log_puts("workqueue initialized\n");
+	pr_info("workqueue initialized\n");
 }
 
 int workqueue_start(void)

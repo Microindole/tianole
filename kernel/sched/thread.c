@@ -1,8 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <tianole/early_log.h>
 #include <tianole/mm.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 #include <tianole/spinlock.h>
 
@@ -153,9 +154,7 @@ static void release_thread(struct thread *thread)
 		panic("reaping thread without kernel stack");
 	}
 
-	early_log_puts("thread reaped ");
-	early_log_puts(thread->name);
-	early_log_puts("\n");
+	pr_info("thread reaped %s\n", thread->name);
 	kfree(thread->stack_base);
 	kfree(thread);
 }

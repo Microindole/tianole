@@ -1,6 +1,6 @@
 #include <arch/traps.h>
 
-#include <tianole/early_log.h>
+#include <tianole/printk.h>
 
 #define PF_PRESENT (1ull << 0)
 #define PF_WRITE (1ull << 1)
@@ -30,28 +30,26 @@ static uint64_t read_cr2(void)
  */
 static void log_fault_access(uint64_t error_code)
 {
-	early_log_puts("access=");
+	pr_err("access=");
 
 	if ((error_code & PF_INSTRUCTION_FETCH) != 0) {
-		early_log_puts("execute");
+		pr_err("execute");
 	} else if ((error_code & PF_WRITE) != 0) {
-		early_log_puts("write");
+		pr_err("write");
 	} else {
-		early_log_puts("read");
+		pr_err("read");
 	}
 
-	early_log_puts(" mode=");
-	early_log_puts((error_code & PF_USER) != 0 ? "user" : "kernel");
+	pr_err(" mode=%s", (error_code & PF_USER) != 0 ? "user" : "kernel");
 
-	early_log_puts(" reason=");
-	early_log_puts(
+	pr_err(" reason=%s",
 		(error_code & PF_PRESENT) != 0 ? "protection" : "not-present");
 
 	if ((error_code & PF_RESERVED) != 0) {
-		early_log_puts(" reserved-bit");
+		pr_err(" reserved-bit");
 	}
 
-	early_log_puts("\n");
+	pr_err("\n");
 }
 
 /**
@@ -63,10 +61,8 @@ static void log_fault_access(uint64_t error_code)
  */
 void handle_page_fault(struct trap_frame *frame)
 {
-	early_log_puts("page fault: address=");
-	early_log_u64_hex(read_cr2());
-	early_log_puts(" error=");
-	early_log_u64_hex(frame->error_code);
-	early_log_puts("\n");
+	pr_err("page fault: address=0x%016llx error=0x%016llx\n",
+		(unsigned long long)read_cr2(),
+		(unsigned long long)frame->error_code);
 	log_fault_access(frame->error_code);
 }

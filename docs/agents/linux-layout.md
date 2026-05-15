@@ -15,6 +15,7 @@
 - `init/`：对应 Linux `init/`，后续放初始化流程。
 - `ipc/`：对应 Linux `ipc/`，后续放 IPC、signal、pipe、futex 等能力。
 - `kernel/`：对应 Linux `kernel/`，放调度、进程和核心内核逻辑。
+  - `kernel/printk/`：对应 Linux `kernel/printk/`，放 printk、日志缓冲和 console 注册逻辑。
 - `lib/`：对应 Linux `lib/`，后续放通用基础库。
 - `mm/`：对应 Linux `mm/`，放内存管理。
 - `net/`：对应 Linux `net/`，后续放网络协议栈。
@@ -38,4 +39,3 @@
 - 只有当一个目录对应的子系统真正开始实现时，才添加 `Makefile` 和源文件。
 - 目录 README 用来说明长期职责，不替代正式设计文档。
 - 如果后续发现目录边界不合理，优先更新本文件和 `docs/agents/code-style.md`。
-

@@ -47,12 +47,4 @@ void early_log_u64_hex(uint64_t value);
  */
 void early_log_u64_decimal(uint64_t value);
 
-/**
- * panic() - Print a fatal error and stop the machine.
- * @message: Panic reason to include in the early log.
- *
- * This path must work even when normal kernel services are not initialized.
- */
-void panic(const char *message) __attribute__((noreturn));
-
 #endif

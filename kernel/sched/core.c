@@ -2,7 +2,7 @@
 
 #include <arch/switch.h>
 
-#include <tianole/early_log.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 #include <tianole/timer.h>
 
@@ -184,7 +184,7 @@ void sched_init(void)
 	idle_thread = 0;
 	scheduler_ready = 1;
 
-	early_log_puts("scheduler initialized\n");
+	pr_info("scheduler initialized\n");
 	sched_selftest();
 }
 

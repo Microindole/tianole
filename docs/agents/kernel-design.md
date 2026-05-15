@@ -92,6 +92,25 @@
 - scheduler 初始化前不能 sleep 或 wait。
 - 驱动初始化不能假设 shell、VFS 或用户态已经存在。
 
+## 日志、console 与终端
+
+日志路径分层参考 Linux `printk`、console 和 tty 的长期边界：
+
+- `early_log` 只作为最早期启动和 panic/emergency 兜底输出后端。
+- `kernel/printk/` 放通用日志前端、日志缓冲和 console 注册逻辑，对齐 Linux `kernel/printk/`。
+- 普通内核代码使用 `printk()`、`pr_info()`、`pr_warn()`、`pr_err()` 等通用日志前端。
+- `printk` 前端负责格式化并写入内核日志缓冲，再同步写入已注册 console。
+- console 是日志输出设备，例如 debug port、串口和 framebuffer boot console；它不等同于 tty。
+- tty/terminal 是交互字符设备，负责行规程、回显、控制字符和未来用户态 shell 的标准输入输出。
+- kdb 是 early debug consumer，不是正式 shell，也不应该作为普通内核日志 API 的使用理由。
+
+约束：
+
+- 新增普通初始化、自测和驱动诊断日志时使用 `pr_*`，不要继续直接调用 `early_log_*`。
+- trap、oops、panic 等 fatal 诊断可以使用 `pr_emerg()` / `pr_err()`，但必须保留不依赖 heap、scheduler、VFS 或 tty 的兜底输出。
+- 交互输出不要长期走 `printk`；`input_console` 和 kdb 后续应迁到 terminal/tty 或 debug console 边界。
+- `panic()` 的声明属于 `<tianole/panic.h>`；不要为了 panic 引入 `<tianole/early_log.h>`。
+
 ## 中断、锁和 deferred work
 
 中断路径分层：

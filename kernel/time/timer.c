@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include <tianole/early_log.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 #include <tianole/timer.h>
 
@@ -11,9 +11,7 @@ void timer_tick(void)
 	tick_count++;
 
 	if (tick_count <= 3) {
-		early_log_puts("timer tick=");
-		early_log_u64_decimal(tick_count);
-		early_log_puts("\n");
+		pr_info("timer tick=%llu\n", (unsigned long long)tick_count);
 	}
 
 	sched_tick(tick_count);

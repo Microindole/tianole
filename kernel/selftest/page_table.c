@@ -1,8 +1,9 @@
 #include <stdint.h>
 
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/mm.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 
 #include "arch/x86/mm/page_table.h"
 
@@ -60,5 +61,5 @@ void page_table_selftest(void)
 	}
 
 	free_page(page);
-	early_log_puts("page table selftest ok\n");
+	pr_info("page table selftest ok\n");
 }

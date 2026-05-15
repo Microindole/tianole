@@ -3,6 +3,7 @@
 #include <arch/io.h>
 
 #include <tianole/arch.h>
+#include <tianole/console.h>
 
 #include "screen.h"
 
@@ -19,6 +20,30 @@
 #define X86_COM_LCR_DLAB 0x80
 #define X86_COM_LCR_8N1 0x03
 #define X86_COM_LSR_THRE 0x20
+
+static void debug_console_write(
+	struct console *console, const char *text, size_t length);
+static void serial_console_write(
+	struct console *console, const char *text, size_t length);
+static void screen_console_write(
+	struct console *console, const char *text, size_t length);
+
+static struct console debug_console = {
+	.name = "debugcon",
+	.write = debug_console_write,
+};
+
+static struct console serial_console = {
+	.name = "ttyS0",
+	.write = serial_console_write,
+};
+
+static struct console screen_boot_console = {
+	.name = "screen",
+	.write = screen_console_write,
+};
+
+static int x86_early_consoles_registered;
 
 /**
  * debug_port_putc() - Emit one byte to QEMU debugcon port 0xe9.
@@ -50,6 +75,54 @@ static void serial_putc(char ch)
 	outb(X86_COM1_BASE + X86_COM_DATA, (uint8_t)ch);
 }
 
+static void debug_console_write(
+	struct console *console, const char *text, size_t length)
+{
+	size_t index;
+
+	(void)console;
+
+	for (index = 0; index < length; index++) {
+		debug_port_putc(text[index]);
+	}
+}
+
+static void serial_console_write(
+	struct console *console, const char *text, size_t length)
+{
+	size_t index;
+
+	(void)console;
+
+	for (index = 0; index < length; index++) {
+		serial_putc(text[index]);
+	}
+}
+
+static void screen_console_write(
+	struct console *console, const char *text, size_t length)
+{
+	size_t index;
+
+	(void)console;
+
+	for (index = 0; index < length; index++) {
+		screen_console_putc(text[index]);
+	}
+}
+
+static void register_x86_early_consoles(void)
+{
+	if (x86_early_consoles_registered != 0) {
+		return;
+	}
+
+	(void)register_console(&debug_console);
+	(void)register_console(&serial_console);
+	(void)register_console(&screen_boot_console);
+	x86_early_consoles_registered = 1;
+}
+
 /**
  * arch_early_log_init() - Initialize x86 early log backends.
  * @boot_info: Boot handoff data used to attach the framebuffer backend.
@@ -66,6 +139,7 @@ void arch_early_log_init(const boot_info_t *boot_info)
 	outb(X86_COM1_BASE + X86_COM_FIFO_CONTROL, 0xc7);
 	outb(X86_COM1_BASE + X86_COM_MODEM_CONTROL, 0x0b);
 	screen_console_init(boot_info);
+	register_x86_early_consoles();
 }
 
 /**

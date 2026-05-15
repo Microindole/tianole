@@ -1,7 +1,8 @@
 #include <stdint.h>
 
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 #include <tianole/spinlock.h>
 
@@ -129,7 +130,7 @@ void sched_selftest(void)
 		panic("wait queue selftest null condition errno failed");
 	}
 
-	early_log_puts("kernel thread selftest ok\n");
+	pr_info("kernel thread selftest ok\n");
 }
 
 static void scheduler_demo_entry(void *arg)
@@ -138,11 +139,9 @@ static void scheduler_demo_entry(void *arg)
 	uint64_t step;
 
 	for (step = 1; step <= 3; step++) {
-		early_log_puts("preempt thread ");
-		early_log_u64_decimal(id);
-		early_log_puts(" step=");
-		early_log_u64_decimal(step);
-		early_log_puts("\n");
+		pr_info("preempt thread %llu step=%llu\n",
+			(unsigned long long)id,
+			(unsigned long long)step);
 		sched_sleep(2);
 	}
 }
@@ -163,18 +162,18 @@ static void wait_queue_demo_waiter(void *arg)
 {
 	(void)arg;
 
-	early_log_puts("waiter sleeping\n");
+	pr_info("waiter sleeping\n");
 	wait_queue_sleep(&demo_wait_queue);
-	early_log_puts("waiter woke\n");
+	pr_info("waiter woke\n");
 }
 
 static void wait_queue_demo_waker(void *arg)
 {
 	(void)arg;
 
-	early_log_puts("waker sleeping\n");
+	pr_info("waker sleeping\n");
 	sched_sleep(4);
-	early_log_puts("waker wake_one\n");
+	pr_info("waker wake_one\n");
 	wait_queue_wake_one(&demo_wait_queue);
 }
 
@@ -182,13 +181,13 @@ static void condition_wait_demo_waiter(void *arg)
 {
 	(void)arg;
 
-	early_log_puts("condition waiter sleeping\n");
+	pr_info("condition waiter sleeping\n");
 	if (wait_queue_wait(&condition_wait_queue,
 		    condition_is_ready,
 		    &condition_ready) != 0) {
 		panic("condition wait failed");
 	}
-	early_log_puts("condition waiter woke\n");
+	pr_info("condition waiter woke\n");
 }
 
 static void condition_wait_demo_waker(void *arg)
@@ -197,11 +196,11 @@ static void condition_wait_demo_waker(void *arg)
 
 	(void)arg;
 
-	early_log_puts("condition waker sleeping\n");
+	pr_info("condition waker sleeping\n");
 	sched_sleep(5);
 	wait_queue_lock_irqsave(&condition_wait_queue, &flags);
 	condition_ready = 1;
-	early_log_puts("condition waker wake_all\n");
+	pr_info("condition waker wake_all\n");
 	wait_queue_wake_all_locked(&condition_wait_queue);
 	wait_queue_unlock_irqrestore(&condition_wait_queue, flags);
 }
@@ -212,7 +211,7 @@ static void timeout_wait_demo_waiter(void *arg)
 
 	(void)arg;
 
-	early_log_puts("timeout waiter sleeping\n");
+	pr_info("timeout waiter sleeping\n");
 	if (wait_queue_wait_timeout(
 		    &timeout_wait_queue, condition_is_ready, &never_ready, 0) !=
 		-ETIMEDOUT) {
@@ -224,21 +223,21 @@ static void timeout_wait_demo_waiter(void *arg)
 		-ETIMEDOUT) {
 		panic("timeout wait did not time out");
 	}
-	early_log_puts("timeout waiter timed out\n");
+	pr_info("timeout waiter timed out\n");
 }
 
 static void return_exit_demo_thread(void *arg)
 {
 	(void)arg;
 
-	early_log_puts("return exit thread returning\n");
+	pr_info("return exit thread returning\n");
 }
 
 static void explicit_exit_demo_thread(void *arg)
 {
 	(void)arg;
 
-	early_log_puts("explicit exit thread exiting\n");
+	pr_info("explicit exit thread exiting\n");
 	kernel_thread_exit();
 }
 
@@ -282,7 +281,7 @@ void sched_demo_start(void)
 		panic("scheduler demo thread creation failed");
 	}
 
-	early_log_puts("scheduler starting\n");
+	pr_info("scheduler starting\n");
 	sched_yield();
 
 	panic("scheduler returned to boot context");

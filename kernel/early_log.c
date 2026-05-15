@@ -2,6 +2,8 @@
 
 #include <tianole/arch.h>
 #include <tianole/early_log.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 
 static int early_log_ready;
 
@@ -80,9 +82,7 @@ void early_log_u64_decimal(uint64_t value)
 
 void panic(const char *message)
 {
-	early_log_puts("panic: ");
-	early_log_puts(message);
-	early_log_puts("\n");
+	pr_emerg("panic: %s\n", message);
 
 	arch_halt_forever();
 }

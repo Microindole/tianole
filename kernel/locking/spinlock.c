@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 #include <tianole/arch.h>
-#include <tianole/early_log.h>
+#include <tianole/panic.h>
 #include <tianole/spinlock.h>
 
 static int spinlock_depth;

@@ -1,8 +1,9 @@
 #include <stdint.h>
 
 #include <tianole/arch.h>
-#include <tianole/early_log.h>
 #include <tianole/mm.h>
+#include <tianole/panic.h>
+#include <tianole/printk.h>
 
 #include "page_table.h"
 
@@ -150,5 +151,5 @@ void page_tables_init(void)
 
 	load_cr3((phys_addr_t)(uintptr_t)kernel_pml4);
 	page_tables_ready = 1;
-	early_log_puts("kernel page table root active\n");
+	pr_info("kernel page table root active\n");
 }
