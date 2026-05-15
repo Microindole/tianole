@@ -2,8 +2,10 @@
 #include <tianole/input.h>
 #include <tianole/printk.h>
 #include <tianole/sched.h>
+#include <tianole/timer.h>
 
 #define INPUT_QUEUE_CAPACITY 64u
+#define INPUT_DEVICE_CAPACITY 16u
 
 /**
  * struct input_queue - Global fixed-size input event ring.
@@ -14,6 +16,9 @@
  * @count: Number of queued events.
  * @dropped: Events dropped because the ring was full.
  * @last: Most recently reported event for debug observability.
+ * @devices: Registered input device descriptors.
+ * @device_count: Number of registered input devices.
+ * @next_device_id: Runtime id assigned to the next registered device.
  * @has_last: Non-zero after @last has been filled.
  * @initialized: Non-zero once input_init() has run.
  *
@@ -29,6 +34,9 @@ struct input_queue {
 	uint32_t count;
 	uint64_t dropped;
 	struct input_event last;
+	struct input_dev *devices[INPUT_DEVICE_CAPACITY];
+	uint32_t device_count;
+	uint32_t next_device_id;
 	int has_last;
 	int initialized;
 };
@@ -65,9 +73,53 @@ void input_init(void)
 	input_queue.tail = 0;
 	input_queue.count = 0;
 	input_queue.dropped = 0;
+	input_queue.device_count = 0;
+	input_queue.next_device_id = 1;
 	input_queue.has_last = 0;
 	input_queue.initialized = 1;
 	pr_info("input initialized\n");
+}
+
+int input_register_device(struct input_dev *dev)
+{
+	uint64_t flags;
+
+	if (input_queue.initialized == 0 || dev == 0 || dev->name == 0 ||
+		dev->registered != 0) {
+		return -EINVAL;
+	}
+
+	wait_queue_lock_irqsave(&input_queue.wait, &flags);
+	if (input_queue.device_count == INPUT_DEVICE_CAPACITY) {
+		wait_queue_unlock_irqrestore(&input_queue.wait, flags);
+		return -ENOSPC;
+	}
+
+	dev->id = input_queue.next_device_id++;
+	dev->registered = 1;
+	input_queue.devices[input_queue.device_count++] = dev;
+	wait_queue_unlock_irqrestore(&input_queue.wait, flags);
+	pr_info("input device registered name=%s id=%u\n", dev->name, dev->id);
+	return 0;
+}
+
+int input_report_key(
+	struct input_dev *dev, uint16_t code, int32_t value, uint32_t modifiers)
+{
+	struct input_event event;
+
+	if (dev == 0 || dev->registered == 0 ||
+		(dev->capabilities & INPUT_DEVICE_CAP_KEY) == 0) {
+		return -EINVAL;
+	}
+
+	event.type = INPUT_EVENT_KEY;
+	event.code = code;
+	event.value = value;
+	event.modifiers = modifiers;
+	event.device = dev->id;
+	event.timestamp = timer_ticks();
+	return input_report_event(&event);
 }
 
 int input_report_event(const struct input_event *event)

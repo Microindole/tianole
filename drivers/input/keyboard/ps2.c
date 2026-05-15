@@ -7,14 +7,12 @@
 #include <tianole/panic.h>
 #include <tianole/printk.h>
 #include <tianole/spinlock.h>
-#include <tianole/timer.h>
 #include <tianole/workqueue.h>
 
 #define PS2_DATA_PORT 0x60
 #define PS2_STATUS_PORT 0x64
 #define PS2_STATUS_OUTPUT_FULL 0x01
 #define PS2_KEYBOARD_IRQ 1u
-#define PS2_KEYBOARD_DEVICE 1u
 #define PS2_RAW_QUEUE_CAPACITY 32u
 #define PS2_SCANCODE_RELEASE 0x80u
 #define PS2_SCANCODE_EXTENDED 0xe0u
@@ -54,6 +52,11 @@ struct ps2_keyboard {
 };
 
 static struct ps2_keyboard ps2_keyboard;
+static struct input_dev ps2_input_dev = {
+	.name = "ps2-keyboard",
+	.bus = INPUT_BUS_I8042,
+	.capabilities = INPUT_DEVICE_CAP_KEY,
+};
 
 static const enum input_key_code ps2_set1_keycode[PS2_SET1_KEYMAP_SIZE] = {
 	[0x01] = INPUT_KEY_ESC,
@@ -225,7 +228,6 @@ static void ps2_keyboard_work(struct work_struct *work)
 	(void)work;
 
 	while (ps2_raw_pop(&scancode) != 0) {
-		struct input_event event;
 		enum input_key_code key;
 		uint8_t code = scancode & PS2_SCANCODE_MASK;
 		int extended = ps2_keyboard.extended_pending;
@@ -256,13 +258,10 @@ static void ps2_keyboard_work(struct work_struct *work)
 		}
 
 		ps2_update_modifier(key, pressed);
-		event.type = INPUT_EVENT_KEY;
-		event.code = (uint16_t)key;
-		event.value = pressed;
-		event.modifiers = ps2_keyboard.modifiers;
-		event.device = PS2_KEYBOARD_DEVICE;
-		event.timestamp = timer_ticks();
-		if (input_report_event(&event) != 0) {
+		if (input_report_key(&ps2_input_dev,
+			    (uint16_t)key,
+			    pressed,
+			    ps2_keyboard.modifiers) != 0) {
 			pr_warn("keyboard input event dropped\n");
 		}
 	}
@@ -313,6 +312,9 @@ void ps2_keyboard_init(void)
 	ps2_keyboard.pause_bytes = 0;
 	ps2_keyboard.modifiers = 0;
 	work_init(&ps2_keyboard.work, ps2_keyboard_work, 0);
+	if (input_register_device(&ps2_input_dev) != 0) {
+		panic("keyboard input device registration failed");
+	}
 	if (irq_register(PS2_KEYBOARD_IRQ, ps2_keyboard_irq, 0) != 0) {
 		panic("keyboard irq registration failed");
 	}

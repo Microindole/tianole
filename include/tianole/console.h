@@ -39,8 +39,9 @@ int console_write_all(const char *text, size_t length);
 /**
  * input_console_init() - Start the temporary input console consumer.
  *
- * This early consumer reads input events, decodes them to characters, and
- * feeds the temporary tty line discipline.
+ * This early bridge reads input events and feeds the temporary tty line
+ * discipline. It does not own keyboard policy, shell parsing or console
+ * rendering.
  */
 void input_console_init(void);
 

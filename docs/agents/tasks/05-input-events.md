@@ -100,58 +100,49 @@
 
 ## 当前状态
 
-进行中：
+基础完成：
 
-- 已有全局 input event queue，支持 blocking/nonblocking read 和 dropped event 统计。
-- 已接入 PS/2 keyboard IRQ1，当前能把 set-1 scancode 转成通用 key event。
+- 已有全局 input event queue，支持 blocking/nonblocking read 和 dropped event 统计；已新增早期 `struct input_dev` 注册骨架，设备驱动先注册 input device，再通过 input core 上报事件。
+- 已接入 PS/2 keyboard IRQ1，PS/2 keyboard 作为 `INPUT_BUS_I8042` input device 注册，当前能把 set-1 scancode 转成通用 key event。
 - 已拆分 keyboard layout/keymap：`include/tianole/input-event-codes.h` 提供对齐 Linux 6.8 `KEY_*` 数值的完整 keycode 命名空间；PS/2 set-1 与 0xe0 extended scancode 使用表驱动映射到通用 key code；默认 US keymap 放在 `drivers/tty/keymap.c`，输出 `struct tty_keysym`，当前支持 Unicode keysym 与 F1-F12/方向键/导航键 function-string keysym。
 - 已新增 `include/tianole/keysym.h`：keycode 到字符之间存在 keysym 中间层，tty line discipline 再把 Unicode keysym 编码为 UTF-8 字节，并把 function keysym 解析为默认终端功能键字节序列；后续 dead key、AltGr 和外部 keymap 加载应在这一层扩展。
 - 已有标准键盘骨架：F1-F12、左右 Ctrl/Alt、CapsLock/NumLock/ScrollLock、方向键、Home/End/PageUp/PageDown、Insert/Delete、keypad 键已有 key identity；F1-F12、方向键和常见导航键已通过 tty function-string 层输出 Linux 默认 keymap 风格的 ESC 序列，modifier-only/keypad 等仍只保留 key identity。
 - 已有 boot-time input selftest，覆盖小写、Shift 大写、CapsLock 大写、Shift+CapsLock 小写、标点 Shift 变体，以及 F1/方向键/Delete 的 function-string 映射。
-- 早期 framebuffer console 已开始按 Linux fbcon 方向从 `arch/x86/kernel/screen.c` 拆出：x86 只负责 boot framebuffer handoff，字符绘制、滚屏和小写字体在 `drivers/video/fbdev/core/`。
+- 早期 framebuffer console 已开始按 Linux fbcon 方向从 `arch/x86/kernel/screen.c` 拆出：x86 只负责 boot framebuffer handoff，字符绘制、滚屏和 ASCII 字体在 `drivers/video/fbdev/core/`；常见 US 键盘标点 glyph 已补齐，未知 glyph 仍 fallback 为 `?`。
 - 已有 deferred work 路径，键盘 IRQ 不直接执行复杂解码和上层命令逻辑。
-- 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
+- `input_console` 已收窄为临时桥接线程：只从 input queue 读取 key event，交给 tty keymap/line discipline，不再承载键盘策略、shell 解析或显示后端职责。
 - 已新增 `drivers/tty/` 早期 tty line discipline，line queue、回显和读行接口开始从 `input_console` 迁出。
 - `kdb` 交互输入/输出已改走 `tty_read_line()`/`tty_write*()`，不再通过 `console_read_line()` 兼容层或直接依赖 `early_log`；初始化状态继续使用 `pr_info()`。
 - 已有临时 kernel kdb/debug command consumer，用于验证真实输入链路。
 
-当前可以回到本阶段继续推进。`02-cpu-interrupts.md` 已经补上
-exception/IRQ/syscall/system vector 分层、kernel/user trap 来源判断、
-future user exception policy 边界、`rsp/ss` trap-frame 预留，以及
-IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
-接下来应把临时 input console 收敛为 tty/terminal 雏形，而不是继续扩展 kdb。
+当前 05 的核心边界已经可收口：input core、PS/2 keyboard、keycode/keymap/keysym、早期 tty line discipline、临时 input-to-tty bridge、fbcon 字符显示后端和 early kdb 验证入口都已经有基础实现。后续接入 shell、USB HID、鼠标或外部 keymap 时，不应再重写 keyboard driver 或 input core 主路径。
 
-限制必须明确：当前 kdb 不是 Linux 意义上的 shell/tty，也不是用户态入口；它只是 early debug/kdb 雏形，后续要改名并收敛到 `kernel/debug/` 类边界。
+限制必须明确：当前 kdb 不是 Linux 意义上的 shell/tty，也不是用户态入口；它只是 early debug/kdb 雏形。`input_console` 也只是临时 input-to-tty bridge，后续只能继续删除职责，不能继续扩展策略。
 
 ## 接手入口
 
 下一位接手者应从这些文件开始读：
 
-- `drivers/input/input.c`、`include/tianole/input.h`：通用 input event queue。
+- `drivers/input/input.c`、`include/tianole/input.h`：通用 input event queue 与早期 input device 注册骨架。
 - `include/tianole/input-event-codes.h`：对齐 Linux `KEY_*` 的稳定 keycode 命名空间。
 - `include/tianole/keysym.h`：tty keymap 输出的 keysym/Unicode 中间表示。
 - `drivers/input/keyboard/ps2.c`、`include/tianole/keyboard.h`：PS/2 set-1 scancode 到 key event 的表驱动转换。
 - `drivers/tty/tty.c`、`include/tianole/tty.h`：早期 tty line discipline、UTF-8 编码、function-string 解析、回显、blocking line read。
 - `drivers/tty/keymap.c`：当前 US keymap，把通用 key code 转成 tty keysym。
 - `drivers/video/fbdev/core/fbcon.c`、`drivers/video/fbdev/core/font.c`、`include/tianole/fbcon.h`：早期 framebuffer console 后端。
-- `kernel/console/input_console.c`、`include/tianole/console.h`：当前 input event 到 tty 字符流的临时桥接。
+- `kernel/console/input_console.c`、`include/tianole/console.h`：当前 input event 到 tty 字符流的临时桥接，只负责 glue，不拥有键盘/tty/显示策略。
 - `kernel/debug/kdb.c`、`include/tianole/kdb.h`：临时 early debug command consumer，只用于验证输入链路。
 - `kernel/workqueue.c`、`include/tianole/workqueue.h`：键盘 deferred processing 依赖的线程上下文。
 
-下一步只做 tty/terminal 雏形：
-
-- 继续完善 `drivers/tty/` 边界，承接更多 line discipline、控制字符和读写接口。
-- 让 `input_console` 只保留 input event 到 tty 字符流的临时桥接职责。
-- 保持 keyboard driver 只上报 input event，不直接感知 terminal、shell 或 kdb。
-- 保持 kdb 只作为 terminal/console 的临时 consumer，不继续增加系统策略命令。
-
-建议验收：
+收口验收：
 
 - `make clean all`
-- `scripts/check.sh boot`
-- `scripts/check.sh user-exception invalid-opcode general-protection page-fault`
-- 真实 QEMU 交互中确认键盘输入、回显、退格和回车提交仍可用。
-- `make run-interactive` 启动图形 QEMU 后可测试常见 US 可打印键：字母、数字、空格、Tab、退格、回车、`-=[]\;',./` 及其 Shift/CapsLock 变体。
+- `scripts/check.sh`
+- `make run-interactive` 启动图形 QEMU 后人工测试常见 US 可打印键：字母、数字、空格、Tab、退格、回车、`-=[]\;',./` 及其 Shift/CapsLock 变体。
+- 在 QEMU 中用 `keys` 查看 F1、方向键、Delete 等 function-string key 是否可观察。
+- 图形 QEMU framebuffer 不能直接复制屏幕文本；需要复制输出时看 `build/serial.log` 或 `build/debug.log`。
+
+05 关闭后进入 `06-storage-vfs.md`。后续 tty/terminal 深化应作为 07/08 的依赖增量处理，不再把 keyboard/input 主路径改成 shell 专用路径。
 
 ## 后续扩展
 
@@ -159,6 +150,6 @@ IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 - 鼠标和相对/绝对坐标事件。
 - key repeat。
 - 多 keyboard 设备。
-- terminal line discipline。
+- 完整 terminal line discipline、VT escape parser 和用户态 tty 语义。
 - nonblocking input、poll/select。
 - session、foreground process group 和 job control。
