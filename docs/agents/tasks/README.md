@@ -40,10 +40,9 @@ wait queue、workqueue、PS/2 keyboard、input console 和临时 early kdb
 
 ## 下一步
 
-当前优先回补 `02-cpu-interrupts.md` 的债务：
+当前回到 `05-input-events.md`：
 
-- 回到 `05-input-events.md`：把临时 input console 往 tty/terminal 雏形推进。
+- 把临时 input console 往 tty/terminal 雏形推进。
 - 在 `07-user-mode.md` 前确定 syscall/sysret 与 int 0x80 的取舍；当前只预留 legacy int 0x80 vector 边界，不实现完整用户态 syscall。
 - default handler 只保留为未知或暂未覆盖 vector 的兜底，不能继续承载常见异常策略。
-
-然后回到 `05-input-events.md`：把临时 input console 往 tty/terminal 雏形推进。`kdb` 只保留为早期 debug 入口，不当作 shell 继续扩展。
+- `kdb` 只保留为早期 debug 入口，不当作 shell 继续扩展。

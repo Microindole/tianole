@@ -101,12 +101,36 @@
 - 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
 - 已有临时 kernel kdb/debug command consumer，用于验证真实输入链路。
 
-当前暂停继续扩展 tty/terminal，先回补 `02-cpu-interrupts.md` 的 trap/IRQ
-边界债务。原因是未来 tty、用户态 shell 和 syscall 都需要明确的
-exception/IRQ/syscall/system vector 分层；如果这里不先收敛，输入主线会在进入
-用户态时返工。
+当前可以回到本阶段继续推进。`02-cpu-interrupts.md` 已经补上
+exception/IRQ/syscall/system vector 分层、kernel/user trap 来源判断、
+future user exception policy 边界和 `rsp/ss` trap-frame 预留。输入主线
+接下来应把临时 input console 收敛为 tty/terminal 雏形，而不是继续扩展 kdb。
 
 限制必须明确：当前 kdb 不是 Linux 意义上的 shell/tty，也不是用户态入口；它只是 early debug/kdb 雏形，后续要改名并收敛到 `kernel/debug/` 类边界。
+
+## 接手入口
+
+下一位接手者应从这些文件开始读：
+
+- `drivers/input/input.c`、`include/tianole/input.h`：通用 input event queue。
+- `drivers/input/keyboard/ps2.c`、`include/tianole/keyboard.h`：PS/2 keyboard 到 key event 的转换。
+- `kernel/console/input_console.c`、`include/tianole/console.h`：当前临时 line queue、回显、blocking line read。
+- `kernel/debug/kdb.c`、`include/tianole/kdb.h`：临时 early debug command consumer，只用于验证输入链路。
+- `kernel/workqueue.c`、`include/tianole/workqueue.h`：键盘 deferred processing 依赖的线程上下文。
+
+下一步只做 tty/terminal 雏形：
+
+- 新增或拆出 `kernel/tty/` 或等价边界，承接 line discipline、回显、控制字符和读写接口。
+- 让 `input_console` 中和 terminal 相关的逻辑向 tty/terminal 层迁移。
+- 保持 keyboard driver 只上报 input event，不直接感知 terminal、shell 或 kdb。
+- 保持 kdb 只作为 terminal/console 的临时 consumer，不继续增加系统策略命令。
+
+建议验收：
+
+- `make clean all`
+- `scripts/check.sh boot`
+- `scripts/check.sh user-exception invalid-opcode general-protection page-fault`
+- 真实 QEMU 交互中确认键盘输入、回显、退格和回车提交仍可用。
 
 ## 后续扩展
 
