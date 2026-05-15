@@ -15,6 +15,7 @@
 - `drivers/input/`：通用输入事件。
 - `drivers/input/keyboard/`：键盘设备。
 - `drivers/tty/`：tty/terminal 和早期 line discipline。
+- `drivers/video/fbdev/core/`：framebuffer console 后端，参考 Linux fbcon 方向承接字符绘制、滚屏和光标位置等显示细节。
 - `arch/x86/`：PS/2 控制器相关 I/O。
 
 ## 实现内容
@@ -69,6 +70,8 @@
 - 参考 Linux `include/uapi/linux/input-event-codes.h`：key code 是稳定的输入身份命名空间，不应是随当前原型增删而改变的临时 enum。
 - 参考 Linux `drivers/input/keyboard/atkbd.c`：AT/PS2 scancode 到 keycode 使用表驱动映射，驱动主路径不靠不断扩大的 switch 表达标准键盘。
 - 参考 Linux `drivers/tty/vt/keyboard.c` 与 `drivers/tty/vt/defkeymap.c_shipped`：keycode 到字符/功能键语义属于 tty/vt/keymap 层，不属于硬件键盘驱动。
+- 参考 Linux keymap 生成方式：默认 keymap 可以内置一份，但后续应从可替换的 keymap/Unicode/diacritic 表生成或加载；keymap 应输出 keysym/Unicode/动作语义，而不是把所有字符语义散落写死到驱动里。
+- 参考 Linux `drivers/tty/vt/vt.c` 与 `drivers/video/fbdev/core/fbcon.c`：virtual terminal 维护屏幕字符缓冲、光标、滚屏和转义序列，fbcon 只作为显示后端实现字符绘制和 framebuffer 更新。
 - 参考 Linux tty/line discipline 思路：键盘事件到 shell 输入之间应有 terminal 层，不让 shell 直接处理硬件事件。
 - 参考 Linux IRQ bottom half/workqueue 思路：中断路径短，复杂处理推迟。
 
@@ -101,8 +104,11 @@
 
 - 已有全局 input event queue，支持 blocking/nonblocking read 和 dropped event 统计。
 - 已接入 PS/2 keyboard IRQ1，当前能把 set-1 scancode 转成通用 key event。
-- 已开始拆分 keyboard layout/keymap：`include/tianole/input.h` 使用接近 Linux KEY_* 的稳定 PC keycode 子集；PS/2 set-1 与 0xe0 extended scancode 使用表驱动映射到通用 key code；US 可打印字符映射放在 `drivers/tty/keymap.c`。
+- 已拆分 keyboard layout/keymap：`include/tianole/input-event-codes.h` 提供对齐 Linux 6.8 `KEY_*` 数值的完整 keycode 命名空间；PS/2 set-1 与 0xe0 extended scancode 使用表驱动映射到通用 key code；默认 US keymap 放在 `drivers/tty/keymap.c`，输出 `struct tty_keysym`，当前先支持 Unicode keysym。
+- 已新增 `include/tianole/keysym.h`：keycode 到字符之间存在 keysym 中间层，tty line discipline 再把 Unicode keysym 编码为 UTF-8 字节；后续 function string、dead key、AltGr 和外部 keymap 加载应在这一层扩展。
 - 已有标准键盘骨架：F1-F12、左右 Ctrl/Alt、CapsLock/NumLock/ScrollLock、方向键、Home/End/PageUp/PageDown、Insert/Delete、keypad 键已有 key identity；除可打印键和基础控制键外，暂不赋予 tty 字符语义。
+- 已有 boot-time input selftest，覆盖小写、Shift 大写、CapsLock 大写、Shift+CapsLock 小写、标点 Shift 变体，以及 F1/方向键不转字符。
+- 早期 framebuffer console 已开始按 Linux fbcon 方向从 `arch/x86/kernel/screen.c` 拆出：x86 只负责 boot framebuffer handoff，字符绘制、滚屏和小写字体在 `drivers/video/fbdev/core/`。
 - 已有 deferred work 路径，键盘 IRQ 不直接执行复杂解码和上层命令逻辑。
 - 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
 - 已新增 `drivers/tty/` 早期 tty line discipline，line queue、回显和读行接口开始从 `input_console` 迁出。
@@ -122,9 +128,12 @@ IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 下一位接手者应从这些文件开始读：
 
 - `drivers/input/input.c`、`include/tianole/input.h`：通用 input event queue。
+- `include/tianole/input-event-codes.h`：对齐 Linux `KEY_*` 的稳定 keycode 命名空间。
+- `include/tianole/keysym.h`：tty keymap 输出的 keysym/Unicode 中间表示。
 - `drivers/input/keyboard/ps2.c`、`include/tianole/keyboard.h`：PS/2 set-1 scancode 到 key event 的表驱动转换。
-- `drivers/tty/tty.c`、`include/tianole/tty.h`：早期 tty line discipline、回显、blocking line read。
-- `drivers/tty/keymap.c`：当前 US keymap，把通用 key code 转成 tty 字符流。
+- `drivers/tty/tty.c`、`include/tianole/tty.h`：早期 tty line discipline、UTF-8 编码、回显、blocking line read。
+- `drivers/tty/keymap.c`：当前 US keymap，把通用 key code 转成 tty keysym。
+- `drivers/video/fbdev/core/fbcon.c`、`drivers/video/fbdev/core/font.c`、`include/tianole/fbcon.h`：早期 framebuffer console 后端。
 - `kernel/console/input_console.c`、`include/tianole/console.h`：当前 input event 到 tty 字符流的临时桥接。
 - `kernel/debug/kdb.c`、`include/tianole/kdb.h`：临时 early debug command consumer，只用于验证输入链路。
 - `kernel/workqueue.c`、`include/tianole/workqueue.h`：键盘 deferred processing 依赖的线程上下文。

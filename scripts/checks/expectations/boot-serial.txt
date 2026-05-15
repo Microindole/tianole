@@ -14,6 +14,7 @@ scheduler initialized
 kernel thread selftest ok
 workqueue initialized
 input initialized
+input selftest ok
 ps2 keyboard initialized
 input console initialized
 kdb initialized

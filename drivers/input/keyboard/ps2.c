@@ -56,7 +56,7 @@ struct ps2_keyboard {
 static struct ps2_keyboard ps2_keyboard;
 
 static const enum input_key_code ps2_set1_keycode[PS2_SET1_KEYMAP_SIZE] = {
-	[0x01] = INPUT_KEY_ESCAPE,
+	[0x01] = INPUT_KEY_ESC,
 	[0x02] = INPUT_KEY_1,
 	[0x03] = INPUT_KEY_2,
 	[0x04] = INPUT_KEY_3,
@@ -81,10 +81,10 @@ static const enum input_key_code ps2_set1_keycode[PS2_SET1_KEYMAP_SIZE] = {
 	[0x17] = INPUT_KEY_I,
 	[0x18] = INPUT_KEY_O,
 	[0x19] = INPUT_KEY_P,
-	[0x1a] = INPUT_KEY_LEFT_BRACKET,
-	[0x1b] = INPUT_KEY_RIGHT_BRACKET,
+	[0x1a] = INPUT_KEY_LEFTBRACE,
+	[0x1b] = INPUT_KEY_RIGHTBRACE,
 	[0x1c] = INPUT_KEY_ENTER,
-	[0x1d] = INPUT_KEY_LEFT_CTRL,
+	[0x1d] = INPUT_KEY_LEFTCTRL,
 	[0x1e] = INPUT_KEY_A,
 	[0x1f] = INPUT_KEY_S,
 	[0x20] = INPUT_KEY_D,
@@ -97,7 +97,7 @@ static const enum input_key_code ps2_set1_keycode[PS2_SET1_KEYMAP_SIZE] = {
 	[0x27] = INPUT_KEY_SEMICOLON,
 	[0x28] = INPUT_KEY_APOSTROPHE,
 	[0x29] = INPUT_KEY_GRAVE,
-	[0x2a] = INPUT_KEY_LEFT_SHIFT,
+	[0x2a] = INPUT_KEY_LEFTSHIFT,
 	[0x2b] = INPUT_KEY_BACKSLASH,
 	[0x2c] = INPUT_KEY_Z,
 	[0x2d] = INPUT_KEY_X,
@@ -109,9 +109,9 @@ static const enum input_key_code ps2_set1_keycode[PS2_SET1_KEYMAP_SIZE] = {
 	[0x33] = INPUT_KEY_COMMA,
 	[0x34] = INPUT_KEY_DOT,
 	[0x35] = INPUT_KEY_SLASH,
-	[0x36] = INPUT_KEY_RIGHT_SHIFT,
-	[0x37] = INPUT_KEY_KP_ASTERISK,
-	[0x38] = INPUT_KEY_LEFT_ALT,
+	[0x36] = INPUT_KEY_RIGHTSHIFT,
+	[0x37] = INPUT_KEY_KPASTERISK,
+	[0x38] = INPUT_KEY_LEFTALT,
 	[0x39] = INPUT_KEY_SPACE,
 	[0x3a] = INPUT_KEY_CAPSLOCK,
 	[0x3b] = INPUT_KEY_F1,
@@ -129,25 +129,25 @@ static const enum input_key_code ps2_set1_keycode[PS2_SET1_KEYMAP_SIZE] = {
 	[0x47] = INPUT_KEY_KP7,
 	[0x48] = INPUT_KEY_KP8,
 	[0x49] = INPUT_KEY_KP9,
-	[0x4a] = INPUT_KEY_KP_MINUS,
+	[0x4a] = INPUT_KEY_KPMINUS,
 	[0x4b] = INPUT_KEY_KP4,
 	[0x4c] = INPUT_KEY_KP5,
 	[0x4d] = INPUT_KEY_KP6,
-	[0x4e] = INPUT_KEY_KP_PLUS,
+	[0x4e] = INPUT_KEY_KPPLUS,
 	[0x4f] = INPUT_KEY_KP1,
 	[0x50] = INPUT_KEY_KP2,
 	[0x51] = INPUT_KEY_KP3,
 	[0x52] = INPUT_KEY_KP0,
-	[0x53] = INPUT_KEY_KP_DOT,
+	[0x53] = INPUT_KEY_KPDOT,
 	[0x57] = INPUT_KEY_F11,
 	[0x58] = INPUT_KEY_F12,
 };
 
 static const enum input_key_code ps2_set1_e0_keycode[PS2_SET1_KEYMAP_SIZE] = {
-	[0x1c] = INPUT_KEY_KP_ENTER,
-	[0x1d] = INPUT_KEY_RIGHT_CTRL,
-	[0x35] = INPUT_KEY_KP_SLASH,
-	[0x38] = INPUT_KEY_RIGHT_ALT,
+	[0x1c] = INPUT_KEY_KPENTER,
+	[0x1d] = INPUT_KEY_RIGHTCTRL,
+	[0x35] = INPUT_KEY_KPSLASH,
+	[0x38] = INPUT_KEY_RIGHTALT,
 	[0x47] = INPUT_KEY_HOME,
 	[0x48] = INPUT_KEY_UP,
 	[0x49] = INPUT_KEY_PAGEUP,
@@ -160,7 +160,7 @@ static const enum input_key_code ps2_set1_e0_keycode[PS2_SET1_KEYMAP_SIZE] = {
 	[0x53] = INPUT_KEY_DELETE,
 };
 
-static enum input_key_code ps2_keycode_from_set1(uint8_t code, int extended)
+enum input_key_code ps2_keyboard_keycode_from_set1(uint8_t code, int extended)
 {
 	code &= PS2_SCANCODE_MASK;
 	if (extended != 0) {
@@ -173,11 +173,11 @@ static void ps2_update_modifier(enum input_key_code key, int pressed)
 {
 	uint32_t mask = 0;
 
-	if (key == INPUT_KEY_LEFT_SHIFT || key == INPUT_KEY_RIGHT_SHIFT) {
+	if (key == INPUT_KEY_LEFTSHIFT || key == INPUT_KEY_RIGHTSHIFT) {
 		mask = INPUT_MODIFIER_SHIFT;
-	} else if (key == INPUT_KEY_LEFT_CTRL || key == INPUT_KEY_RIGHT_CTRL) {
+	} else if (key == INPUT_KEY_LEFTCTRL || key == INPUT_KEY_RIGHTCTRL) {
 		mask = INPUT_MODIFIER_CTRL;
-	} else if (key == INPUT_KEY_LEFT_ALT || key == INPUT_KEY_RIGHT_ALT) {
+	} else if (key == INPUT_KEY_LEFTALT || key == INPUT_KEY_RIGHTALT) {
 		mask = INPUT_MODIFIER_ALT;
 	} else if (pressed != 0 && key == INPUT_KEY_CAPSLOCK) {
 		ps2_keyboard.modifiers ^= INPUT_MODIFIER_CAPSLOCK;
@@ -247,8 +247,8 @@ static void ps2_keyboard_work(struct work_struct *work)
 		}
 
 		ps2_keyboard.extended_pending = 0;
-		key = ps2_keycode_from_set1(code, extended);
-		if (key == INPUT_KEY_UNKNOWN) {
+		key = ps2_keyboard_keycode_from_set1(code, extended);
+		if (key == INPUT_KEY_RESERVED) {
 			pr_warn("keyboard unknown scancode=0x%x extended=%u\n",
 				(unsigned int)code,
 				(unsigned int)extended);

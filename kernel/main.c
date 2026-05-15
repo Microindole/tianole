@@ -24,6 +24,7 @@ void kernel_main(const boot_info_t *boot_info)
 	sched_init();
 	workqueue_init();
 	input_init();
+	input_selftest();
 	ps2_keyboard_init();
 	arch_timer_init();
 

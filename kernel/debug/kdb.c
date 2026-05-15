@@ -52,6 +52,7 @@ static void kdb_print_help(void)
 	tty_write_string("  help        show this help\n");
 	tty_write_string("  ticks       show timer ticks\n");
 	tty_write_string("  drops       show input and line drops\n");
+	tty_write_string("  keys        show the most recent input event\n");
 	tty_write_string("  echo TEXT   print TEXT\n");
 }
 
@@ -93,6 +94,36 @@ static void kdb_print_drops(void)
 	tty_write_string("\n");
 }
 
+static void kdb_print_keys(void)
+{
+	struct input_event event;
+	struct tty_keysym sym;
+	char bytes[4];
+	size_t length;
+
+	if (input_last_event(&event) != 0) {
+		tty_write_string("no input event\n");
+		return;
+	}
+
+	tty_write_string("key code=");
+	kdb_print_u64_decimal(event.code);
+	tty_write_string(" value=");
+	kdb_print_u64_decimal((unsigned long long)event.value);
+	tty_write_string(" modifiers=");
+	kdb_print_u64_decimal(event.modifiers);
+	if (tty_key_event_to_keysym(event.code, event.modifiers, &sym) != 0) {
+		tty_write_string(" keysym=");
+		kdb_print_u64_decimal(sym.value);
+		length = tty_keysym_to_utf8(&sym, bytes, sizeof(bytes));
+		if (length != 0) {
+			tty_write_string(" utf8=");
+			tty_write(bytes, length);
+		}
+	}
+	tty_write_string("\n");
+}
+
 static void kdb_run_command(const char *line)
 {
 	const char *command = kdb_skip_spaces(line);
@@ -113,6 +144,11 @@ static void kdb_run_command(const char *line)
 
 	if (kdb_streq(command, "drops")) {
 		kdb_print_drops();
+		return;
+	}
+
+	if (kdb_streq(command, "keys")) {
+		kdb_print_keys();
 		return;
 	}
 

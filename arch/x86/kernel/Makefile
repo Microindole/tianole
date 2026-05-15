@@ -9,7 +9,6 @@ arch-kernel-y := \
 	idt.o \
 	irq.o \
 	screen.o \
-	screen_font.o \
 	trap_policy.o \
 	traps.o
 

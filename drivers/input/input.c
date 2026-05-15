@@ -13,6 +13,8 @@
  * @tail: Next slot to write.
  * @count: Number of queued events.
  * @dropped: Events dropped because the ring was full.
+ * @last: Most recently reported event for debug observability.
+ * @has_last: Non-zero after @last has been filled.
  * @initialized: Non-zero once input_init() has run.
  *
  * The first implementation uses one global queue, mirroring the long-term
@@ -26,6 +28,8 @@ struct input_queue {
 	uint32_t tail;
 	uint32_t count;
 	uint64_t dropped;
+	struct input_event last;
+	int has_last;
 	int initialized;
 };
 
@@ -61,6 +65,7 @@ void input_init(void)
 	input_queue.tail = 0;
 	input_queue.count = 0;
 	input_queue.dropped = 0;
+	input_queue.has_last = 0;
 	input_queue.initialized = 1;
 	pr_info("input initialized\n");
 }
@@ -81,6 +86,8 @@ int input_report_event(const struct input_event *event)
 	}
 
 	input_queue.events[input_queue.tail] = *event;
+	input_queue.last = *event;
+	input_queue.has_last = 1;
 	input_queue.tail = (input_queue.tail + 1) % INPUT_QUEUE_CAPACITY;
 	input_queue.count++;
 	wait_queue_wake_one_locked(&input_queue.wait);
@@ -136,4 +143,23 @@ uint64_t input_dropped_events(void)
 	dropped = input_queue.dropped;
 	wait_queue_unlock_irqrestore(&input_queue.wait, flags);
 	return dropped;
+}
+
+int input_last_event(struct input_event *event)
+{
+	uint64_t flags;
+
+	if (input_queue.initialized == 0 || event == 0) {
+		return -EINVAL;
+	}
+
+	wait_queue_lock_irqsave(&input_queue.wait, &flags);
+	if (input_queue.has_last == 0) {
+		wait_queue_unlock_irqrestore(&input_queue.wait, flags);
+		return -EAGAIN;
+	}
+
+	*event = input_queue.last;
+	wait_queue_unlock_irqrestore(&input_queue.wait, flags);
+	return 0;
 }

@@ -12,6 +12,7 @@ kernel-y := \
 	sched/idle.o \
 	sched/thread.o \
 	sched/wait.o \
+	selftest/input.o \
 	selftest/page_table.o \
 	selftest/sched.o \
 	time/timer.o

@@ -182,6 +182,69 @@ void tty_receive_char(char ch)
 	tty_echo_char(ch);
 }
 
+size_t tty_keysym_to_utf8(
+	const struct tty_keysym *sym, char *buffer, size_t size)
+{
+	uint32_t codepoint;
+
+	if (sym == 0 || buffer == 0 || sym->type != TTY_KEYSYM_UNICODE) {
+		return 0;
+	}
+
+	codepoint = sym->value;
+	if (codepoint <= 0x7f) {
+		if (size < 1) {
+			return 0;
+		}
+		buffer[0] = (char)codepoint;
+		return 1;
+	}
+
+	if (codepoint <= 0x7ff) {
+		if (size < 2) {
+			return 0;
+		}
+		buffer[0] = (char)(0xc0u | (codepoint >> 6));
+		buffer[1] = (char)(0x80u | (codepoint & 0x3fu));
+		return 2;
+	}
+
+	if (codepoint <= 0xffff) {
+		if (size < 3) {
+			return 0;
+		}
+		buffer[0] = (char)(0xe0u | (codepoint >> 12));
+		buffer[1] = (char)(0x80u | ((codepoint >> 6) & 0x3fu));
+		buffer[2] = (char)(0x80u | (codepoint & 0x3fu));
+		return 3;
+	}
+
+	if (codepoint <= 0x10ffff) {
+		if (size < 4) {
+			return 0;
+		}
+		buffer[0] = (char)(0xf0u | (codepoint >> 18));
+		buffer[1] = (char)(0x80u | ((codepoint >> 12) & 0x3fu));
+		buffer[2] = (char)(0x80u | ((codepoint >> 6) & 0x3fu));
+		buffer[3] = (char)(0x80u | (codepoint & 0x3fu));
+		return 4;
+	}
+
+	return 0;
+}
+
+void tty_receive_keysym(const struct tty_keysym *sym)
+{
+	char bytes[4];
+	size_t length;
+	size_t index;
+
+	length = tty_keysym_to_utf8(sym, bytes, sizeof(bytes));
+	for (index = 0; index < length; index++) {
+		tty_receive_char(bytes[index]);
+	}
+}
+
 int tty_read_line(char *buffer, size_t size)
 {
 	uint64_t flags;

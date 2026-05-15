@@ -13,7 +13,7 @@ static void input_console_thread(void *arg)
 
 	for (;;) {
 		struct input_event event;
-		char ch;
+		struct tty_keysym sym;
 
 		if (input_read_event(&event) != 0) {
 			panic("input console read failed");
@@ -23,12 +23,12 @@ static void input_console_thread(void *arg)
 			continue;
 		}
 
-		if (tty_key_event_to_char(event.code, event.modifiers, &ch) ==
-			0) {
+		if (tty_key_event_to_keysym(
+			    event.code, event.modifiers, &sym) == 0) {
 			continue;
 		}
 
-		tty_receive_char(ch);
+		tty_receive_keysym(&sym);
 	}
 }
 

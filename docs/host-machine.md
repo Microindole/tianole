@@ -95,3 +95,12 @@ make run-interactive QEMU_DISPLAY=sdl
 ```
 
 启动后在 QEMU 窗口内输入，看到 `tianole>` 后可测试 `help`、`ticks`、`drops`、`echo hello`，以及常见 US 可打印键和 Shift 变体。
+
+QEMU 图形窗口显示的是 guest framebuffer 像素，不是宿主终端文本，因此不能直接像终端一样选中复制窗口里的输出。需要复制启动日志或 kdb 输出时，优先查看自动写入的日志文件：
+
+```bash
+tail -f build/serial.log
+tail -f build/debug.log
+```
+
+后续如果需要真正的可复制交互终端，应补 serial console 输入路径，或在 tty/vt 层实现类似 Linux virtual terminal selection 的复制接口。

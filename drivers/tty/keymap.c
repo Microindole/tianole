@@ -6,8 +6,8 @@
 
 struct tty_keymap_entry {
 	uint16_t code;
-	char normal;
-	char shifted;
+	uint32_t normal;
+	uint32_t shifted;
 	uint8_t flags;
 };
 
@@ -56,8 +56,8 @@ static const struct tty_keymap_entry us_keymap[] = {
 	{INPUT_KEY_SPACE, ' ', ' ', 0},
 	{INPUT_KEY_MINUS, '-', '_', 0},
 	{INPUT_KEY_EQUAL, '=', '+', 0},
-	{INPUT_KEY_LEFT_BRACKET, '[', '{', 0},
-	{INPUT_KEY_RIGHT_BRACKET, ']', '}', 0},
+	{INPUT_KEY_LEFTBRACE, '[', '{', 0},
+	{INPUT_KEY_RIGHTBRACE, ']', '}', 0},
 	{INPUT_KEY_BACKSLASH, '\\', '|', 0},
 	{INPUT_KEY_SEMICOLON, ';', ':', 0},
 	{INPUT_KEY_APOSTROPHE, '\'', '"', 0},
@@ -67,13 +67,14 @@ static const struct tty_keymap_entry us_keymap[] = {
 	{INPUT_KEY_SLASH, '/', '?', 0},
 };
 
-int tty_key_event_to_char(uint16_t code, uint32_t modifiers, char *ch)
+int tty_key_event_to_keysym(
+	uint16_t code, uint32_t modifiers, struct tty_keysym *sym)
 {
 	size_t index;
 	int shifted = (modifiers & INPUT_MODIFIER_SHIFT) != 0;
 	int caps = (modifiers & INPUT_MODIFIER_CAPSLOCK) != 0;
 
-	if (ch == 0) {
+	if (sym == 0) {
 		return 0;
 	}
 
@@ -87,8 +88,9 @@ int tty_key_event_to_char(uint16_t code, uint32_t modifiers, char *ch)
 			shifted = shifted != caps;
 		}
 
-		*ch = shifted != 0 ? us_keymap[index].shifted
-				   : us_keymap[index].normal;
+		sym->type = TTY_KEYSYM_UNICODE;
+		sym->value = shifted != 0 ? us_keymap[index].shifted
+					  : us_keymap[index].normal;
 		return 1;
 	}
 
