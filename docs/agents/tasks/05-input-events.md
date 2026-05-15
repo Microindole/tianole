@@ -14,6 +14,7 @@
 
 - `drivers/input/`：通用输入事件。
 - `drivers/input/keyboard/`：键盘设备。
+- `drivers/tty/`：tty/terminal 和早期 line discipline。
 - `arch/x86/`：PS/2 控制器相关 I/O。
 
 ## 实现内容
@@ -99,6 +100,7 @@
 - 已接入 PS/2 keyboard IRQ1，当前能把 set-1 scancode 转成通用 key event。
 - 已有 deferred work 路径，键盘 IRQ 不直接执行复杂解码和上层命令逻辑。
 - 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
+- 已新增 `drivers/tty/` 早期 tty line discipline，line queue、回显和读行接口开始从 `input_console` 迁出。
 - 已有临时 kernel kdb/debug command consumer，用于验证真实输入链路。
 
 当前可以回到本阶段继续推进。`02-cpu-interrupts.md` 已经补上
@@ -121,8 +123,8 @@ IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 
 下一步只做 tty/terminal 雏形：
 
-- 新增或拆出 `kernel/tty/` 或等价边界，承接 line discipline、回显、控制字符和读写接口。
-- 让 `input_console` 中和 terminal 相关的逻辑向 tty/terminal 层迁移。
+- 继续完善 `drivers/tty/` 边界，承接更多 line discipline、控制字符和读写接口。
+- 让 `input_console` 只保留 input event 到 tty 字符流的临时桥接职责。
 - 保持 keyboard driver 只上报 input event，不直接感知 terminal、shell 或 kdb。
 - 保持 kdb 只作为 terminal/console 的临时 consumer，不继续增加系统策略命令。
 

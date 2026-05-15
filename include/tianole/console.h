@@ -39,9 +39,8 @@ int console_write_all(const char *text, size_t length);
 /**
  * input_console_init() - Start the temporary input console consumer.
  *
- * This early consumer reads input events, performs minimal line editing, echoes
- * printable keys through the existing kernel log console, and queues completed
- * lines for future shell or command consumers.
+ * This early consumer reads input events, decodes them to characters, and
+ * feeds the temporary tty line discipline.
  */
 void input_console_init(void);
 
@@ -50,7 +49,7 @@ void input_console_init(void);
  * @buffer: Destination byte buffer.
  * @size: Size of @buffer in bytes.
  *
- * Sleeps until the input console submits a line. The returned line is always
+ * Compatibility wrapper around tty_read_line(). The returned line is always
  * NUL-terminated when @size is non-zero.
  *
  * Return: Number of bytes copied excluding the NUL terminator, or -EINVAL for
@@ -71,7 +70,7 @@ int console_try_read_line(char *buffer, size_t size);
 /**
  * console_dropped_lines() - Return line drops caused by full queues.
  *
- * Return: Number of completed lines dropped by the early console line queue.
+ * Return: Number of completed lines dropped by the early tty line queue.
  */
 unsigned long console_dropped_lines(void);
 

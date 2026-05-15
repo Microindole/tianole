@@ -27,11 +27,11 @@ $(BUILD_DIR)/arch/mm/%.o: $(ARCH_DIR)/mm/%.c include/tianole/early_log.h include
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h include/tianole/arch.h include/tianole/console.h include/tianole/early_log.h include/tianole/panic.h include/tianole/printk.h include/tianole/mm.h | dirs
+$(BUILD_DIR)/kernel/%.o: kernel/%.c include/tianole/boot_info.h include/tianole/kernel_init.h include/tianole/arch.h include/tianole/console.h include/tianole/early_log.h include/tianole/panic.h include/tianole/printk.h include/tianole/tty.h include/tianole/mm.h | dirs
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/drivers/%.o: drivers/%.c include/tianole/input.h include/tianole/panic.h include/tianole/printk.h include/tianole/sched.h include/tianole/workqueue.h | dirs
+$(BUILD_DIR)/drivers/%.o: drivers/%.c include/tianole/console.h include/tianole/input.h include/tianole/panic.h include/tianole/printk.h include/tianole/sched.h include/tianole/tty.h include/tianole/workqueue.h | dirs
 	mkdir -p $(@D)
 	$(CC) $(KERNEL_CFLAGS) -c $< -o $@
 

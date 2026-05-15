@@ -10,6 +10,7 @@
 - `crypto/`：对应 Linux `crypto/`，后续放通用加密和哈希算法。
 - `docs/`：对应 Linux `Documentation/`，Tianole 使用小写 `docs/`。
 - `drivers/`：对应 Linux `drivers/`，后续放设备驱动和总线驱动。
+  - `drivers/tty/`：对应 Linux `drivers/tty/`，放 tty、terminal 和 line discipline 相关实现。
 - `fs/`：对应 Linux `fs/`，后续放 VFS 和具体文件系统。
 - `include/`：对应 Linux `include/`，放公共头文件。
 - `init/`：对应 Linux `init/`，后续放初始化流程。

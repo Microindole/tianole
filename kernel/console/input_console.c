@@ -2,49 +2,12 @@
 #include <stdint.h>
 
 #include <tianole/console.h>
-#include <tianole/early_log.h>
 #include <tianole/errno.h>
 #include <tianole/input.h>
 #include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
-
-#define CONSOLE_LINE_LENGTH 128u
-#define CONSOLE_LINE_QUEUE_SIZE 8u
-
-/**
- * struct console_line_queue - Completed input lines for future consumers.
- * @wait: Wait queue used for blocking readers and queue locking.
- * @lines: Fixed-size ring of NUL-terminated submitted lines.
- * @lengths: Length of each submitted line excluding the NUL terminator.
- * @head: Next line to read.
- * @tail: Next slot to write.
- * @count: Number of submitted lines.
- * @dropped: Lines dropped because the ring was full.
- *
- * This is a temporary tty-like line discipline. Keyboard drivers feed generic
- * input events, this layer edits characters into lines, and future shell code
- * can read lines without depending on PS/2 scancodes.
- */
-struct console_line_queue {
-	struct wait_queue wait;
-	char lines[CONSOLE_LINE_QUEUE_SIZE][CONSOLE_LINE_LENGTH];
-	size_t lengths[CONSOLE_LINE_QUEUE_SIZE];
-	uint32_t head;
-	uint32_t tail;
-	uint32_t count;
-	unsigned long dropped;
-};
-
-static struct console_line_queue console_lines;
-static char edit_line[CONSOLE_LINE_LENGTH];
-static size_t edit_length;
-
-static int console_has_line(void *arg)
-{
-	struct console_line_queue *queue = arg;
-
-	return queue->count != 0;
-}
+#include <tianole/tty.h>
 
 static char input_key_to_ascii(uint16_t code, uint32_t modifiers)
 {
@@ -136,88 +99,6 @@ static char input_key_to_ascii(uint16_t code, uint32_t modifiers)
 	}
 }
 
-static int console_pop_line_locked(char *buffer, size_t size)
-{
-	size_t length;
-	size_t index;
-
-	if (console_lines.count == 0) {
-		return -EAGAIN;
-	}
-
-	length = console_lines.lengths[console_lines.head];
-	if (length + 1 > size) {
-		length = size - 1;
-	}
-
-	for (index = 0; index < length; index++) {
-		buffer[index] = console_lines.lines[console_lines.head][index];
-	}
-	buffer[length] = '\0';
-
-	console_lines.head = (console_lines.head + 1) % CONSOLE_LINE_QUEUE_SIZE;
-	console_lines.count--;
-	return (int)length;
-}
-
-static void console_submit_edit_line(void)
-{
-	uint64_t flags;
-	size_t index;
-
-	wait_queue_lock_irqsave(&console_lines.wait, &flags);
-	if (console_lines.count == CONSOLE_LINE_QUEUE_SIZE) {
-		console_lines.dropped++;
-		wait_queue_unlock_irqrestore(&console_lines.wait, flags);
-		edit_length = 0;
-		return;
-	}
-
-	for (index = 0; index < edit_length; index++) {
-		console_lines.lines[console_lines.tail][index] =
-			edit_line[index];
-	}
-	console_lines.lines[console_lines.tail][edit_length] = '\0';
-	console_lines.lengths[console_lines.tail] = edit_length;
-	console_lines.tail = (console_lines.tail + 1) % CONSOLE_LINE_QUEUE_SIZE;
-	console_lines.count++;
-	wait_queue_wake_one_locked(&console_lines.wait);
-	wait_queue_unlock_irqrestore(&console_lines.wait, flags);
-
-	edit_length = 0;
-}
-
-static void console_echo_backspace(void)
-{
-	if (edit_length == 0) {
-		return;
-	}
-
-	edit_length--;
-	early_log_putc('\b');
-}
-
-static void console_handle_char(char ch)
-{
-	if (ch == '\b') {
-		console_echo_backspace();
-		return;
-	}
-
-	if (ch == '\n') {
-		early_log_putc('\n');
-		console_submit_edit_line();
-		return;
-	}
-
-	if (edit_length + 1 >= CONSOLE_LINE_LENGTH) {
-		return;
-	}
-
-	edit_line[edit_length++] = ch;
-	early_log_putc(ch);
-}
-
 static void input_console_thread(void *arg)
 {
 	(void)arg;
@@ -239,70 +120,33 @@ static void input_console_thread(void *arg)
 			continue;
 		}
 
-		console_handle_char(ch);
+		tty_receive_char(ch);
 	}
 }
 
 void input_console_init(void)
 {
-	wait_queue_init(&console_lines.wait);
-	console_lines.head = 0;
-	console_lines.tail = 0;
-	console_lines.count = 0;
-	console_lines.dropped = 0;
-	edit_length = 0;
+	tty_init();
 
 	if (kernel_thread_create("input-console", input_console_thread, 0) ==
 		0) {
 		panic("input console thread creation failed");
 	}
 
-	early_log_puts("input console initialized\n");
+	pr_info("input console initialized\n");
 }
 
 int console_read_line(char *buffer, size_t size)
 {
-	uint64_t flags;
-	int ret;
-
-	if (buffer == 0 || size == 0) {
-		return -EINVAL;
-	}
-
-	ret = wait_queue_wait(
-		&console_lines.wait, console_has_line, &console_lines);
-	if (ret != 0) {
-		return ret;
-	}
-
-	wait_queue_lock_irqsave(&console_lines.wait, &flags);
-	ret = console_pop_line_locked(buffer, size);
-	wait_queue_unlock_irqrestore(&console_lines.wait, flags);
-	return ret;
+	return tty_read_line(buffer, size);
 }
 
 int console_try_read_line(char *buffer, size_t size)
 {
-	uint64_t flags;
-	int ret;
-
-	if (buffer == 0 || size == 0) {
-		return -EINVAL;
-	}
-
-	wait_queue_lock_irqsave(&console_lines.wait, &flags);
-	ret = console_pop_line_locked(buffer, size);
-	wait_queue_unlock_irqrestore(&console_lines.wait, flags);
-	return ret;
+	return tty_try_read_line(buffer, size);
 }
 
 unsigned long console_dropped_lines(void)
 {
-	uint64_t flags;
-	unsigned long dropped;
-
-	wait_queue_lock_irqsave(&console_lines.wait, &flags);
-	dropped = console_lines.dropped;
-	wait_queue_unlock_irqrestore(&console_lines.wait, flags);
-	return dropped;
+	return tty_dropped_lines();
 }

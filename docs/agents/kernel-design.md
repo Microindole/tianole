@@ -19,6 +19,7 @@
 - `kernel/`：架构无关的核心内核逻辑，包括 early log 前端、panic、IRQ 分发、调度、锁、时间抽象、进程和 syscall 的长期位置。
 - `mm/`：架构无关内存管理，包括物理页、heap、后续 page metadata、buddy/slab、VMA、page cache 和回收。
 - `drivers/`：设备驱动和设备模型，包括 input、block、PCI、ACPI、platform、GPU、network、sound 等。
+- `drivers/tty/`：终端/tty 和行规程雏形，对齐 Linux `drivers/tty/`；keyboard/input 只提供事件，tty 消费字符流并服务 kdb 或未来用户态 shell。
 - `block/`：通用块层。具体硬件驱动在 `drivers/`，块请求调度和块设备抽象在 `block/`。
 - `fs/`：VFS 和具体文件系统。VFS 不依赖 shell、ELF loader 或具体块设备。
 - `include/tianole/`：架构无关公共内核 API。只有跨子系统调用方真正需要的类型和函数才能放这里。
