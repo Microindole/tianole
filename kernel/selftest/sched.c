@@ -115,7 +115,7 @@ void sched_selftest(void)
 	if (irq_depth != 1) {
 		panic("irq depth selftest enter failed");
 	}
-	sched_irq_exit();
+	sched_irq_exit(0);
 
 	if (irq_depth != 0) {
 		panic("irq depth selftest exit failed");

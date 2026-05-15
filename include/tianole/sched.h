@@ -23,6 +23,8 @@ typedef void (*kernel_thread_entry_t)(void *arg);
  */
 typedef int (*wait_condition_t)(void *arg);
 
+struct trap_frame;
+
 /**
  * enum thread_state - Scheduler-visible thread lifecycle state.
  * @THREAD_READY: Thread is runnable and may be selected by the scheduler.
@@ -145,11 +147,14 @@ void sched_irq_enter(void);
 
 /**
  * sched_irq_exit() - Consume pending reschedule work after IRQ handling.
+ * @frame: Trap frame being returned from, or NULL in scheduler selftests.
  *
  * Keeps timer IRQ handling short by moving the actual scheduling decision to a
- * common outermost interrupt-exit boundary.
+ * common outermost interrupt-exit boundary. The frame is not interpreted by
+ * the scheduler yet; it reserves the future return-to-user/syscall boundary
+ * where pending work must be handled before restoring interrupted context.
  */
-void sched_irq_exit(void);
+void sched_irq_exit(struct trap_frame *frame);
 
 /**
  * sched_yield() - Yield the CPU to another runnable kernel thread.

@@ -51,6 +51,7 @@
 
 - timer IRQ 只设置 `need_resched`，真正切换应收敛在明确的 IRQ 返回边界。
 - `sched_irq_exit()` 要逐步演进为 trap-frame aware 模型，明确从中断返回时哪些现场可以被切换。
+- `sched_irq_exit(struct trap_frame *frame)` 是调度器侧的返回边界；当前不解释 frame，但 API 已为 syscall/user-mode return 共享 pending work 处理预留。
 - 不要长期把普通协作式 `sched_yield()` 栈切换入口当成完整抢占式切换模型。
 - 后续进入用户态后，用户态返回边界、内核可抢占点和 syscall 返回边界要能共享这套设计。
 - 任意 IRQ handler 都不应该直接调用会睡眠的接口。
@@ -150,7 +151,7 @@
 - wait queue 已有内部 interrupt-safe lock，条件检查、等待入队和 wakeup 队列修改已收敛到同一同步边界，降低 lost wakeup 风险。
 - 已建立单 CPU interrupt-safe lock 基础，当前 `spin_lock_irqsave()` 会保存并关闭中断，`spin_unlock_irqrestore()` 会恢复原中断状态。
 - 已把 `kernel_thread_create()` 中的线程 id 分配和 run queue 入队纳入 interrupt-safe lock 保护。
-- 已建立 `sched_irq_exit()`，timer IRQ 只设置 `need_resched`，trap 的 IRQ 返回边界统一消费调度请求。
+- 已建立 `sched_irq_exit(struct trap_frame *frame)`，timer IRQ 只设置 `need_resched`，trap 的 IRQ 返回边界统一消费调度请求，并为未来 syscall/user-mode return 共享 pending work 处理预留现场参数。
 - 已建立最小 DEAD 线程回收路径，调度前会释放非当前 DEAD 线程的内核栈和线程对象。
 - 已建立统一 `kernel_thread_exit()`/`sched_thread_exit()`，线程入口返回和显式退出都会进入明确退出路径，再由调度安全边界回收非当前 DEAD 线程。
 - 已在调度私有头中加入 thread state helper，调度核心、线程退出和 wait queue 路径不再直接散写主要状态转换。
@@ -175,7 +176,7 @@
 
 ### C. interrupt-exit reschedule
 
-- 把当前 `sched_irq_exit()` 继续收敛为更严格的 trap-frame aware interrupt-exit reschedule 模型。
+- 把当前 `sched_irq_exit(frame)` 继续收敛为更严格的 trap-frame aware interrupt-exit reschedule 模型。
 - 明确 interrupt nested、idle、当前线程不可抢占等情况下是否允许调度。
 - 避免把普通线程栈切换入口长期当成完整抢占式切换。
 - 为未来 syscall return 和 user-mode return 复用同一 reschedule 边界。

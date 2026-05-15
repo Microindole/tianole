@@ -103,7 +103,8 @@
 
 当前可以回到本阶段继续推进。`02-cpu-interrupts.md` 已经补上
 exception/IRQ/syscall/system vector 分层、kernel/user trap 来源判断、
-future user exception policy 边界和 `rsp/ss` trap-frame 预留。输入主线
+future user exception policy 边界、`rsp/ss` trap-frame 预留，以及
+IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 接下来应把临时 input console 收敛为 tty/terminal 雏形，而不是继续扩展 kdb。
 
 限制必须明确：当前 kdb 不是 Linux 意义上的 shell/tty，也不是用户态入口；它只是 early debug/kdb 雏形，后续要改名并收敛到 `kernel/debug/` 类边界。

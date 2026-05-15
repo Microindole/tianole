@@ -133,14 +133,18 @@ void sched_irq_enter(void)
 
 /**
  * sched_irq_exit() - Leave external IRQ context and run pending reschedule.
+ * @frame: Trap frame for the interrupted context, or NULL in selftests.
  *
  * Only the outermost IRQ exit may consume need_resched. The IRQ nesting count
  * is dropped before switching so the next thread runs in normal thread
  * context, while direct scheduling from inside an IRQ handler still trips the
- * scheduler context assertion.
+ * scheduler context assertion. The frame is currently a reserved boundary for
+ * future syscall/user-mode return handling.
  */
-void sched_irq_exit(void)
+void sched_irq_exit(struct trap_frame *frame)
 {
+	(void)frame;
+
 	if (irq_depth <= 0) {
 		panic("scheduler irq exit without irq entry");
 	}

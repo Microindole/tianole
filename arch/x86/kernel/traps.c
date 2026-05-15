@@ -161,7 +161,7 @@ static int x86_handle_general_protection(struct trap_frame *frame,
 	const struct exception_desc *desc)
 {
 	if (origin == X86_TRAP_FROM_USER) {
-		x86_unhandled_user_exception(desc->name);
+		x86_unhandled_user_exception(frame, origin, desc->name);
 	}
 
 	pr_emerg("general protection: fatal exception\n");
@@ -186,7 +186,7 @@ static int x86_handle_invalid_opcode(struct trap_frame *frame,
 	(void)frame;
 
 	if (origin == X86_TRAP_FROM_USER) {
-		x86_unhandled_user_exception(desc->name);
+		x86_unhandled_user_exception(frame, origin, desc->name);
 	}
 
 	pr_emerg("invalid opcode: fatal exception\n");
@@ -265,13 +265,14 @@ void trap_dispatch(struct trap_frame *frame)
 	case X86_VECTOR_LEGACY_IRQ:
 		sched_irq_enter();
 		handle_irq(frame);
-		sched_irq_exit();
+		x86_trap_exit(frame, trap_origin(frame), X86_TRAP_EXIT_IRQ);
 		return;
 	case X86_VECTOR_EXCEPTION:
 		break;
 	case X86_VECTOR_SYSCALL:
 		pr_err("unexpected syscall vector=%llu\n",
 			(unsigned long long)frame->vector);
+		x86_trap_exit(frame, trap_origin(frame), X86_TRAP_EXIT_SYSCALL);
 		panic("unhandled syscall vector");
 	case X86_VECTOR_EXTERNAL_IRQ:
 	case X86_VECTOR_SYSTEM:
@@ -291,11 +292,12 @@ void trap_dispatch(struct trap_frame *frame)
 	}
 
 	if (origin == X86_TRAP_FROM_USER) {
-		x86_unhandled_user_exception(
+		x86_unhandled_user_exception(frame,
+			origin,
 			desc != 0 && desc->name != 0 ? desc->name : 0);
 	}
 
-	x86_unhandled_kernel_exception();
+	x86_unhandled_kernel_exception(frame, origin);
 }
 
 /**
