@@ -46,7 +46,40 @@ static int tty_has_line(void *arg)
 
 static void tty_echo_char(char ch)
 {
-	console_write_all(&ch, 1);
+	tty_write(&ch, 1);
+}
+
+void tty_write(const char *buffer, size_t size)
+{
+	size_t index;
+
+	if (buffer == 0 || size == 0) {
+		return;
+	}
+
+	for (index = 0; index < size; index++) {
+		if (buffer[index] == '\n') {
+			console_write_all("\r", 1);
+		}
+		console_write_all(&buffer[index], 1);
+	}
+}
+
+void tty_write_string(const char *text)
+{
+	const char *cursor;
+	size_t length = 0;
+
+	if (text == 0) {
+		return;
+	}
+
+	cursor = text;
+	while (*cursor++ != '\0') {
+		length++;
+	}
+
+	tty_write(text, length);
 }
 
 static int tty_pop_line_locked(char *buffer, size_t size)

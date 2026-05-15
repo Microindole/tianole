@@ -1,8 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <tianole/console.h>
-#include <tianole/errno.h>
 #include <tianole/input.h>
 #include <tianole/panic.h>
 #include <tianole/printk.h>
@@ -134,19 +132,4 @@ void input_console_init(void)
 	}
 
 	pr_info("input console initialized\n");
-}
-
-int console_read_line(char *buffer, size_t size)
-{
-	return tty_read_line(buffer, size);
-}
-
-int console_try_read_line(char *buffer, size_t size)
-{
-	return tty_try_read_line(buffer, size);
-}
-
-unsigned long console_dropped_lines(void)
-{
-	return tty_dropped_lines();
 }

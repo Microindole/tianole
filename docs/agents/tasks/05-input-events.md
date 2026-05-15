@@ -101,6 +101,7 @@
 - 已有 deferred work 路径，键盘 IRQ 不直接执行复杂解码和上层命令逻辑。
 - 已有临时 input console line queue，支持回显、退格、回车提交、blocking line read 和 dropped line 统计。
 - 已新增 `drivers/tty/` 早期 tty line discipline，line queue、回显和读行接口开始从 `input_console` 迁出。
+- `kdb` 交互输入/输出已改走 `tty_read_line()`/`tty_write*()`，不再通过 `console_read_line()` 兼容层或直接依赖 `early_log`；初始化状态继续使用 `pr_info()`。
 - 已有临时 kernel kdb/debug command consumer，用于验证真实输入链路。
 
 当前可以回到本阶段继续推进。`02-cpu-interrupts.md` 已经补上
@@ -117,7 +118,8 @@ IRQ/syscall/user-exception 共用的 trap-exit 返回边界。输入主线
 
 - `drivers/input/input.c`、`include/tianole/input.h`：通用 input event queue。
 - `drivers/input/keyboard/ps2.c`、`include/tianole/keyboard.h`：PS/2 keyboard 到 key event 的转换。
-- `kernel/console/input_console.c`、`include/tianole/console.h`：当前临时 line queue、回显、blocking line read。
+- `drivers/tty/tty.c`、`include/tianole/tty.h`：早期 tty line discipline、回显、blocking line read。
+- `kernel/console/input_console.c`、`include/tianole/console.h`：当前 input event 到 tty 字符流的临时桥接。
 - `kernel/debug/kdb.c`、`include/tianole/kdb.h`：临时 early debug command consumer，只用于验证输入链路。
 - `kernel/workqueue.c`、`include/tianole/workqueue.h`：键盘 deferred processing 依赖的线程上下文。
 

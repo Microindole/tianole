@@ -20,6 +20,24 @@ void tty_init(void);
 void tty_receive_char(char ch);
 
 /**
+ * tty_write() - Write bytes to the early tty output path.
+ * @buffer: Bytes to write.
+ * @size: Number of bytes in @buffer.
+ *
+ * This is raw terminal output for interactive consumers such as kdb. It is not
+ * a kernel log record.
+ *
+ */
+void tty_write(const char *buffer, size_t size);
+
+/**
+ * tty_write_string() - Write a NUL-terminated string to the early tty.
+ * @text: String to write.
+ *
+ */
+void tty_write_string(const char *text);
+
+/**
  * tty_read_line() - Read one completed tty input line.
  * @buffer: Destination byte buffer.
  * @size: Size of @buffer in bytes.

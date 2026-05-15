@@ -1,12 +1,12 @@
 #include <stddef.h>
 
-#include <tianole/console.h>
-#include <tianole/early_log.h>
 #include <tianole/input.h>
 #include <tianole/kdb.h>
 #include <tianole/panic.h>
+#include <tianole/printk.h>
 #include <tianole/sched.h>
 #include <tianole/timer.h>
+#include <tianole/tty.h>
 
 #define KDB_LINE_LENGTH 128u
 #define KDB_PROMPT "tianole> "
@@ -48,27 +48,49 @@ static const char *kdb_skip_spaces(const char *line)
 
 static void kdb_print_help(void)
 {
-	early_log_puts("commands:\n");
-	early_log_puts("  help        show this help\n");
-	early_log_puts("  ticks       show timer ticks\n");
-	early_log_puts("  drops       show input and line drops\n");
-	early_log_puts("  echo TEXT   print TEXT\n");
+	tty_write_string("commands:\n");
+	tty_write_string("  help        show this help\n");
+	tty_write_string("  ticks       show timer ticks\n");
+	tty_write_string("  drops       show input and line drops\n");
+	tty_write_string("  echo TEXT   print TEXT\n");
+}
+
+static void kdb_print_u64_decimal(unsigned long long value)
+{
+	char digits[20];
+	size_t index = 0;
+
+	if (value == 0) {
+		tty_write_string("0");
+		return;
+	}
+
+	while (value != 0) {
+		digits[index++] = (char)('0' + (value % 10));
+		value /= 10;
+	}
+
+	while (index != 0) {
+		char digit = digits[--index];
+
+		tty_write(&digit, 1);
+	}
 }
 
 static void kdb_print_ticks(void)
 {
-	early_log_puts("ticks=");
-	early_log_u64_decimal(timer_ticks());
-	early_log_puts("\n");
+	tty_write_string("ticks=");
+	kdb_print_u64_decimal(timer_ticks());
+	tty_write_string("\n");
 }
 
 static void kdb_print_drops(void)
 {
-	early_log_puts("input_drops=");
-	early_log_u64_decimal(input_dropped_events());
-	early_log_puts(" line_drops=");
-	early_log_u64_decimal(console_dropped_lines());
-	early_log_puts("\n");
+	tty_write_string("input_drops=");
+	kdb_print_u64_decimal(input_dropped_events());
+	tty_write_string(" line_drops=");
+	kdb_print_u64_decimal(tty_dropped_lines());
+	tty_write_string("\n");
 }
 
 static void kdb_run_command(const char *line)
@@ -98,20 +120,20 @@ static void kdb_run_command(const char *line)
 		const char *text = command + 4;
 
 		if (*text != '\0' && *text != ' ' && *text != '\t') {
-			early_log_puts("unknown command: ");
-			early_log_puts(command);
-			early_log_puts("\n");
+			tty_write_string("unknown command: ");
+			tty_write_string(command);
+			tty_write_string("\n");
 			return;
 		}
 
-		early_log_puts(kdb_skip_spaces(text));
-		early_log_puts("\n");
+		tty_write_string(kdb_skip_spaces(text));
+		tty_write_string("\n");
 		return;
 	}
 
-	early_log_puts("unknown command: ");
-	early_log_puts(command);
-	early_log_puts("\n");
+	tty_write_string("unknown command: ");
+	tty_write_string(command);
+	tty_write_string("\n");
 }
 
 static void kdb_thread(void *arg)
@@ -120,17 +142,17 @@ static void kdb_thread(void *arg)
 
 	(void)arg;
 
-	early_log_puts("early kdb ready\n");
-	early_log_puts(KDB_PROMPT);
+	tty_write_string("early kdb ready\n");
+	tty_write_string(KDB_PROMPT);
 	for (;;) {
-		int ret = console_read_line(line, sizeof(line));
+		int ret = tty_read_line(line, sizeof(line));
 
 		if (ret < 0) {
 			panic("kdb read failed");
 		}
 
 		kdb_run_command(line);
-		early_log_puts(KDB_PROMPT);
+		tty_write_string(KDB_PROMPT);
 	}
 }
 
@@ -140,5 +162,5 @@ void kdb_init(void)
 		panic("kdb thread creation failed");
 	}
 
-	early_log_puts("kdb initialized\n");
+	pr_info("kdb initialized\n");
 }
